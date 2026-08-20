@@ -79,7 +79,6 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
       return;
     }
 
-    String? base64Image;
     bool isSubmitting = false;
 
     await showModalBottomSheet(
@@ -99,49 +98,14 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                   Text('Assume Court', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   SizedBox(height: 16),
                   Text('Host: ${court['current_owner_name'] ?? 'Unknown'}'),
-                  Text('Price: ₱${court['assume_price'] ?? '0'}'),
+                  Text('Price: P${court['assume_price'] ?? '0'}'),
                   if (court['assume_notes'] != null && court['assume_notes'].isNotEmpty) ...[
                     SizedBox(height: 8),
                     Text('Notes / Payment Details:', style: TextStyle(fontWeight: FontWeight.bold)),
                     Text(court['assume_notes']),
                   ],
                   SizedBox(height: 16),
-                  Text('Please send payment and upload the receipt.', style: TextStyle(color: Colors.grey.shade700)),
-                  SizedBox(height: 16),
-                  
-                  GestureDetector(
-                    onTap: () async {
-                      final ImagePicker _picker = ImagePicker();
-                      final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
-                      if (image != null) {
-                        final bytes = await image.readAsBytes();
-                        setStateSB(() {
-                          base64Image = base64Encode(bytes);
-                        });
-                      }
-                    },
-                    child: Container(
-                      height: 150,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: base64Image != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.memory(base64Decode(base64Image!), fit: BoxFit.cover),
-                            )
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.upload_file, size: 40, color: Colors.grey.shade400),
-                                SizedBox(height: 8),
-                                Text('Tap to upload receipt', style: TextStyle(color: Colors.grey.shade600)),
-                              ],
-                            ),
-                    ),
-                  ),
+                  Text('If the owner accepts your request, you will be prompted to send the payment.', style: TextStyle(color: Colors.grey.shade700)),
                   
                   SizedBox(height: 24),
                   if (isSubmitting)
@@ -149,18 +113,12 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                   else
                     ElevatedButton(
                       onPressed: () async {
-                        if (base64Image == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please upload a proof of payment')));
-                          return;
-                        }
-                        
                         setStateSB(() => isSubmitting = true);
                         final result = await _apiService.requestPasalo(
                           court['id'].toString(), 
                           _userEmail!, 
                           _userName ?? 'Unknown', 
-                          _userPhone ?? 'Unknown', 
-                          base64Image!
+                          _userPhone ?? 'Unknown',
                         );
                         
                         if (mounted) {
@@ -250,7 +208,7 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                                         Container(
                                           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                                          child: Text('₱${court['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                                          child: Text('P${court['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
                                         ),
                                       ],
                                     ),

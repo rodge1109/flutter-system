@@ -47,6 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> _openPlays = [];
   List<Map<String, dynamic>> _openChallenges = [];
   List<Map<String, dynamic>> _pasaloCourts = [];
+  List<Map<String, dynamic>> _outgoingPasaloRequests = [];
   int _unreadCount = 0;
   int _unreadMessageCount = 0;
   bool _isLoading = true;
@@ -173,6 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _fetchOpenPlays();
       _fetchOpenChallenges();
       _fetchPasaloCourts();
+      _fetchOutgoingPasaloRequests();
     } else {
       setState(() => _isLoading = false);
     }
@@ -188,6 +190,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (e) {
       print('Error fetching pasalo courts: $e');
+    }
+  }
+
+  Future<void> _fetchOutgoingPasaloRequests() async {
+    try {
+      final requests = await _apiService.fetchOutgoingPasaloRequests(_userEmail);
+      if (mounted) {
+        setState(() {
+          _outgoingPasaloRequests = requests;
+        });
+      }
+    } catch (e) {
+      print('Error fetching outgoing pasalo requests: $e');
     }
   }
 
@@ -876,6 +891,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SizedBox(height: 24),
           _buildPasaloCourtsSection(),
           
+          if (_outgoingPasaloRequests.isNotEmpty) ...[
+            SizedBox(height: 24),
+            _buildMyPasaloRequestsSection(),
+          ],
+          
           SizedBox(height: 24),
               ],
             ),
@@ -1095,7 +1115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        'â‚±${play['open_play_price']}',
+                                        'P${play['open_play_price']}',
                                         style: TextStyle(fontFamily: 'Poppins', color: AppColors.deepTeal, fontSize: 16, fontWeight: FontWeight.w900),
                                       ),
                                       Spacer(),
@@ -1238,7 +1258,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ],
                         ),
                         SizedBox(height: 16),
-                        Text('Price: â‚±${(price * (1 + guestCount)).toStringAsFixed(2)}', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 20)),
+                        Text('Price: P${(price * (1 + guestCount)).toStringAsFixed(2)}', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 20)),
                         SizedBox(height: 24),
                         Text('Bring Guests (Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                         SizedBox(height: 8),
@@ -1587,9 +1607,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     nightRate = nightRate.replaceAll(RegExp(r'\.0+$'), '').replaceAll(RegExp(r'\.00$'), '');
     
     if (dayRate == nightRate) {
-      return 'â‚±$dayRate/hr';
+      return 'P$dayRate/hr';
     }
-    return 'Day: â‚±$dayRate | Night: â‚±$nightRate';
+    return 'Day: P$dayRate | Night: P$nightRate';
   }
 
   Widget _buildOpenChallengesSection() {
@@ -2323,7 +2343,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(color: const Color(0xFFF3E5F5), borderRadius: BorderRadius.circular(20)),
                         child: Text(
-                          tempMaxPrice >= 1000 ? 'Any' : 'â‚±${tempMaxPrice.toInt()}',
+                          tempMaxPrice >= 1000 ? 'Any' : 'P${tempMaxPrice.toInt()}',
                           style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF8E24AA)),
                         ),
                       ),
@@ -2348,8 +2368,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('â‚±100', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.grey.shade500)),
-                      Text('â‚±1000+', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.grey.shade500)),
+                      Text('P100', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.grey.shade500)),
+                      Text('P1000+', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.grey.shade500)),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -2418,15 +2438,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildNextBookingCard() {
     if (_upcomingBookings.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
+      return Container(
+        height: 185,
+        child: Center(
           child: Text('No upcoming bookings', style: TextStyle(color: Colors.grey)),
         )
       );
     }
 
-    return _NextBookingCarousel(bookings: _upcomingBookings, onView: _showBookingDetailDialog, onGetDirection: _handleGetDirection, getWeekday: _getWeekdayAbbr, getMonth: _getMonthAbbr);
+    return _NextBookingCarousel(
+      bookings: _upcomingBookings, 
+      onView: _showBookingDetailDialog, 
+      onGetDirection: _handleGetDirection, 
+      getWeekday: _getWeekdayAbbr, 
+      getMonth: _getMonthAbbr
+    );
   }
 
   Future<void> _handleGetDirection(dynamic booking) async {
@@ -2475,17 +2501,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             SizedBox(height: 8),
             Text('Location: ${booking['court_address'] ?? 'N/A'}'),
             SizedBox(height: 8),
-            Text('Amount: â‚±${booking['total_amount'] ?? booking['amount'] ?? '0'}'),
+            Text('Amount: P${booking['total_amount'] ?? booking['amount'] ?? '0'}'),
             SizedBox(height: 8),
             Text('Status: ${(booking['status'] ?? 'Confirmed').toString().replaceAll('confirmed', 'Confirmed').replaceAll('pending', 'Pending')}', style: TextStyle(color: AppColors.accentLime, fontWeight: FontWeight.bold)),
             if (booking['is_assume'] == true) ...[
               SizedBox(height: 8),
-              Text('Pasalo Price: â‚±${booking['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+              Text('Pasalo Price: P${booking['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
             ],
           ],
         ),
         actions: [
-          if (booking['is_open_play'] == true)
+          if (booking['is_open_play']?.toString() == 'true')
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -2493,7 +2519,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
               child: Text('Edit Open Play', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
             ),
-          if (booking['is_open_play'] != true && booking['is_assume'] != true && booking['is_open_challenge'] != true && booking['status'] != 'cancelled' && booking['status'] != 'completed')
+          if (booking['is_open_play']?.toString() != 'true' && booking['is_assume']?.toString() != 'true' && booking['is_open_challenge']?.toString() != 'true' && booking['status'] != 'cancelled' && booking['status'] != 'completed')
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -2501,7 +2527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
               child: Text('Post for Pasalo', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
             ),
-          if (booking['is_assume'] == true)
+          if (booking['is_assume']?.toString() == 'true')
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -2545,6 +2571,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           itemCount: requests.length,
                           itemBuilder: (context, index) {
                             final req = requests[index];
+                            final bool hasAcceptedOrPaid = requests.any((r) => r['status'] == 'accepted' || r['status'] == 'payment_sent');
+                            
+                            Widget? trailingButton;
+                            if (req['status'] == 'pending' && !hasAcceptedOrPaid) {
+                              trailingButton = ElevatedButton(
+                                onPressed: () async {
+                                  final success = await _apiService.acceptPasaloRequest(req['id'].toString());
+                                  if (success) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Player accepted! Waiting for them to send payment.'), backgroundColor: AppColors.primaryGreen));
+                                    _fetchBookings(_userEmail);
+                                    _fetchPasaloCourts();
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to accept request.'), backgroundColor: Colors.red));
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen, foregroundColor: Colors.white),
+                                child: Text('Accept'),
+                              );
+                            } else if (req['status'] == 'accepted') {
+                              trailingButton = ElevatedButton(
+                                onPressed: () async {
+                                  final success = await _apiService.cancelPasaloAcceptance(req['id'].toString());
+                                  if (success) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Acceptance cancelled. Court is back on the Pasalo board.'), backgroundColor: Colors.orange));
+                                    _fetchBookings(_userEmail);
+                                    _fetchPasaloCourts();
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to cancel.'), backgroundColor: Colors.red));
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                child: Text('Cancel'),
+                              );
+                            } else if (req['status'] == 'payment_sent') {
+                              trailingButton = ElevatedButton(
+                                onPressed: () async {
+                                  final success = await _apiService.approvePasaloRequest(req['id'].toString());
+                                  if (success) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment verified! Court transferred.'), backgroundColor: AppColors.primaryGreen));
+                                    _fetchBookings(_userEmail);
+                                    _fetchPasaloCourts();
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to verify transfer.'), backgroundColor: Colors.red));
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                                child: Text('Verify & Transfer'),
+                              );
+                            }
+
                             return Card(
                               child: ListTile(
                                 title: Text(req['requester_name'] ?? 'Unknown'),
@@ -2552,23 +2631,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Phone: ${req['requester_phone'] ?? 'N/A'}'),
-                                    Text('Status: ${req['status']}', style: TextStyle(fontWeight: FontWeight.bold, color: req['status'] == 'pending' ? Colors.orange : Colors.green)),
+                                    Text('Status: ${req['status']}', style: TextStyle(fontWeight: FontWeight.bold, color: req['status'] == 'pending' ? Colors.orange : (req['status'] == 'accepted' ? Colors.blue : Colors.green))),
                                   ],
                                 ),
-                                trailing: req['status'] == 'pending' ? ElevatedButton(
-                                  onPressed: () async {
-                                    final success = await _apiService.approvePasaloRequest(req['id'].toString());
-                                    if (success) {
-                                      Navigator.pop(context);
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pasalo request approved! Booking transferred.'), backgroundColor: AppColors.primaryGreen));
-                                      _fetchBookings(_userEmail);
-                                      _fetchPasaloCourts();
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to approve request.'), backgroundColor: Colors.red));
-                                    }
-                                  },
-                                  child: Text('Approve'),
-                                ) : null,
+                                trailing: trailingButton,
                                 onTap: () {
                                   if (req['proof_of_payment'] != null) {
                                     showDialog(
@@ -2579,6 +2645,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('Close'))],
                                       )
                                     );
+                                  } else if (req['status'] == 'payment_sent') {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No receipt uploaded.')));
                                   }
                                 },
                               ),
@@ -2624,7 +2692,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   SizedBox(height: 24),
                   TextField(
                     controller: priceCtrl,
-                    decoration: InputDecoration(labelText: 'Pasalo Price (â‚±)', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: 'Pasalo Price (P)', border: OutlineInputBorder()),
                     keyboardType: TextInputType.number,
                   ),
                   SizedBox(height: 16),
@@ -2744,7 +2812,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: TextFormField(
                           controller: priceCtrl,
                           keyboardType: TextInputType.number,
-                          decoration: InputDecoration(labelText: 'Price (â‚±)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                          decoration: InputDecoration(labelText: 'Price (P)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
                         ),
                       ),
                     ],
@@ -2828,7 +2896,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               itemBuilder: (context, index) {
                 final court = allCourts[index];
                 
-                Widget trailingWidget = Text('â‚±${court['price']}/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack));
+                Widget trailingWidget = Text('P${court['price']}/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack));
                 
                 if (court['variable_prices'] != null && court['variable_prices'] is List && (court['variable_prices'] as List).isNotEmpty) {
                   final vp = court['variable_prices'] as List;
@@ -2843,8 +2911,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('Day: â‚±$dayP/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack)),
-                          Text('Night: â‚±$nightP/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack)),
+                          Text('Day: P$dayP/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack)),
+                          Text('Night: P$nightP/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack)),
                         ],
                       );
                     }
@@ -3053,7 +3121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('â‚±${b['total_amount'] ?? b['amount'] ?? '0'}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                  Text('P${b['total_amount'] ?? b['amount'] ?? '0'}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
                   if (isUpcoming && b['id'] != null)
                     TextButton(
                       onPressed: () => _confirmCancelBooking(b['id']),
@@ -3111,6 +3179,176 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label: 'Profile',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMyPasaloRequestsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'My Pasalo Requests',
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+          ),
+        ),
+        SizedBox(height: 16),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          itemCount: _outgoingPasaloRequests.length,
+          separatorBuilder: (context, index) => SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final req = _outgoingPasaloRequests[index];
+            final date = req['preferred_date']?.split('T')[0] ?? '';
+            final time = _normalizeTime(req['preferred_time'] ?? '');
+            
+            return Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(req['court_name'] ?? 'Court', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.deepTeal)),
+                    SizedBox(height: 4),
+                    Text('$date at $time', style: TextStyle(color: Colors.grey.shade600)),
+                    Text('Owner: ${req['owner_name']} | Price: P${req['assume_price'] ?? '0'}', style: TextStyle(color: Colors.grey.shade800)),
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text('Status: ', style: TextStyle(color: Colors.grey.shade700)),
+                        Text(
+                          req['status'] == 'pending' ? 'Pending Approval' : 
+                          (req['status'] == 'accepted' ? 'Accepted - Payment Required' : 
+                          (req['status'] == 'payment_sent' ? 'Payment Uploaded - Verifying' : req['status'])),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold, 
+                            color: req['status'] == 'pending' ? Colors.orange : 
+                                   (req['status'] == 'accepted' ? Colors.red : AppColors.primaryGreen)
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (req['status'] == 'accepted') ...[
+                      SizedBox(height: 16),
+                      Text('Payment Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      if (req['gcash_number'] != null && req['gcash_number'].isNotEmpty) Text('GCash: ${req['gcash_number']}'),
+                      if (req['bank_account'] != null && req['bank_account'].isNotEmpty) Text('Bank: ${req['bank_account']} (${req['bank_account_name']})'),
+                      SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => _showUploadPaymentDialog(req),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen, foregroundColor: Colors.white),
+                          child: Text('Upload Proof of Payment'),
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showUploadPaymentDialog(dynamic req) {
+    String? base64Image;
+    bool isSubmitting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateSB) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Upload Payment', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 16),
+                  Text('Please send the exact amount and upload a clear screenshot of the receipt.'),
+                  SizedBox(height: 16),
+                  
+                  GestureDetector(
+                    onTap: () async {
+                      final ImagePicker _picker = ImagePicker();
+                      final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+                      if (image != null) {
+                        final bytes = await image.readAsBytes();
+                        setStateSB(() {
+                          base64Image = base64Encode(bytes);
+                        });
+                      }
+                    },
+                    child: Container(
+                      height: 150,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: base64Image != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.memory(base64Decode(base64Image!), fit: BoxFit.cover),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.upload_file, size: 40, color: Colors.grey.shade400),
+                                SizedBox(height: 8),
+                                Text('Tap to upload receipt', style: TextStyle(color: Colors.grey.shade600)),
+                              ],
+                            ),
+                    ),
+                  ),
+                  
+                  SizedBox(height: 24),
+                  if (isSubmitting)
+                    Center(child: CircularProgressIndicator())
+                  else
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (base64Image == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please upload a proof of payment')));
+                          return;
+                        }
+                        
+                        setStateSB(() => isSubmitting = true);
+                        final success = await _apiService.uploadPasaloPayment(req['id'].toString(), base64Image!);
+                        
+                        if (mounted) {
+                          if (success) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Receipt uploaded successfully!'), backgroundColor: AppColors.primaryGreen));
+                            _fetchOutgoingPasaloRequests();
+                          } else {
+                            setStateSB(() => isSubmitting = false);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to upload receipt'), backgroundColor: Colors.red));
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 16)),
+                      child: Text('Submit Payment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -3258,7 +3496,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             SizedBox(height: 2),
                                             Text('Owner: ${pasalo['current_owner_name'] ?? 'Unknown'}', style: TextStyle(color: AppColors.stoneGray, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
                                             SizedBox(height: 2),
-                                            Text('Price: â‚±${pasalo['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.bold)),
+                                            Text('Price: P${pasalo['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.bold)),
                                           ],
                                         ),
                                       ),

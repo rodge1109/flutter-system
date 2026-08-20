@@ -1017,7 +1017,7 @@ class _BookingScreenState extends State<BookingScreen> {
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             labelText: 'Price per Spot',
-                            prefixText: '₱ ',
+                            prefixText: 'P ',
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                           ),
@@ -1262,7 +1262,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 Divider(height: 24, color: Colors.green.shade100),
                 _buildSummaryRow(Icons.person, 'Customer', _nameController.text.isEmpty ? '-' : _nameController.text),
                 Divider(height: 24, color: Colors.green.shade100),
-                _buildSummaryRow('₱', 'Amount', _getTotalAmount()),
+                _buildSummaryRow('P', 'Amount', _getTotalAmount()),
                 SizedBox(height: 24),
                 Container(
                   padding: EdgeInsets.all(16),

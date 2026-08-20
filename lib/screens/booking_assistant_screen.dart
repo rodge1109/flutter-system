@@ -270,7 +270,7 @@ class _BookingAssistantScreenState extends State<BookingAssistantScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Assistant Fee', style: TextStyle(fontSize: 16, color: Colors.grey.shade700)),
-                        Text('₱100.00 / month', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                        Text('P100.00 / month', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
                       ],
                     ),
                     SizedBox(height: 16),
@@ -288,7 +288,7 @@ class _BookingAssistantScreenState extends State<BookingAssistantScreen> {
                           SizedBox(height: 4),
                           Text.rich(
                             TextSpan(
-                              text: 'Send exactly ₱100.00 to ',
+                              text: 'Send exactly P100.00 to ',
                               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                               children: [
                                 TextSpan(text: '09276230491', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),

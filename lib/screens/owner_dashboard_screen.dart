@@ -374,7 +374,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                 ),
                                 SizedBox(height: 2),
                                 Text(
-                                  '₱${_calculateMonthlyEarnings()}',
+                                  'P${_calculateMonthlyEarnings()}',
                                   style: TextStyle(
                                     fontFamily: 'Poppins',
                                     fontSize: 16,
@@ -796,7 +796,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             ),
                             SizedBox(height: 6),
                             Text(
-                              '₱${court['base_price']}/hr', 
+                              'P${court['base_price']}/hr', 
                               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700, fontSize: 13)
                             ),
                           ],
@@ -1005,7 +1005,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     ),
                   SizedBox(width: 8),
                   Text(
-                    'Amount: ₱${booking['total_amount'] ?? '0.00'}',
+                    'Amount: P${booking['total_amount'] ?? '0.00'}',
                     style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700, fontSize: 13),
                   ),
                 ],

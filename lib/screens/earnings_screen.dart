@@ -82,7 +82,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
   }
 
   String _formatCurrency(double amount) {
-    final format = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
+    final format = NumberFormat.currency(locale: 'en_PH', symbol: 'P');
     return format.format(amount);
   }
   

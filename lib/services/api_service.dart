@@ -104,7 +104,7 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> requestPasalo(String appointmentId, String email, String name, String phone, String proofOfPayment) async {
+  Future<Map<String, dynamic>> requestPasalo(String appointmentId, String email, String name, String phone, {String? proofOfPayment}) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/appointments/$appointmentId/accept-pasalo'),
@@ -113,7 +113,7 @@ class ApiService {
           'requesterEmail': email,
           'requesterName': name,
           'requesterPhone': phone,
-          'proofOfPayment': proofOfPayment,
+          if (proofOfPayment != null) 'proofOfPayment': proofOfPayment,
         }),
       );
       if (response.statusCode == 200) {
@@ -140,6 +140,69 @@ class ApiService {
     } catch (e) {
       print('fetchPasaloRequests error: $e');
       return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchOutgoingPasaloRequests(String email) async {
+    try {
+      final t = DateTime.now().millisecondsSinceEpoch;
+      final response = await http.get(Uri.parse('$baseUrl/user/pasalo-requests/$email?t=$t'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['requests'] != null) {
+          return List<Map<String, dynamic>>.from(data['requests']);
+        }
+      }
+      return [];
+    } catch (e) {
+      print('fetchOutgoingPasaloRequests error: $e');
+      return [];
+    }
+  }
+
+  Future<bool> acceptPasaloRequest(String requestId) async {
+    try {
+      final response = await http.post(Uri.parse('$baseUrl/pasalo-requests/$requestId/accept'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('acceptPasaloRequest error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> uploadPasaloPayment(String requestId, String proofOfPayment) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/pasalo-requests/$requestId/upload-payment'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'proofOfPayment': proofOfPayment}),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('uploadPasaloPayment error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> cancelPasaloAcceptance(String requestId) async {
+    try {
+      final response = await http.post(Uri.parse('$baseUrl/pasalo-requests/$requestId/cancel-acceptance'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('cancelPasaloAcceptance error: $e');
+      return false;
     }
   }
 

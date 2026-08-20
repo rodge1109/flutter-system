@@ -287,7 +287,7 @@ class BookingConfirmationScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                '₱${totalPaid.toStringAsFixed(2)}',
+                                'P${totalPaid.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontFamily: 'Poppins',
                                   fontSize: 19,

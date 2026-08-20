@@ -597,7 +597,7 @@ class __EditOpenPlaySheetState extends State<_EditOpenPlaySheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildLabel('Price (₱) per player'),
+                          _buildLabel('Price (P) per player'),
                           TextFormField(
                             controller: _priceController,
                             keyboardType: TextInputType.numberWithOptions(decimal: true),
