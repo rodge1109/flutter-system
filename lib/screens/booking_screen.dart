@@ -1,5 +1,6 @@
 import 'package:flutter_project/theme/app_colors.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../widgets/custom_paddle_icon.dart';
@@ -70,6 +71,10 @@ class _BookingScreenState extends State<BookingScreen> {
   final _hostTandemNameController = TextEditingController();
   final _challengeDescriptionController = TextEditingController();
   final _referenceNumberController = TextEditingController();
+
+  String? _holdToken;
+  Timer? _holdTimer;
+  int _holdSecondsRemaining = 0;
 
   @override
   void initState() {
@@ -173,10 +178,61 @@ class _BookingScreenState extends State<BookingScreen> {
 
   @override
   void dispose() {
+    _holdTimer?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  void _holdSelectedSlots() async {
+    if (_selectedService == null || _selectedDate == null || _selectedTimes.isEmpty || _nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select a date, time, and enter your name first'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
+    final holdToken = await _apiService.holdSlots(
+      dateStr: dateStr,
+      times: _selectedTimes,
+      serviceType: _selectedService!.name,
+      email: _emailController.text,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (holdToken != null) {
+      setState(() {
+        _holdToken = holdToken;
+        _holdSecondsRemaining = 300; // 5 minutes
+      });
+      _holdTimer?.cancel();
+      _holdTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+        setState(() {
+          if (_holdSecondsRemaining > 0) {
+            _holdSecondsRemaining--;
+          } else {
+            _holdTimer?.cancel();
+            _holdToken = null;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Hold expired! Please hold your slots again.'), backgroundColor: Colors.orange),
+            );
+          }
+        });
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Slots held! You have 5 minutes to complete your booking.'), backgroundColor: AppColors.primaryGreen),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sorry, one or more slots are already taken or held.'), backgroundColor: Colors.redAccent),
+      );
+      _fetchSlots();
+    }
   }
 
   void _submitBooking() async {
@@ -222,6 +278,7 @@ class _BookingScreenState extends State<BookingScreen> {
         'challengeType': _challengeType,
         'hostTandemName': _hostTandemNameController.text,
         'challengeDescription': _challengeDescriptionController.text,
+        'holdToken': _holdToken,
       };
 
       final success = await _apiService.submitAppointment(appointmentData);
@@ -396,6 +453,10 @@ class _BookingScreenState extends State<BookingScreen> {
     } else {
       if (_currentStep == 0 && (_selectedDate == null || _selectedTimes.isEmpty)) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select date and at least one time')));
+        return;
+      }
+      if (_currentStep == 0 && _holdToken == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please click "Lock in this time" below the time slots before proceeding.')));
         return;
       }
       if (_currentStep == 1 && (_nameController.text.isEmpty || _phoneController.text.isEmpty)) {
@@ -919,6 +980,50 @@ class _BookingScreenState extends State<BookingScreen> {
             ],
           ),
           
+          if (_selectedTimes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: Column(
+                children: [
+                  if (_holdToken == null)
+                    ElevatedButton.icon(
+                      icon: Icon(Icons.lock_clock, color: Colors.white),
+                      label: Text('Lock in this time (5:00)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        minimumSize: Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _isLoading ? null : _holdSelectedSlots,
+                    ),
+                  if (_holdToken != null)
+                    Container(
+                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        border: Border.all(color: Colors.orange.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.timer, color: Colors.orange.shade800),
+                          SizedBox(width: 8),
+                          Text(
+                            'Time remaining to pay: ${_holdSecondsRemaining ~/ 60}:${(_holdSecondsRemaining % 60).toString().padLeft(2, '0')}',
+                            style: TextStyle(
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            
           SizedBox(height: 24),
           // Open Play Toggle
           Container(

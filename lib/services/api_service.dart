@@ -48,6 +48,36 @@ class ApiService {
     }
   }
 
+  Future<String?> holdSlots({
+    required String dateStr,
+    required List<String> times,
+    required String serviceType,
+    required String email,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/appointments/hold'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'preferredDate': dateStr,
+          'preferredTimes': times,
+          'serviceType': serviceType,
+          'email': email,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data['holdToken'];
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error holding slots: $e');
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>> fetchOwnerEarnings(String email, {String? startDate, String? endDate}) async {
     try {
       String url = '$baseUrl/owner-earnings/${Uri.encodeComponent(email)}';

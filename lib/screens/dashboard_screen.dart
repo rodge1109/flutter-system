@@ -3410,7 +3410,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           )
         else
           SizedBox(
-            height: 160,
+            height: 190,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               scrollDirection: Axis.horizontal,
@@ -3496,6 +3496,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             SizedBox(height: 2),
                                             Text('Owner: ${pasalo['current_owner_name'] ?? 'Unknown'}', style: TextStyle(color: AppColors.stoneGray, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
                                             SizedBox(height: 2),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.location_on, size: 10, color: Colors.grey),
+                                                SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(
+                                                    pasalo['court_address'] != null && pasalo['court_address'].isNotEmpty ? pasalo['court_address'] : 'Address not provided',
+                                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  )
+                                                ),
+                                              ],
+                                            ),
+                                            SizedBox(height: 2),
                                             Text('Price: P${pasalo['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.bold)),
                                           ],
                                         ),
@@ -3503,6 +3518,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ],
                                   ),
                                   Spacer(),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 32,
+                                    child: ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => PasaloCourtsScreen(),
+                                          ),
+                                        );
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                      child: Text('Assume', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),

@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 
 class PasaloCourtsScreen extends StatefulWidget {
   @override
@@ -203,12 +204,32 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                                   children: [
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Expanded(child: Text(court['court_name'] ?? 'Court', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.deepTeal))),
-                                        Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                                          child: Text('P${court['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                                              child: Text('P${court['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                                            ),
+                                            SizedBox(width: 8),
+                                            InkWell(
+                                              onTap: () {
+                                                final address = court['court_address'] != null && court['court_address'].isNotEmpty ? court['court_address'] : 'Address not provided';
+                                                Share.share('Check out this court for Pasalo!\n\n${court['court_name']}\nDate: $date at $time\nPrice: P${court['assume_price'] ?? '0'}\nLocation: $address\n\nBook it now on the Pickle System app!');
+                                              },
+                                              child: Container(
+                                                padding: EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.primaryGreen.withOpacity(0.1),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(Icons.share, size: 18, color: AppColors.primaryGreen),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -226,6 +247,22 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                                         Icon(Icons.access_time, size: 16, color: Colors.grey),
                                         SizedBox(width: 8),
                                         Text(time, style: TextStyle(color: Colors.grey.shade800)),
+                                      ],
+                                    ),
+                                    SizedBox(height: 4),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(Icons.location_on, size: 16, color: Colors.grey),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            court['court_address'] != null && court['court_address'].isNotEmpty ? court['court_address'] : 'Address not provided', 
+                                            style: TextStyle(color: Colors.grey.shade800),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          )
+                                        ),
                                       ],
                                     ),
                                     SizedBox(height: 12),
