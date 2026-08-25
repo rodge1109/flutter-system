@@ -37,8 +37,10 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
 
   Future<void> initAgora() async {
     try {
-      // Retrieve permissions
-      await [Permission.microphone, Permission.camera].request();
+      // Retrieve permissions (Only broadcasters need mic and camera!)
+      if (widget.isBroadcaster) {
+        await [Permission.microphone, Permission.camera].request();
+      }
 
       // Create the engine
       _engine = createAgoraRtcEngine();
