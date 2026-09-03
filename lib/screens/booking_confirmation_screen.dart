@@ -321,7 +321,7 @@ class BookingConfirmationScreen extends StatelessWidget {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.accentLime,
-                        foregroundColor: AppColors.softWhite,
+                        foregroundColor: AppColors.richBlack,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -334,7 +334,7 @@ class BookingConfirmationScreen extends StatelessWidget {
                           fontFamily: 'Poppins',
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.softWhite,
+                          color: AppColors.richBlack,
                         ),
                       ),
                     ),

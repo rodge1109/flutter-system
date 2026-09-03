@@ -323,7 +323,7 @@ class _BookingScreenState extends State<BookingScreen> {
             bookingDate: date,
             timeSlots: times,
             courtNumber: courtNum,
-            totalPaid: totalAmount > 0 ? totalAmount : 350.0,
+            totalPaid: (totalAmount > 0 ? totalAmount : 350.0) + 15.0,
           ),
         ),
       );
@@ -434,6 +434,10 @@ class _BookingScreenState extends State<BookingScreen> {
       }
       if (_currentStep == 1 && (_selectedDate == null || _selectedTimes.isEmpty)) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select date and at least one time')));
+        return;
+      }
+      if (_currentStep == 1 && _holdToken == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please click "Lock in this time" below the time slots before proceeding.')));
         return;
       }
       if (_currentStep == 2 && (_nameController.text.isEmpty || _phoneController.text.isEmpty)) {
@@ -841,7 +845,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         crossAxisCount: 3,
                         crossAxisSpacing: 10,
                         mainAxisSpacing: 10,
-                        childAspectRatio: 2.2,
+                        childAspectRatio: 2.0,
                       ),
                       itemCount: _getDisplayTimeSlots().length,
                       itemBuilder: (context, index) {
@@ -1367,7 +1371,11 @@ class _BookingScreenState extends State<BookingScreen> {
                 Divider(height: 24, color: Colors.green.shade100),
                 _buildSummaryRow(Icons.person, 'Customer', _nameController.text.isEmpty ? '-' : _nameController.text),
                 Divider(height: 24, color: Colors.green.shade100),
-                _buildSummaryRow('P', 'Amount', _getTotalAmount()),
+                _buildSummaryRow('P', 'Subtotal', _getTotalAmount()),
+                Divider(height: 24, color: Colors.green.shade100),
+                _buildSummaryRow(Icons.receipt, 'Service Charge', 'PHP 15.00'),
+                Divider(height: 24, color: Colors.green.shade100),
+                _buildSummaryRow('P', 'Total Due', _getTotalDue()),
                 SizedBox(height: 24),
                 Container(
                   padding: EdgeInsets.all(16),
@@ -1407,8 +1415,16 @@ class _BookingScreenState extends State<BookingScreen> {
       String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
       total += double.tryParse(priceStr) ?? 0.0;
     }
-    // If the price comes out as a whole number, format without decimals if preferred, or just 2 decimals
     return total > 0 ? 'PHP ${total.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}' : '-';
+  }
+
+  String _getTotalDue() {
+    double total = 0.0;
+    for (var time in _selectedTimes) {
+      String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
+      total += double.tryParse(priceStr) ?? 0.0;
+    }
+    return 'PHP ${(total + 15.00).toStringAsFixed(2)}';
   }
 
   Widget _buildSummaryRow(dynamic iconOrText, String label, String value) {
@@ -1518,8 +1534,10 @@ class _BookingScreenState extends State<BookingScreen> {
                 text: TextSpan(
                   style: TextStyle(color: AppColors.primaryGreen, height: 1.5, fontSize: 13, fontFamily: 'Poppins'),
                   children: [
+                    TextSpan(text: 'Court Fee: ${_getTotalAmount()}\n'),
+                    TextSpan(text: 'Service Charge: PHP 15.00\n'),
                     TextSpan(text: 'Total Amount to Pay: '),
-                    TextSpan(text: '${_getTotalAmount()}\n\n', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    TextSpan(text: '${_getTotalDue()}\n\n', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     TextSpan(text: 'Please send the payment to any of the following:\n\n'),
                     TextSpan(text: 'GCash: ${_getPaymentDetail('gcash_number', '09123456789')}\n'),
                     TextSpan(text: 'Maya: ${_getPaymentDetail('paymaya_number', '09123456789')}\n'),

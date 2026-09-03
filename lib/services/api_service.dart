@@ -12,6 +12,31 @@ class ApiService {
     return 'https://pickle-system.onrender.com/api'; 
   }
 
+  bool _isFutureEvent(String? dateStr, String? timeStr) {
+    if (dateStr == null || timeStr == null) return true;
+    try {
+      String cleanDate = dateStr.split('T')[0];
+      String timeString = timeStr.trim();
+      int hour = 0;
+      int minute = 0;
+      if (timeString.contains(':')) {
+         hour = int.parse(timeString.split(':')[0]);
+         String rest = timeString.split(':')[1];
+         minute = int.parse(rest.replaceAll(RegExp(r'[^0-9]'), ''));
+      } else {
+         hour = int.parse(timeString.replaceAll(RegExp(r'[^0-9]'), ''));
+      }
+      bool isPM = timeString.toUpperCase().contains('PM');
+      if (isPM && hour < 12) hour += 12;
+      if (!isPM && hour == 12) hour = 0;
+      
+      final dt = DateTime.parse('$cleanDate ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:00');
+      return dt.isAfter(DateTime.now());
+    } catch (e) {
+      return true;
+    }
+  }
+
   Future<List<ServiceModel>> fetchServices() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/booking-services'));
@@ -124,7 +149,8 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true && data['pasaloCourts'] != null) {
-          return List<Map<String, dynamic>>.from(data['pasaloCourts']);
+          final list = List<Map<String, dynamic>>.from(data['pasaloCourts']);
+          return list.where((item) => _isFutureEvent(item['preferred_date'], item['preferred_time'])).toList();
         }
       }
       return [];
@@ -259,7 +285,8 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true && data['openPlays'] != null) {
-          return List<Map<String, dynamic>>.from(data['openPlays']);
+          final list = List<Map<String, dynamic>>.from(data['openPlays']);
+          return list.where((item) => _isFutureEvent(item['preferred_date'], item['preferred_time'])).toList();
         }
       }
       return [];
@@ -925,7 +952,8 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true && data['challenges'] != null) {
-          return List<Map<String, dynamic>>.from(data['challenges']);
+          final list = List<Map<String, dynamic>>.from(data['challenges']);
+          return list.where((item) => _isFutureEvent(item['preferred_date'], item['preferred_time'])).toList();
         }
       }
       return [];

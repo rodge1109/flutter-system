@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
 const String appId = "b1f93855c6294b249f37356fff875a2d";
@@ -29,10 +32,29 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   bool _muted = false;
   bool _videoDisabled = false;
 
+  int _team1Score = 0;
+  int _team2Score = 0;
+  int _streamId = -1;
+  
+  String _team1Name = 'Team A';
+  String _team2Name = 'Team B';
+
   @override
   void initState() {
     super.initState();
+    _loadUserData();
     initAgora();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    if (userStr != null) {
+      final userObj = jsonDecode(userStr);
+      setState(() {
+        _team1Name = userObj['full_name'] ?? 'Team A';
+      });
+    }
   }
 
   Future<void> initAgora() async {
@@ -51,11 +73,35 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
 
       _engine.registerEventHandler(
         RtcEngineEventHandler(
-          onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+          onJoinChannelSuccess: (RtcConnection connection, int elapsed) async {
             debugPrint("local user ${connection.localUid} joined");
             setState(() {
               _localUserJoined = true;
             });
+            if (widget.isBroadcaster) {
+              try {
+                _streamId = await _engine.createDataStream(const DataStreamConfig(
+                  syncWithAudio: false,
+                  ordered: true,
+                ));
+              } catch(e) {
+                debugPrint('Error creating data stream: $e');
+              }
+            }
+          },
+          onStreamMessage: (RtcConnection connection, int remoteUid, int streamId, Uint8List data, int length, int sentTs) {
+            try {
+              final message = utf8.decode(data);
+              final map = jsonDecode(message);
+              setState(() {
+                _team1Score = map['team1'] ?? _team1Score;
+                _team2Score = map['team2'] ?? _team2Score;
+                _team1Name = map['team1Name'] ?? _team1Name;
+                _team2Name = map['team2Name'] ?? _team2Name;
+              });
+            } catch (e) {
+              debugPrint('Error decoding stream message: $e');
+            }
           },
           onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
             debugPrint("remote user $remoteUid joined");
@@ -139,6 +185,67 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
     _engine.switchCamera();
   }
 
+  void _broadcastState() async {
+    if (!widget.isBroadcaster || _streamId == -1) return;
+    try {
+      final message = jsonEncode({
+        'team1': _team1Score, 
+        'team2': _team2Score,
+        'team1Name': _team1Name,
+        'team2Name': _team2Name,
+      });
+      await _engine.sendStreamMessage(
+        streamId: _streamId, 
+        data: Uint8List.fromList(utf8.encode(message)), 
+        length: message.length
+      );
+    } catch(e) {
+      debugPrint('Error sending state update: $e');
+    }
+  }
+
+  void _updateScore(int team, int change) {
+    setState(() {
+      if (team == 1) _team1Score += change;
+      if (team == 2) _team2Score += change;
+    });
+    _broadcastState();
+  }
+
+  Future<void> _editTeamNameDialog(int teamIndex, String currentName) async {
+    TextEditingController controller = TextEditingController(text: currentName);
+    String? newName = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Edit Name'),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(hintText: 'Enter new name'),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: Text('Save'),
+            ),
+          ],
+        );
+      }
+    );
+    if (newName != null && newName.isNotEmpty) {
+      setState(() {
+        if (teamIndex == 1) _team1Name = newName;
+        if (teamIndex == 2) _team2Name = newName;
+      });
+      _broadcastState();
+    }
+  }
+
   @override
   void dispose() {
     _engine.leaveChannel();
@@ -167,6 +274,7 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
           Center(
             child: _renderVideo(),
           ),
+          _buildScoreOverlay(),
           if (widget.isBroadcaster) _toolbar(),
         ],
       ),
@@ -206,6 +314,74 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
         );
       }
     }
+  }
+
+  Widget _buildScoreOverlay() {
+    return Positioned(
+      top: 16,
+      left: 16,
+      right: 16,
+      child: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildTeamScore(1, _team1Name, _team1Score),
+              const Text('VS', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 16)),
+              _buildTeamScore(2, _team2Name, _team2Score),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTeamScore(int teamIndex, String name, int score) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+            if (widget.isBroadcaster)
+              GestureDetector(
+                onTap: () => _editTeamNameDialog(teamIndex, name),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(Icons.edit, color: Colors.white70, size: 14),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            if (widget.isBroadcaster) 
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline, color: Colors.white70, size: 20), 
+                onPressed: () => _updateScore(teamIndex, -1),
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+              ),
+            Text('$score', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+            if (widget.isBroadcaster) 
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, color: Colors.white70, size: 20), 
+                onPressed: () => _updateScore(teamIndex, 1),
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 
   // Toolbar layout

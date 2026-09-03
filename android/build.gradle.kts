@@ -4,6 +4,7 @@ allprojects {
         mavenCentral()
     }
 }
+rootProject.ext.set("compileSdkVersion", 36)
 
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
@@ -17,11 +18,6 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
-    if (project.hasProperty("android")) {
-        project.configure<com.android.build.gradle.BaseExtension> {
-            compileSdkVersion(36)
-        }
-    }
 }
 
 tasks.register<Delete>("clean") {
