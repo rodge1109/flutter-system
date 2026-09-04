@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,11 +13,15 @@ const String appId = "b1f93855c6294b249f37356fff875a2d";
 class LiveBroadcastScreen extends StatefulWidget {
   final String channelName;
   final bool isBroadcaster;
+  final String hostName;
+  final String challengerName;
 
   const LiveBroadcastScreen({
     Key? key,
     required this.channelName,
     required this.isBroadcaster,
+    required this.hostName,
+    required this.challengerName,
   }) : super(key: key);
 
   @override
@@ -42,19 +47,17 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeRight,
+      DeviceOrientation.landscapeLeft,
+    ]);
+    _team1Name = widget.hostName;
+    _team2Name = widget.challengerName;
     initAgora();
   }
 
   Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userStr = prefs.getString('user');
-    if (userStr != null) {
-      final userObj = jsonDecode(userStr);
-      setState(() {
-        _team1Name = userObj['full_name'] ?? 'Team A';
-      });
-    }
+    // No longer needed to overwrite team names
   }
 
   Future<void> initAgora() async {
@@ -137,6 +140,17 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
       if (widget.isBroadcaster) {
         await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
         await _engine.enableVideo();
+        
+        // Improve Video Quality for Broadcaster
+        await _engine.setVideoEncoderConfiguration(
+          const VideoEncoderConfiguration(
+            dimensions: VideoDimensions(width: 1280, height: 720),
+            frameRate: 30,
+            bitrate: 0, // Standard bitrate
+            orientationMode: OrientationMode.orientationModeAdaptive,
+          ),
+        );
+        
         await _engine.startPreview();
       } else {
         await _engine.setClientRole(role: ClientRoleType.clientRoleAudience);
@@ -158,6 +172,11 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
         options: ChannelMediaOptions(
           clientRoleType: widget.isBroadcaster ? ClientRoleType.clientRoleBroadcaster : ClientRoleType.clientRoleAudience,
           channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+          publishCameraTrack: widget.isBroadcaster,
+          publishMicrophoneTrack: widget.isBroadcaster,
+          autoSubscribeVideo: true,
+          autoSubscribeAudio: true,
+          audienceLatencyLevel: AudienceLatencyLevelType.audienceLatencyLevelUltraLowLatency,
         ),
       );
     } catch (e) {
@@ -248,6 +267,9 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
     _engine.leaveChannel();
     _engine.release();
     super.dispose();
@@ -319,23 +341,30 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
   Widget _buildScoreOverlay() {
     return Positioned(
       top: 16,
-      left: 16,
-      right: 16,
+      left: 0,
+      right: 0,
       child: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white24),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildTeamScore(1, _team1Name, _team1Score),
-              const Text('VS', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 16)),
-              _buildTeamScore(2, _team2Name, _team2Score),
-            ],
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white24, width: 1.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTeamScore(1, _team1Name, _team1Score),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 32),
+                  child: Text('VS', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+                _buildTeamScore(2, _team2Name, _team2Score),
+              ],
+            ),
           ),
         ),
       ),
@@ -365,18 +394,21 @@ class _LiveBroadcastScreenState extends State<LiveBroadcastScreen> {
           children: [
             if (widget.isBroadcaster) 
               IconButton(
-                icon: const Icon(Icons.remove_circle_outline, color: Colors.white70, size: 20), 
+                icon: const Icon(Icons.remove_circle_outline, color: Colors.white70, size: 36), 
                 onPressed: () => _updateScore(teamIndex, -1),
                 constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(8),
               ),
-            Text('$score', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('$score', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+            ),
             if (widget.isBroadcaster) 
               IconButton(
-                icon: const Icon(Icons.add_circle_outline, color: Colors.white70, size: 20), 
+                icon: const Icon(Icons.add_circle_outline, color: Colors.white70, size: 36), 
                 onPressed: () => _updateScore(teamIndex, 1),
                 constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(8),
               ),
           ],
         ),
