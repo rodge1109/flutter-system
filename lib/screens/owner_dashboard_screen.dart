@@ -235,8 +235,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   List<dynamic> _getBookingsForDay(DateTime day) {
     return _allBookings.where((b) {
       if (b['appointment_date'] == null) return false;
-      DateTime parsedUtc = DateTime.parse(b['appointment_date'].toString());
-      DateTime localDate = parsedUtc.toLocal();
+      String dateString = b['appointment_date'].toString().substring(0, 10);
+      DateTime localDate = DateTime.parse('$dateString 00:00:00');
       return isSameDay(localDate, day);
     }).toList();
   }
@@ -591,9 +591,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       if (b['appointment_date'] == null || b['appointment_time'] == null) return false;
       
       try {
-        DateTime parsedUtc = DateTime.parse(b['appointment_date'].toString());
-        DateTime localDate = parsedUtc.toLocal();
-        String dateString = '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
+        String dateString = b['appointment_date'].toString().substring(0, 10);
         
         String timeString = b['appointment_time'].toString().trim();
         int hour = int.parse(timeString.split(':')[0]);

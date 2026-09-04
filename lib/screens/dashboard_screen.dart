@@ -461,12 +461,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     for (var b in bookings) {
       if (b['status'] == 'cancelled') continue;
       try {
-        final dateStr = b['appointment_date'];
+        String dateString = b['appointment_date'].toString().substring(0, 10);
         final timeStr = b['appointment_time'];
-        
-        DateTime parsedUtc = DateTime.parse(dateStr.toString());
-        DateTime localDate = parsedUtc.toLocal();
-        String dateString = '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
         
         String timeString = timeStr.toString().trim();
         int hour = int.parse(timeString.split(':')[0]);
@@ -1943,6 +1939,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           Navigator.push(context, MaterialPageRoute(builder: (_) => LiveBroadcastScreen(
                                             channelName: 'match_${challenge['id']}',
                                             isBroadcaster: _userEmail == challenge['host_email'],
+                                            hostName: hostDisplay,
+                                            challengerName: challenge['accepted_challenger_name'] ?? 'Challenger',
                                           )));
                                         },
                                       )
