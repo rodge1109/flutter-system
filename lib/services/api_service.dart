@@ -6,6 +6,9 @@ import '../models/service_model.dart';
 
 class ApiService {
   static String get baseUrl {
+    if (kReleaseMode) {
+      return 'https://pickle-system.onrender.com/api';
+    }
     if (kIsWeb) {
       return 'http://localhost:5001/api';
     }
