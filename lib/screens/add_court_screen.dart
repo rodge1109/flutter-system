@@ -31,6 +31,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   final _openTimeCtrl = TextEditingController(text: '00:00');
   final _closeTimeCtrl = TextEditingController(text: '23:59');
   final _logoUrlCtrl = TextEditingController();
+  final _customFacilityCtrl = TextEditingController();
   final ApiService _apiService = ApiService();
   
   bool _enableDayDiscount = false;
@@ -80,6 +81,11 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
             _selectedFacilities = List<String>.from(json.decode(rawFacilities));
           } catch (_) {}
         }
+        for (var f in _selectedFacilities) {
+          if (!_availableFacilities.contains(f)) {
+            _availableFacilities.add(f);
+          }
+        }
       }
 
       final rawHourly = widget.court!['hourly_prices'];
@@ -127,6 +133,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     _openTimeCtrl.dispose();
     _closeTimeCtrl.dispose();
     _logoUrlCtrl.dispose();
+    _customFacilityCtrl.dispose();
     super.dispose();
   }
 
@@ -163,6 +170,21 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error picking image: $e'), backgroundColor: Colors.red)
       );
+    }
+  }
+
+  void _addCustomFacility() {
+    final text = _customFacilityCtrl.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        if (!_availableFacilities.contains(text)) {
+          _availableFacilities.add(text);
+        }
+        if (!_selectedFacilities.contains(text)) {
+          _selectedFacilities.add(text);
+        }
+        _customFacilityCtrl.clear();
+      });
     }
   }
 
@@ -481,7 +503,38 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
 
                     SizedBox(height: 32),
                     _buildSectionTitle('Facilities'),
-                    Text('Select the amenities available at this court.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    Text('Select standard amenities or type below to add your own custom facilities.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _customFacilityCtrl,
+                            decoration: InputDecoration(
+                              hintText: 'Add custom facility (e.g. Pro Shop, Showers)',
+                              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                              filled: true,
+                              fillColor: AppColors.softWhite,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primaryGreen, width: 1.5)),
+                            ),
+                            onSubmitted: (_) => _addCustomFacility(),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _addCustomFacility,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryGreen,
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text('+ Add', style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
                     SizedBox(height: 16),
                     Wrap(
                       spacing: 8.0,
