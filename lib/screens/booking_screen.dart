@@ -538,6 +538,12 @@ class _BookingScreenState extends State<BookingScreen> {
       ),
     ]);
 
+
+    // Step labels
+    final List<String> stepLabels = skipChooseService
+        ? ['Date & Time', 'Your Details', 'Payment', 'Confirm']
+        : ['Court', 'Date & Time', 'Your Details', 'Payment', 'Confirm'];
+
     return Scaffold(
       backgroundColor: AppColors.creamWhite,
       appBar: AppBar(
@@ -559,100 +565,164 @@ class _BookingScreenState extends State<BookingScreen> {
           ? Center(child: CircularProgressIndicator(color: AppColors.richBlack))
           : Column(
               children: [
-                if (skipChooseService)
-                  Container(
-                    margin: EdgeInsets.fromLTRB(24, 8, 24, 8),
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: AppColors.primaryGreen, shape: BoxShape.circle),
-                          child: CustomPaddleIcon( color: AppColors.softWhite, size: 20),
-                        ),
-                        SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('COURT SELECTED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.richBlack.withOpacity(0.54), letterSpacing: 0.5)),
-                              SizedBox(height: 8),
-                              Text(_selectedService?.name ?? widget.initialServiceName ?? 'Pickleball Court', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                // ── Horizontal Step Indicator ──
+                Container(
+                  color: AppColors.creamWhite,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: List.generate(stepLabels.length, (i) {
+                          final bool isDone = i < _currentStep;
+                          final bool isActive = i == _currentStep;
+                          return Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    children: [
+                                      AnimatedContainer(
+                                        duration: const Duration(milliseconds: 300),
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: isDone
+                                              ? AppColors.primaryGreen
+                                              : isActive
+                                                  ? AppColors.richBlack
+                                                  : Colors.grey.shade200,
+                                          shape: BoxShape.circle,
+                                          boxShadow: isActive
+                                              ? [BoxShadow(color: AppColors.richBlack.withOpacity(0.18), blurRadius: 6, offset: Offset(0, 2))]
+                                              : [],
+                                        ),
+                                        child: Center(
+                                          child: isDone
+                                              ? Icon(Icons.check, size: 14, color: Colors.white)
+                                              : Text(
+                                                  '${i + 1}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isActive ? Colors.white : Colors.grey.shade500,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        stepLabels[i],
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontFamily: 'Poppins',
+                                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                          color: isActive
+                                              ? AppColors.richBlack
+                                              : isDone
+                                                  ? AppColors.primaryGreen
+                                                  : Colors.grey.shade400,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (i < stepLabels.length - 1)
+                                  Expanded(
+                                    child: Container(
+                                      height: 2,
+                                      margin: const EdgeInsets.only(bottom: 18),
+                                      decoration: BoxDecoration(
+                                        color: i < _currentStep ? AppColors.primaryGreen : Colors.grey.shade200,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
                   ),
+                ),
 
+                // ── Step Content ──
                 Expanded(
-                  child: Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: ColorScheme.light(primary: AppColors.richBlack),
-                    ),
-                    child: Stepper(
-                      type: StepperType.vertical,
-                      physics: ClampingScrollPhysics(),
-                      currentStep: _currentStep,
-                      onStepTapped: (step) {
-                        if (step < _currentStep) {
-                          setState(() => _currentStep = step);
-                        }
-                      },
-                      onStepContinue: () => _handleStepContinue(skipChooseService),
-                      onStepCancel: _handleStepCancel,
-                      controlsBuilder: (context, details) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
-                          child: Row(
-                            children: <Widget>[
-                              if (_currentStep < maxStep)
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (skipChooseService)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(7),
+                                  decoration: BoxDecoration(color: AppColors.primaryGreen, shape: BoxShape.circle),
+                                  child: CustomPaddleIcon(color: AppColors.softWhite, size: 16),
+                                ),
+                                SizedBox(width: 12),
                                 Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: details.onStepContinue,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primaryGreen,
-                                      foregroundColor: AppColors.softWhite,
-                                      padding: EdgeInsets.symmetric(vertical: 16),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                                    ),
-                                    child: Text('Continue', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.softWhite)),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('COURT SELECTED', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.richBlack.withOpacity(0.54), letterSpacing: 0.5)),
+                                      SizedBox(height: 2),
+                                      Text(_selectedService?.name ?? widget.initialServiceName ?? 'Pickleball Court', style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+                                    ],
                                   ),
                                 ),
-                              if (_currentStep == maxStep)
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: details.onStepContinue,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primaryGreen,
-                                      foregroundColor: AppColors.softWhite,
-                                      padding: EdgeInsets.symmetric(vertical: 16),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                                    ),
-                                    child: Text('Confirm Booking', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.softWhite)),
-                                  ),
+                              ],
+                            ),
+                          ),
+
+                        // Active step content
+                        steps[_currentStep].content,
+
+                        const SizedBox(height: 24),
+
+                        // Navigation buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _handleStepContinue(skipChooseService),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryGreen,
+                                  foregroundColor: AppColors.softWhite,
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                                 ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: details.onStepCancel,
-                                  style: OutlinedButton.styleFrom(
-                                    padding: EdgeInsets.symmetric(vertical: 16),
-                                    side: BorderSide(color: Colors.grey.shade400),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                                  ),
-                                  child: Text('Back', style: TextStyle(fontFamily: 'Poppins', color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 13)),
+                                child: Text(
+                                  _currentStep == maxStep ? 'Confirm Booking' : 'Continue',
+                                  style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.softWhite),
                                 ),
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                      steps: steps,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _handleStepCancel,
+                                style: OutlinedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                                ),
+                                child: Text('Back', style: TextStyle(fontFamily: 'Poppins', color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -660,6 +730,7 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
     );
   }
+
 
   Widget _buildServiceSelection() {
     return SizedBox(
