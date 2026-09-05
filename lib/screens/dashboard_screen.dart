@@ -624,7 +624,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 if (_selectedNavIndex == 0)
                   Container(
-                    height: 350,
+                    height: 360,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
