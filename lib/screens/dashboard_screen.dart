@@ -4015,16 +4015,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showVenueBookingModal(BuildContext context, Map<String, dynamic> venue) {
-    final List<dynamic> courts = venue['courts'] ?? [];
-    int selectedCourtIndex = 0;
-    String selectedSlot = '';
-    
-    if (courts.isNotEmpty) {
-      final firstSlots = courts[0]['slots'] as List<dynamic>?;
-      if (firstSlots != null && firstSlots.isNotEmpty) {
-        selectedSlot = firstSlots.first.toString();
-      }
-    }
+    final List<dynamic> allVenueCourts = venue['courts'] ?? [];
+    String modalSportCategory = 'ALL';
+    Map<String, Map<String, dynamic>> selectedSlotsMap = {};
 
     showModalBottomSheet(
       context: context,
@@ -4033,16 +4026,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
-            final selectedCourt = courts.isNotEmpty ? courts[selectedCourtIndex] : venue;
-            final List<dynamic> slots = selectedCourt['slots'] ?? ['8:00 AM', '10:00 AM', '1:00 PM', '4:00 PM'];
-            final String price = selectedCourt['price'] ?? venue['basePrice'] ?? '300';
-            
+            // Filter courts by modal sport category
+            final List<dynamic> filteredModalCourts = allVenueCourts.where((c) {
+              if (modalSportCategory == 'ALL') return true;
+              final name = (c['name'] ?? '').toString().toLowerCase();
+              final desc = (c['description'] ?? '').toString().toLowerCase();
+              if (modalSportCategory == 'Tennis') {
+                return name.contains('tennis') || desc.contains('tennis');
+              }
+              if (modalSportCategory == 'Pickleball') {
+                return name.contains('pickle') || desc.contains('pickle') || !name.contains('tennis');
+              }
+              return true;
+            }).toList();
+
+            final displayCourts = filteredModalCourts.isNotEmpty ? filteredModalCourts : allVenueCourts;
+
+            double totalPrice = selectedSlotsMap.values.fold(0.0, (sum, item) => sum + (double.tryParse(item['price'].toString()) ?? 300.0));
+            int totalSelectedCount = selectedSlotsMap.length;
+
             return Container(
               decoration: BoxDecoration(
                 color: AppColors.softWhite,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              height: MediaQuery.of(ctx).size.height * 0.82,
+              height: MediaQuery.of(ctx).size.height * 0.88,
               padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4076,71 +4084,170 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   SizedBox(height: 12),
+                  
+                  // Sport Category Chips inside Venue Modal
+                  Row(
+                    children: [
+                      Text('Sport: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
+                      SizedBox(width: 4),
+                      ChoiceChip(
+                        label: Text('🎾 ALL', style: TextStyle(fontSize: 11, fontWeight: modalSportCategory == 'ALL' ? FontWeight.bold : FontWeight.normal, color: modalSportCategory == 'ALL' ? Colors.white : AppColors.richBlack)),
+                        selected: modalSportCategory == 'ALL',
+                        selectedColor: AppColors.primaryGreen,
+                        backgroundColor: Colors.grey.shade100,
+                        onSelected: (val) { if (val) setModalState(() => modalSportCategory = 'ALL'); },
+                      ),
+                      SizedBox(width: 6),
+                      ChoiceChip(
+                        label: Text('🏓 Pickleball', style: TextStyle(fontSize: 11, fontWeight: modalSportCategory == 'Pickleball' ? FontWeight.bold : FontWeight.normal, color: modalSportCategory == 'Pickleball' ? Colors.white : AppColors.richBlack)),
+                        selected: modalSportCategory == 'Pickleball',
+                        selectedColor: AppColors.primaryGreen,
+                        backgroundColor: Colors.grey.shade100,
+                        onSelected: (val) { if (val) setModalState(() => modalSportCategory = 'Pickleball'); },
+                      ),
+                      SizedBox(width: 6),
+                      ChoiceChip(
+                        label: Text('🎾 Tennis', style: TextStyle(fontSize: 11, fontWeight: modalSportCategory == 'Tennis' ? FontWeight.bold : FontWeight.normal, color: modalSportCategory == 'Tennis' ? Colors.white : AppColors.richBlack)),
+                        selected: modalSportCategory == 'Tennis',
+                        selectedColor: AppColors.primaryGreen,
+                        backgroundColor: Colors.grey.shade100,
+                        onSelected: (val) { if (val) setModalState(() => modalSportCategory = 'Tennis'); },
+                      ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: 12),
                   Divider(height: 1),
-                  SizedBox(height: 16),
+                  SizedBox(height: 12),
+                  
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Side-by-Side Courts & Timeslots', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.deepTeal)),
+                      Text('Tap to select multiple', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                    ],
+                  ),
+                  SizedBox(height: 10),
+
+                  // Side-by-Side Courts Columns View
                   Expanded(
                     child: SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('1. Select Court to Rent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.deepTeal)),
-                          SizedBox(height: 10),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: List.generate(courts.length, (idx) {
-                              final c = courts[idx];
-                              final bool isSelected = idx == selectedCourtIndex;
-                              return ChoiceChip(
-                                label: Text(
-                                  c['name'] ?? 'Court ${idx + 1}',
-                                  style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : AppColors.richBlack),
-                                ),
-                                selected: isSelected,
-                                selectedColor: AppColors.primaryGreen,
-                                backgroundColor: Colors.grey.shade100,
-                                onSelected: (val) {
-                                  if (val) {
-                                    setModalState(() {
-                                      selectedCourtIndex = idx;
-                                      final sList = c['slots'] as List<dynamic>?;
-                                      if (sList != null && sList.isNotEmpty) {
-                                        selectedSlot = sList.first.toString();
-                                      }
-                                    });
-                                  }
-                                },
-                              );
-                            }),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: displayCourts.map<Widget>((court) {
+                                final courtName = court['name'] ?? 'Court';
+                                final courtPrice = court['price'] ?? venue['basePrice'] ?? '300';
+                                final List<dynamic> rawSlots = court['slots'] ?? ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'];
+
+                                return Container(
+                                  width: 140,
+                                  margin: EdgeInsets.only(right: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: Offset(0, 3)),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      // Court Header Column
+                                      Container(
+                                        width: double.infinity,
+                                        padding: EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primaryGreen,
+                                          borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Text(
+                                              courtName,
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            SizedBox(height: 2),
+                                            Text(
+                                              'P$courtPrice/hr',
+                                              style: TextStyle(color: AppColors.accentLime, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      
+                                      // Timeslot Buttons Under Court
+                                      Padding(
+                                        padding: EdgeInsets.all(8),
+                                        child: Column(
+                                          children: rawSlots.map<Widget>((s) {
+                                            final slotStr = s.toString();
+                                            final slotKey = '${courtName}_$slotStr';
+                                            final bool isSelected = selectedSlotsMap.containsKey(slotKey);
+
+                                            return Container(
+                                              margin: EdgeInsets.only(bottom: 6),
+                                              width: double.infinity,
+                                              child: InkWell(
+                                                onTap: () {
+                                                  setModalState(() {
+                                                    if (isSelected) {
+                                                      selectedSlotsMap.remove(slotKey);
+                                                    } else {
+                                                      selectedSlotsMap[slotKey] = {
+                                                        'court': courtName,
+                                                        'time': slotStr,
+                                                        'price': courtPrice,
+                                                      };
+                                                    }
+                                                  });
+                                                },
+                                                borderRadius: BorderRadius.circular(8),
+                                                child: Container(
+                                                  padding: EdgeInsets.symmetric(vertical: 8),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected ? AppColors.primaryGreen : Colors.grey.shade100,
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    border: Border.all(color: isSelected ? AppColors.primaryGreen : Colors.grey.shade300),
+                                                    boxShadow: isSelected ? [BoxShadow(color: AppColors.primaryGreen.withOpacity(0.3), blurRadius: 4)] : [],
+                                                  ),
+                                                  alignment: Alignment.center,
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      if (isSelected) ...[
+                                                        Icon(Icons.check_circle, size: 12, color: Colors.white),
+                                                        SizedBox(width: 4),
+                                                      ],
+                                                      Text(
+                                                        slotStr,
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                                          color: isSelected ? Colors.white : AppColors.richBlack,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           ),
-                          SizedBox(height: 24),
-                          Text('2. Select Available Timeslot', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.deepTeal)),
-                          SizedBox(height: 10),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: slots.map<Widget>((s) {
-                              final slotStr = s.toString();
-                              final bool isSelected = slotStr == selectedSlot;
-                              return ChoiceChip(
-                                label: Text(
-                                  slotStr,
-                                  style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : AppColors.richBlack),
-                                ),
-                                selected: isSelected,
-                                selectedColor: AppColors.primaryGreen,
-                                backgroundColor: Colors.grey.shade100,
-                                onSelected: (val) {
-                                  if (val) {
-                                    setModalState(() {
-                                      selectedSlot = slotStr;
-                                    });
-                                  }
-                                },
-                              );
-                            }).toList(),
-                          ),
-                          SizedBox(height: 24),
+                          SizedBox(height: 20),
                           if (venue['aboutVenue'] != null && venue['aboutVenue'].toString().trim().isNotEmpty) ...[
                             Text('About Venue', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
                             SizedBox(height: 6),
@@ -4164,23 +4271,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   SizedBox(height: 16),
+                  
+                  // Selection Summary & Primary Booking Action Button
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: totalSelectedCount == 0 ? null : () {
                         Navigator.pop(ctx);
+                        final firstItem = selectedSlotsMap.values.first;
                         _navigateToBookingScreen(
-                          initialServiceName: selectedCourt['name'] ?? venue['venueName'],
+                          initialServiceName: firstItem['court'],
                           skipServiceSelection: true,
+                          initialTime: firstItem['time'],
                         );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryGreen,
+                        disabledBackgroundColor: Colors.grey.shade300,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                       child: Text(
-                        'Rent ${selectedCourt['name']} — P$price/hr',
+                        totalSelectedCount == 0
+                            ? 'Select Timeslot(s) to Rent'
+                            : 'Book $totalSelectedCount ${totalSelectedCount == 1 ? 'Slot' : 'Slots'} — Total P${totalPrice.toInt()}',
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ),
