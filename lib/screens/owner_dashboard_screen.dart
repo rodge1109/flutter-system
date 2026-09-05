@@ -407,7 +407,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         ),
                         _buildNavButton(
                           icon: Icons.sports_tennis, 
-                          label: 'My Courts', 
+                          label: _myCourts.isNotEmpty ? 'My Courts (${_myCourts.length})' : 'My Courts', 
                           isSelected: _currentTab == 'courts',
                           onTap: () => setState(() => _currentTab = 'courts'),
                         ),
@@ -642,7 +642,41 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return Column(
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Color(0xFFE2F999).withOpacity(0.5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 20),
+                    SizedBox(width: 8),
+                    Text('Total Registered Courts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
+                  ],
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_myCourts.length} ${_myCourts.length == 1 ? 'Court' : 'Courts'}',
+                    style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           child: ElevatedButton.icon(
             onPressed: () async {
               final result = await Navigator.push(
