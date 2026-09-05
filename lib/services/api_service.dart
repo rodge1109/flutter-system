@@ -6,12 +6,7 @@ import '../models/service_model.dart';
 
 class ApiService {
   static String get baseUrl {
-    if (kReleaseMode) {
-      return 'https://pickle-system.onrender.com/api';
-    }
-    if (kIsWeb) {
-      return 'http://localhost:5001/api';
-    }
+    // Force production URL everywhere to prevent local disconnects during testing
     return 'https://pickle-system.onrender.com/api'; 
   }
 
