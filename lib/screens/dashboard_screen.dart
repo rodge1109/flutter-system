@@ -149,7 +149,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
-    _loadUserData();
+    // Small delay to allow DB write to propagate before fetching
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (mounted) {
+      _fetchBookings(_userEmail);
+      _fetchOpenPlays();
+    }
     if (result == 'view_bookings') {
       setState(() {
         _selectedNavIndex = 2;
