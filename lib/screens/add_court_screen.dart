@@ -32,6 +32,9 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   final _closeTimeCtrl = TextEditingController(text: '23:59');
   final _logoUrlCtrl = TextEditingController();
   final _customFacilityCtrl = TextEditingController();
+  final _bookingPolicyCtrl = TextEditingController();
+  final _aboutVenueCtrl = TextEditingController();
+  final _faqCtrl = TextEditingController();
   final ApiService _apiService = ApiService();
   
   bool _enableDayDiscount = false;
@@ -71,6 +74,10 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       
       _enableNightDiscount = widget.court!['is_night_discount_active'] == true || widget.court!['is_night_discount_active'] == 'true' || widget.court!['is_night_discount_active'] == 1;
       _nightDiscountCtrl.text = widget.court!['night_discount_rate']?.toString() ?? '';
+
+      _bookingPolicyCtrl.text = widget.court!['booking_policy'] ?? widget.court!['bookingPolicy'] ?? '';
+      _aboutVenueCtrl.text = widget.court!['about_venue'] ?? widget.court!['aboutVenue'] ?? '';
+      _faqCtrl.text = widget.court!['faq'] ?? widget.court!['faqText'] ?? '';
 
       final rawFacilities = widget.court!['facilities'];
       if (rawFacilities != null) {
@@ -115,6 +122,9 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       }
     } else {
       _descCtrl.text = 'Enjoy a fun and active game on our well-maintained pickleball court, perfect for players of all skill levels.';
+      _bookingPolicyCtrl.text = 'Strict 24-hour cancellation notice required. Please arrive 10 minutes prior to your reserved slot.';
+      _aboutVenueCtrl.text = 'Our venue features high-quality professional pickleball courts with proper lighting, comfortable seating, and clean amenities.';
+      _faqCtrl.text = 'Q: Are paddles available for rent?\nA: Yes, paddle and ball rentals are available at the counter.\n\nQ: Is parking available?\nA: On-site parking is available for players.';
     }
   }
 
@@ -134,6 +144,9 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     _closeTimeCtrl.dispose();
     _logoUrlCtrl.dispose();
     _customFacilityCtrl.dispose();
+    _bookingPolicyCtrl.dispose();
+    _aboutVenueCtrl.dispose();
+    _faqCtrl.dispose();
     super.dispose();
   }
 
@@ -242,6 +255,9 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'nightRate': nightStandard,
       'nightDiscountRate': nightDiscount,
       'isNightDiscountActive': isNightDiscountActive,
+      'bookingPolicy': _bookingPolicyCtrl.text.trim(),
+      'aboutVenue': _aboutVenueCtrl.text.trim(),
+      'faq': _faqCtrl.text.trim(),
     };
 
     final Map<String, dynamic> res;
@@ -502,8 +518,22 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                     ),
 
                     SizedBox(height: 32),
-                    _buildSectionTitle('Facilities'),
-                    Text('Select standard amenities or type below to add your own custom facilities.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    _buildSectionTitle('About This Venue'),
+                    Text('Provide players with background details, rules, and highlights of your court facility.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    SizedBox(height: 12),
+                    _buildTextField('Venue Overview & Highlights', _aboutVenueCtrl, maxLines: 4),
+
+                    SizedBox(height: 32),
+                    _buildSectionTitle('Booking Policy'),
+                    Text('Specify rules, cancellation windows, and player guidelines for reservations.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    SizedBox(height: 12),
+                    _buildTextField('Rules & Cancellation Policy', _bookingPolicyCtrl, maxLines: 4),
+
+                    SizedBox(height: 32),
+                    _buildSectionTitle('Frequently Asked Questions (FAQ)'),
+                    Text('Add common questions and answers for players (e.g., parking, equipment, attire).', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    SizedBox(height: 12),
+                    _buildTextField('Questions & Answers (e.g. Q: Parking? A: Yes)', _faqCtrl, maxLines: 5),
                     SizedBox(height: 12),
                     Row(
                       children: [
