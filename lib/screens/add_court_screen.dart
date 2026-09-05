@@ -26,10 +26,15 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   final _descCtrl = TextEditingController();
   final _dayRateCtrl = TextEditingController();
   final _nightRateCtrl = TextEditingController();
+  final _dayDiscountCtrl = TextEditingController();
+  final _nightDiscountCtrl = TextEditingController();
   final _openTimeCtrl = TextEditingController(text: '00:00');
   final _closeTimeCtrl = TextEditingController(text: '23:59');
   final _logoUrlCtrl = TextEditingController();
   final ApiService _apiService = ApiService();
+  
+  bool _enableDayDiscount = false;
+  bool _enableNightDiscount = false;
   
   final List<String> _availableFacilities = [
     'Covered Court',
@@ -59,6 +64,12 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _openTimeCtrl.text = widget.court!['open_time'] ?? '00:00';
       _closeTimeCtrl.text = widget.court!['close_time'] ?? '23:59';
       _logoUrlCtrl.text = widget.court!['logo_url'] ?? widget.court!['logo'] ?? '';
+      
+      _enableDayDiscount = widget.court!['is_day_discount_active'] == true || widget.court!['is_day_discount_active'] == 'true' || widget.court!['is_day_discount_active'] == 1;
+      _dayDiscountCtrl.text = widget.court!['day_discount_rate']?.toString() ?? '';
+      
+      _enableNightDiscount = widget.court!['is_night_discount_active'] == true || widget.court!['is_night_discount_active'] == 'true' || widget.court!['is_night_discount_active'] == 1;
+      _nightDiscountCtrl.text = widget.court!['night_discount_rate']?.toString() ?? '';
 
       final rawFacilities = widget.court!['facilities'];
       if (rawFacilities != null) {
@@ -111,6 +122,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     _descCtrl.dispose();
     _dayRateCtrl.dispose();
     _nightRateCtrl.dispose();
+    _dayDiscountCtrl.dispose();
+    _nightDiscountCtrl.dispose();
     _openTimeCtrl.dispose();
     _closeTimeCtrl.dispose();
     _logoUrlCtrl.dispose();
@@ -159,18 +172,31 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     setState(() => _isSaving = true);
 
     List<Map<String, dynamic>> hourlyPrices = [];
-    final dayRate = double.tryParse(_dayRateCtrl.text) ?? 0;
-    final nightRate = double.tryParse(_nightRateCtrl.text) ?? 0;
+    final dayStandard = double.tryParse(_dayRateCtrl.text) ?? 0;
+    final dayDiscount = double.tryParse(_dayDiscountCtrl.text) ?? 0;
+    final isDayDiscountActive = _enableDayDiscount && dayDiscount > 0;
+    final effectiveDayRate = isDayDiscountActive ? dayDiscount : dayStandard;
+
+    final nightStandard = double.tryParse(_nightRateCtrl.text) ?? 0;
+    final nightDiscount = double.tryParse(_nightDiscountCtrl.text) ?? 0;
+    final isNightDiscountActive = _enableNightDiscount && nightDiscount > 0;
+    final effectiveNightRate = isNightDiscountActive ? nightDiscount : nightStandard;
 
     for (int i = 0; i < 24; i++) {
       // Day Rate from 6 AM (inclusive) to 6 PM (exclusive)
       final isDay = (i >= 6 && i < 18);
-      final price = isDay ? dayRate : nightRate;
+      final standard = isDay ? dayStandard : nightStandard;
+      final discount = isDay ? dayDiscount : nightDiscount;
+      final isActive = isDay ? isDayDiscountActive : isNightDiscountActive;
+      final effectivePrice = isDay ? effectiveDayRate : effectiveNightRate;
       final timeString = '${i.toString().padLeft(2, '0')}:00';
       
       hourlyPrices.add({
         'time': timeString,
-        'price': price
+        'price': effectivePrice,
+        'standardPrice': standard,
+        'discountPrice': discount,
+        'isDiscountActive': isActive,
       });
     }
 
@@ -182,12 +208,18 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'latitude': double.tryParse(_latCtrl.text),
       'longitude': double.tryParse(_lngCtrl.text),
       'description': _descCtrl.text,
-      'basePrice': dayRate, // Storing day rate as base price
+      'basePrice': effectiveDayRate,
       'hourlyPrices': hourlyPrices,
       'facilities': _selectedFacilities,
       'openTime': _openTimeCtrl.text,
       'closeTime': _closeTimeCtrl.text,
       'logoUrl': _logoUrlCtrl.text.trim(),
+      'dayRate': dayStandard,
+      'dayDiscountRate': dayDiscount,
+      'isDayDiscountActive': isDayDiscountActive,
+      'nightRate': nightStandard,
+      'nightDiscountRate': nightDiscount,
+      'isNightDiscountActive': isNightDiscountActive,
     };
 
     final Map<String, dynamic> res;
@@ -326,14 +358,113 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                     ],
                     SizedBox(height: 16),
                     _buildSectionTitle('Pricing Setup'),
-                    Text('Set your standard rates. The system will automatically apply the correct price based on the booked time.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    Text('Set standard rates and optionally enable promotional discounted rates for Day and Night hours.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                     SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField('Day Rate (6AM-6PM)', _dayRateCtrl, isNumber: true, required: true)),
-                        SizedBox(width: 16),
-                        Expanded(child: _buildTextField('Night Rate (6PM-6AM)', _nightRateCtrl, isNumber: true, required: true)),
-                      ],
+
+                    // DAY RATE CARD
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.softWhite,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _enableDayDiscount ? AppColors.primaryGreen : Colors.grey.shade200, width: _enableDayDiscount ? 1.5 : 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.wb_sunny, color: Colors.orange.shade700, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Day Rate (6AM - 6PM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  Text(_enableDayDiscount ? 'Discount ON' : 'Discount OFF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _enableDayDiscount ? AppColors.primaryGreen : Colors.grey)),
+                                  Switch(
+                                    value: _enableDayDiscount,
+                                    activeColor: AppColors.primaryGreen,
+                                    onChanged: (val) => setState(() => _enableDayDiscount = val),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(child: _buildTextField('Standard Rate (P/hr)', _dayRateCtrl, isNumber: true, required: true)),
+                              if (_enableDayDiscount) ...[
+                                SizedBox(width: 12),
+                                Expanded(child: _buildTextField('Discounted Rate (P/hr)', _dayDiscountCtrl, isNumber: true, required: true)),
+                              ],
+                            ],
+                          ),
+                          if (_enableDayDiscount)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text('PROMO ACTIVE: Players will book at the discounted day rate.', style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 16),
+
+                    // NIGHT RATE CARD
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.softWhite,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _enableNightDiscount ? AppColors.primaryGreen : Colors.grey.shade200, width: _enableNightDiscount ? 1.5 : 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.nights_stay, color: Colors.indigo.shade700, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Night Rate (6PM - 6AM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  Text(_enableNightDiscount ? 'Discount ON' : 'Discount OFF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _enableNightDiscount ? AppColors.primaryGreen : Colors.grey)),
+                                  Switch(
+                                    value: _enableNightDiscount,
+                                    activeColor: AppColors.primaryGreen,
+                                    onChanged: (val) => setState(() => _enableNightDiscount = val),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(child: _buildTextField('Standard Rate (P/hr)', _nightRateCtrl, isNumber: true, required: true)),
+                              if (_enableNightDiscount) ...[
+                                SizedBox(width: 12),
+                                Expanded(child: _buildTextField('Discounted Rate (P/hr)', _nightDiscountCtrl, isNumber: true, required: true)),
+                              ],
+                            ],
+                          ),
+                          if (_enableNightDiscount)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text('PROMO ACTIVE: Players will book at the discounted night rate.', style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                        ],
+                      ),
                     ),
                     
                     SizedBox(height: 32),
