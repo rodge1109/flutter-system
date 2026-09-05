@@ -3175,7 +3175,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (!isOpenPlay && !isAssume && !isOpenChallenge)
+                          if (!isOpenPlay && !isAssume && !isOpenChallenge && b['status'] != 'cancelled' && b['status'] != 'completed')
                             TextButton(
                               onPressed: () => _showPostPasaloDialog(b),
                               style: TextButton.styleFrom(
@@ -3183,7 +3183,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 minimumSize: Size(0, 0),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              child: Text('Pasalo', style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                              child: Text('Pasalo', style: TextStyle(color: Colors.deepOrange.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          if (isAssume)
+                            TextButton(
+                              onPressed: () => _showPasaloRequestsDialog(b),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.only(right: 8),
+                                minimumSize: Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text('Pasalo Requests', style: TextStyle(color: Colors.deepOrange.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
                           TextButton(
                             onPressed: () => _confirmCancelBooking(b['id']),
@@ -3700,6 +3710,12 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
           final String rawStatus = (booking['status'] ?? 'confirmed').toString();
           final String displayStatus = rawStatus[0].toUpperCase() + rawStatus.substring(1);
 
+          bool isOpenPlay = booking['is_open_play'] == true || booking['is_open_play'] == 'true' || booking['is_open_play'] == 1 || booking['is_open_play'] == '1';
+          bool isAssume = booking['is_assume'] == true || booking['is_assume'] == 'true' || booking['is_assume'] == 1 || booking['is_assume'] == '1';
+          bool isOpenChallenge = booking['is_open_challenge'] == true || booking['is_open_challenge'] == 'true' || booking['is_open_challenge'] == 1 || booking['is_open_challenge'] == '1';
+          String bStatus = (booking['status'] ?? '').toString().toLowerCase();
+          bool showPasalo = !isOpenPlay && !isAssume && !isOpenChallenge && bStatus != 'cancelled' && bStatus != 'completed';
+
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
             child: Stack(
@@ -3743,11 +3759,25 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
                                         ],
                                       ),
                                     ),
-                                    if (booking['id'] != null)
-                                      Text(
-                                        '#${booking['id']}',
-                                        style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.richBlack.withOpacity(0.7)),
-                                      ),
+                                    Row(
+                                      children: [
+                                        if (isAssume)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                            margin: const EdgeInsets.only(right: 6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.shade900,
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: const Text('PASALO POSTED', style: TextStyle(fontFamily: 'Poppins', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
+                                          ),
+                                        if (booking['id'] != null)
+                                          Text(
+                                            '#${booking['id']}',
+                                            style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.richBlack.withOpacity(0.7)),
+                                          ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
@@ -3790,7 +3820,7 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
                                     GestureDetector(
                                       onTap: () => widget.onView(booking),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 9.5),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                         decoration: BoxDecoration(
                                           color: AppColors.richBlack,
                                           borderRadius: BorderRadius.circular(20),
@@ -3798,19 +3828,33 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
                                         child: const Text('View Details', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.softWhite)),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 6),
                                     GestureDetector(
                                       onTap: () => widget.onGetDirection(booking),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 9.5),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                         decoration: BoxDecoration(
                                           color: Colors.transparent,
                                           borderRadius: BorderRadius.circular(20),
                                           border: Border.all(color: AppColors.richBlack.withOpacity(0.3)),
                                         ),
-                                        child: const Text('Get Direction', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.richBlack)),
+                                        child: const Text('Directions', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.richBlack)),
                                       ),
                                     ),
+                                    if (showPasalo) ...[
+                                      const SizedBox(width: 6),
+                                      GestureDetector(
+                                        onTap: () => widget.onPasalo(booking),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.deepOrange.shade700,
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: const Text('Pasalo', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ],
