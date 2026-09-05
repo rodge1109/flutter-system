@@ -75,56 +75,23 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _enableNightDiscount = widget.court!['is_night_discount_active'] == true || widget.court!['is_night_discount_active'] == 'true' || widget.court!['is_night_discount_active'] == 1;
       _nightDiscountCtrl.text = widget.court!['night_discount_rate']?.toString() ?? '';
 
-      _bookingPolicyCtrl.text = widget.court!['booking_policy'] ?? widget.court!['bookingPolicy'] ?? '';
-      _aboutVenueCtrl.text = widget.court!['about_venue'] ?? widget.court!['aboutVenue'] ?? '';
-      _faqCtrl.text = widget.court!['faq'] ?? widget.court!['faqText'] ?? '';
+      const String defaultPolicy = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
+      const String defaultAbout = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
+      const String defaultFaq = 'Q: Are paddles and balls available for rent or purchase?\nA: Yes! High-quality rental paddles and pickleballs are available at the front desk.\n\nQ: Is on-site parking available for players?\nA: Yes, we provide free dedicated parking directly adjacent to the venue.\n\nQ: What footwear is allowed on the courts?\nA: Only non-marking court or athletic shoes are permitted.\n\nQ: Can I host Open Plays or Pasalo transfers here?\nA: Absolutely! You can post Open Plays or offer Pasalo slots directly through the app.';
 
-      final rawFacilities = widget.court!['facilities'];
-      if (rawFacilities != null) {
-        if (rawFacilities is List) {
-          _selectedFacilities = rawFacilities.map((e) => e.toString()).toList();
-        } else if (rawFacilities is String) {
-          try {
-            _selectedFacilities = List<String>.from(json.decode(rawFacilities));
-          } catch (_) {}
-        }
-        for (var f in _selectedFacilities) {
-          if (!_availableFacilities.contains(f)) {
-            _availableFacilities.add(f);
-          }
-        }
-      }
+      final pol = (widget.court!['booking_policy'] ?? widget.court!['bookingPolicy'] ?? '').toString().trim();
+      _bookingPolicyCtrl.text = pol.isNotEmpty ? pol : defaultPolicy;
 
-      final rawHourly = widget.court!['hourly_prices'];
-      if (rawHourly != null) {
-        List<dynamic> hourlyList = [];
-        if (rawHourly is List) {
-          hourlyList = rawHourly;
-        } else if (rawHourly is String) {
-          try {
-            hourlyList = json.decode(rawHourly);
-          } catch (_) {}
-        }
-        for (var item in hourlyList) {
-          if (item is Map && item['time'] != null && item['price'] != null) {
-            final String timeStr = item['time'].toString();
-            final int hour = int.tryParse(timeStr.split(':')[0]) ?? -1;
-            // 6 AM is part of Day Rate
-            if (hour == 6) {
-              _dayRateCtrl.text = item['price'].toString();
-            }
-            // 6 PM is part of Night Rate
-            else if (hour == 18) {
-              _nightRateCtrl.text = item['price'].toString();
-            }
-          }
-        }
-      }
+      final abt = (widget.court!['about_venue'] ?? widget.court!['aboutVenue'] ?? '').toString().trim();
+      _aboutVenueCtrl.text = abt.isNotEmpty ? abt : defaultAbout;
+
+      final faqVal = (widget.court!['faq'] ?? widget.court!['faqText'] ?? '').toString().trim();
+      _faqCtrl.text = faqVal.isNotEmpty ? faqVal : defaultFaq;
     } else {
       _descCtrl.text = 'Enjoy a fun and active game on our well-maintained pickleball court, perfect for players of all skill levels.';
-      _bookingPolicyCtrl.text = 'Strict 24-hour cancellation notice required. Please arrive 10 minutes prior to your reserved slot.';
-      _aboutVenueCtrl.text = 'Our venue features high-quality professional pickleball courts with proper lighting, comfortable seating, and clean amenities.';
-      _faqCtrl.text = 'Q: Are paddles available for rent?\nA: Yes, paddle and ball rentals are available at the counter.\n\nQ: Is parking available?\nA: On-site parking is available for players.';
+      _bookingPolicyCtrl.text = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
+      _aboutVenueCtrl.text = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
+      _faqCtrl.text = 'Q: Are paddles and balls available for rent or purchase?\nA: Yes! High-quality rental paddles and pickleballs are available at the front desk.\n\nQ: Is on-site parking available for players?\nA: Yes, we provide free dedicated parking directly adjacent to the venue.\n\nQ: What footwear is allowed on the courts?\nA: Only non-marking court or athletic shoes are permitted.\n\nQ: Can I host Open Plays or Pasalo transfers here?\nA: Absolutely! You can post Open Plays or offer Pasalo slots directly through the app.';
     }
   }
 
@@ -518,19 +485,61 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                     ),
 
                     SizedBox(height: 32),
-                    _buildSectionTitle('About This Venue'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildSectionTitle('About This Venue'),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _aboutVenueCtrl.text = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
+                            });
+                          },
+                          icon: Icon(Icons.refresh, size: 14, color: AppColors.primaryGreen),
+                          label: Text('Use Default Template', style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
                     Text('Provide players with background details, rules, and highlights of your court facility.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                     SizedBox(height: 12),
                     _buildTextField('Venue Overview & Highlights', _aboutVenueCtrl, maxLines: 4),
 
                     SizedBox(height: 32),
-                    _buildSectionTitle('Booking Policy'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildSectionTitle('Booking Policy'),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _bookingPolicyCtrl.text = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
+                            });
+                          },
+                          icon: Icon(Icons.refresh, size: 14, color: AppColors.primaryGreen),
+                          label: Text('Use Default Template', style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
                     Text('Specify rules, cancellation windows, and player guidelines for reservations.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                     SizedBox(height: 12),
                     _buildTextField('Rules & Cancellation Policy', _bookingPolicyCtrl, maxLines: 4),
 
                     SizedBox(height: 32),
-                    _buildSectionTitle('Frequently Asked Questions (FAQ)'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildSectionTitle('Frequently Asked Questions (FAQ)'),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _faqCtrl.text = 'Q: Are paddles and balls available for rent or purchase?\nA: Yes! High-quality rental paddles and pickleballs are available at the front desk.\n\nQ: Is on-site parking available for players?\nA: Yes, we provide free dedicated parking directly adjacent to the venue.\n\nQ: What footwear is allowed on the courts?\nA: Only non-marking court or athletic shoes are permitted.\n\nQ: Can I host Open Plays or Pasalo transfers here?\nA: Absolutely! You can post Open Plays or offer Pasalo slots directly through the app.';
+                            });
+                          },
+                          icon: Icon(Icons.refresh, size: 14, color: AppColors.primaryGreen),
+                          label: Text('Use Default Template', style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
                     Text('Add common questions and answers for players (e.g., parking, equipment, attire).', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                     SizedBox(height: 12),
                     _buildTextField('Questions & Answers (e.g. Q: Parking? A: Yes)', _faqCtrl, maxLines: 5),
