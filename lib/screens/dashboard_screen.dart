@@ -60,10 +60,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int get _activeFilterCount => (_filterMaxPrice < 1000 ? 1 : 0) + (_filterMinRating > 0 ? 1 : 0);
   Position? _currentPosition;
 
-  List<Map<String, dynamic>> _getGroupedVenues(List<Map<String, dynamic>> rawCourts) {
+  List<Map<String, dynamic>> _getGroupedVenues(List<dynamic> rawCourts) {
     Map<String, List<Map<String, dynamic>>> venueGroups = {};
 
-    for (var court in rawCourts) {
+    for (var rawItem in rawCourts) {
+      if (rawItem is! Map) continue;
+      Map<String, dynamic> court = Map<String, dynamic>.from(rawItem);
       String rawName = court['name'] ?? 'Court';
       String addr = court['address'] ?? 'Cayang, Bogo';
       
