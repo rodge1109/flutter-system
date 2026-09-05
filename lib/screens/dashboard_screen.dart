@@ -3771,7 +3771,7 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
                                         children: [
                                           const Icon(Icons.calendar_today, size: 10, color: AppColors.richBlack),
                                           const SizedBox(width: 4),
-                                          const Text('My Booking', style: TextStyle(fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.richBlack)),
+                                          Text(isOpenPlay ? 'Open Play' : (isOpenChallenge ? 'Open Challenge' : 'My Booking'), style: const TextStyle(fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.richBlack)),
                                         ],
                                       ),
                                     ),
