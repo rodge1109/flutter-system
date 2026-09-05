@@ -2515,11 +2515,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showBookingDetailDialog(dynamic booking) {
-    bool isOpenPlay = booking['is_open_play'] == true || booking['is_open_play'] == 'true' || booking['is_open_play'] == 1 || booking['is_open_play'] == '1';
     bool isAssume = booking['is_assume'] == true || booking['is_assume'] == 'true' || booking['is_assume'] == 1 || booking['is_assume'] == '1';
-    bool isOpenChallenge = booking['is_open_challenge'] == true || booking['is_open_challenge'] == 'true' || booking['is_open_challenge'] == 1 || booking['is_open_challenge'] == '1';
-    String bStatus = (booking['status'] ?? '').toString().toLowerCase();
-    bool showPasalo = !isOpenPlay && !isAssume && !isOpenChallenge && bStatus != 'cancelled' && bStatus != 'completed';
+    String bStatus = (booking['status'] ?? '').toString().trim().toLowerCase();
+    bool showPasalo = !isAssume && bStatus != 'cancelled' && bStatus != 'completed';
+
+    String formattedDate = booking['appointment_date'] ?? 'N/A';
+    try {
+      if (formattedDate.isNotEmpty && formattedDate != 'N/A') {
+        final parsed = DateTime.parse(formattedDate).toLocal();
+        formattedDate = '${_getWeekdayAbbr(parsed.weekday)}, ${_getMonthAbbr(parsed.month)} ${parsed.day}, ${parsed.year}';
+      }
+    } catch (_) {}
 
     showDialog(
       context: context,
@@ -2534,7 +2540,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text('Booking #${booking['id']}', style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 8),
             ],
-            Text('Date: ${booking['appointment_date'] ?? 'N/A'}'),
+            Text('Date: $formattedDate'),
             SizedBox(height: 8),
             Text('Time: ${booking['appointment_time'] ?? 'N/A'}'),
             SizedBox(height: 8),
@@ -2543,14 +2549,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text('Amount: P${booking['total_amount'] ?? booking['amount'] ?? '0'}'),
             SizedBox(height: 8),
             Text('Status: ${(booking['status'] ?? 'Confirmed').toString().replaceAll('confirmed', 'Confirmed').replaceAll('pending', 'Pending')}', style: TextStyle(color: AppColors.accentLime, fontWeight: FontWeight.bold)),
-            if (booking['is_assume'] == true || booking['is_assume'] == 1 || booking['is_assume'] == '1' || booking['is_assume'] == 'true') ...[
+            if (isAssume) ...[
               SizedBox(height: 8),
               Text('Pasalo Price: P${booking['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
             ],
           ],
         ),
         actions: [
-          if (booking['is_open_play']?.toString() == 'true')
+          if (booking['is_open_play']?.toString() == 'true' || booking['is_open_play'] == true || booking['is_open_play'] == 1)
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
@@ -2559,20 +2565,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Text('Edit Open Play', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
             ),
           if (showPasalo)
-            TextButton(
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepOrange.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               onPressed: () {
                 Navigator.pop(context);
                 _showPostPasaloDialog(booking);
               },
-              child: Text('Post for Pasalo', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+              child: Text('POST FOR PASALO', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-          if (booking['is_assume']?.toString() == 'true')
-            TextButton(
+          if (isAssume)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               onPressed: () {
                 Navigator.pop(context);
                 _showPasaloRequestsDialog(booking);
               },
-              child: Text('View Pasalo Requests', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
+              child: Text('VIEW PASALO REQUESTS', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           TextButton(
             onPressed: () => Navigator.pop(context),
