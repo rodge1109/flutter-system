@@ -51,13 +51,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _unreadCount = 0;
   int _unreadMessageCount = 0;
   bool _isLoading = true;
-  int _selectedNavIndex = 0; // 0: Home, 1: Courts, 2: Bookings, 3: Profile
+  String _selectedSportCategory = 'ALL'; // 'ALL', 'Pickleball', 'Tennis'
   Set<String> _favoriteCourts = {};
   String _searchQuery = '';
   double _filterMaxPrice = 1000;
   double _filterMinRating = 0;
   int get _activeFilterCount => (_filterMaxPrice < 1000 ? 1 : 0) + (_filterMinRating > 0 ? 1 : 0);
   Position? _currentPosition;
+
+  List<Map<String, dynamic>> _getGroupedVenues(List<Map<String, dynamic>> rawCourts) {
+    Map<String, List<Map<String, dynamic>>> venueGroups = {};
+
+    for (var court in rawCourts) {
+      String rawName = court['name'] ?? 'Court';
+      String addr = court['address'] ?? 'Cayang, Bogo';
+      
+      String cleanVenueName = rawName
+          .replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '')
+          .trim();
+      if (cleanVenueName.isEmpty || cleanVenueName.toLowerCase() == 'court') {
+        cleanVenueName = addr.isNotEmpty ? addr : 'Pickleball & Tennis Venue';
+      }
+
+      String venueKey = cleanVenueName.toLowerCase();
+
+      if (!venueGroups.containsKey(venueKey)) {
+        venueGroups[venueKey] = [];
+      }
+      venueGroups[venueKey]!.add(court);
+    }
+
+    List<Map<String, dynamic>> venueList = [];
+
+    venueGroups.forEach((key, courtList) {
+      final first = courtList.first;
+      
+      Set<String> sportsSet = {};
+      for (var c in courtList) {
+        String desc = (c['description'] ?? '').toString().toLowerCase();
+        String name = (c['name'] ?? '').toString().toLowerCase();
+        if (name.contains('tennis') || desc.contains('tennis')) {
+          sportsSet.add('Tennis');
+        }
+        if (name.contains('pickle') || desc.contains('pickle') || !name.contains('tennis')) {
+          sportsSet.add('Pickleball');
+        }
+      }
+      if (sportsSet.isEmpty) sportsSet.add('Pickleball');
+
+      double lowestPrice = 9999;
+      for (var c in courtList) {
+        double p = double.tryParse((c['price'] ?? '300').toString().replaceAll(RegExp(r'[^0-9.]'), '')) ?? 300;
+        if (p < lowestPrice) lowestPrice = p;
+      }
+      if (lowestPrice == 9999) lowestPrice = 300;
+
+      String vTitle = first['name'] ?? 'Venue';
+      if (courtList.length > 1) {
+        vTitle = first['name'].replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '').trim();
+        if (vTitle.isEmpty) vTitle = first['address'] ?? 'Sports Venue';
+      }
+
+      venueList.add({
+        'venueKey': key,
+        'venueName': vTitle,
+        'address': first['address'] ?? 'Cayang, Bogo',
+        'image': first['image'],
+        'logo_url': first['logo_url'] ?? first['logo'],
+        'rating': first['rating'] ?? '4.8',
+        'distance': first['distance'] ?? '2.0 km away',
+        'basePrice': lowestPrice.toInt().toString(),
+        'sports': sportsSet.toList(),
+        'courts': courtList,
+        'latitude': first['latitude'],
+        'longitude': first['longitude'],
+        'aboutVenue': first['aboutVenue'] ?? first['about_venue'],
+        'bookingPolicy': first['bookingPolicy'] ?? first['booking_policy'],
+        'faq': first['faq'],
+      });
+    });
+
+    return venueList;
+  }
 
   // Initial fallback nearby courts matching actual database records
   final List<Map<String, dynamic>> _sampleCourts = [
@@ -737,15 +812,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Home feed tab (Index 0)
     final firstName = _userName.split(' ').first;
     final allCourts = _courtsList.isNotEmpty ? _courtsList : _sampleCourts;
-    final filteredCourts = allCourts.where((c) {
-      final name = (c['name'] ?? '').toString().toLowerCase();
-      final address = (c['address'] ?? '').toString().toLowerCase();
-      final price = double.tryParse((c['price'] ?? '9999').toString().replaceAll(RegExp(r'[^0-9.]'), '')) ?? 9999;
-      final rating = double.tryParse((c['rating'] ?? '0').toString()) ?? 0;
-      final matchesSearch = _searchQuery.isEmpty || name.contains(_searchQuery) || address.contains(_searchQuery);
+    
+    // Group courts by venue
+    final groupedVenues = _getGroupedVenues(allCourts);
+
+    // Filter grouped venues
+    final filteredVenues = groupedVenues.where((v) {
+      final vName = (v['venueName'] ?? '').toString().toLowerCase();
+      final address = (v['address'] ?? '').toString().toLowerCase();
+      final price = double.tryParse((v['basePrice'] ?? '9999').toString()) ?? 9999;
+      final rating = double.tryParse((v['rating'] ?? '0').toString()) ?? 0;
+      final sports = (v['sports'] as List<dynamic>?)?.map((s) => s.toString()).toList() ?? [];
+
+      final matchesSearch = _searchQuery.isEmpty || vName.contains(_searchQuery) || address.contains(_searchQuery);
       final matchesPrice = price <= _filterMaxPrice;
       final matchesRating = rating >= _filterMinRating;
-      return matchesSearch && matchesPrice && matchesRating;
+      
+      bool matchesCategory = true;
+      if (_selectedSportCategory == 'Pickleball') {
+        matchesCategory = sports.contains('Pickleball') || vName.contains('pickle') || address.contains('pickle');
+      } else if (_selectedSportCategory == 'Tennis') {
+        matchesCategory = sports.contains('Tennis') || vName.contains('tennis') || address.contains('tennis');
+      }
+
+      return matchesSearch && matchesPrice && matchesRating && matchesCategory;
     }).toList();
 
     return Column(
@@ -777,132 +867,151 @@ class _DashboardScreenState extends State<DashboardScreen> {
               SizedBox(height: 24),
 
               // Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-              color: AppColors.softWhite,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.richBlack.withOpacity(0.02),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Search courts or locations',
-                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
-                suffixIcon: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.tune, color: _activeFilterCount > 0 ? Color(0xFF8E24AA) : AppColors.richBlack),
-                      onPressed: () => _showFilterSheet(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                  color: AppColors.softWhite,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.richBlack.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
                     ),
-                    if (_activeFilterCount > 0)
-                      Positioned(
-                        top: 8, right: 8,
-                        child: Container(
-                          width: 16, height: 16,
-                          decoration: const BoxDecoration(color: Color(0xFFD81B60), shape: BoxShape.circle),
-                          child: Center(
-                            child: Text('$_activeFilterCount', style: const TextStyle(color: AppColors.softWhite, fontSize: 9, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                child: TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Search venues, courts or locations',
+                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                    prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
+                    suffixIcon: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.tune, color: _activeFilterCount > 0 ? Color(0xFF8E24AA) : AppColors.richBlack),
+                          onPressed: () => _showFilterSheet(),
+                        ),
+                        if (_activeFilterCount > 0)
+                          Positioned(
+                            top: 8, right: 8,
+                            child: Container(
+                              width: 16, height: 16,
+                              decoration: const BoxDecoration(color: Color(0xFFD81B60), shape: BoxShape.circle),
+                              child: Center(
+                                child: Text('$_activeFilterCount', style: const TextStyle(color: AppColors.softWhite, fontSize: 9, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               ),
-            ),
-          ),
-          ),
+              ),
 
-              SizedBox(height: 24),
+              SizedBox(height: 16),
+
+              // Sport Category Selector Bar (SEE ALL, Pickleball, Tennis)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildSportCategoryChip('ALL', '🎾 SEE ALL'),
+                      SizedBox(width: 8),
+                      _buildSportCategoryChip('Pickleball', '🏓 Pickleball'),
+                      SizedBox(width: 8),
+                      _buildSportCategoryChip('Tennis', '🎾 Tennis'),
+                    ],
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 16),
               Expanded(
                 child: SingleChildScrollView(
             padding: EdgeInsets.only(bottom: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Nearby Courts Header
+                // Nearby Venues Header
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-              Text(
-                'Nearby Courts',
-                style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
-              ),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _selectedNavIndex = 1;
-                  });
-                },
-                child: Row(
-                  children: [
-                    Text(
-                      'See All ',
-                      style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack),
-                    ),
-                    Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.richBlack),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          ),
-
-          SizedBox(height: 16),
-
-          // Nearby Courts Horizontal List
-          SizedBox(
-            height: 250,
-            child: filteredCourts.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
-                        SizedBox(height: 8),
-                        Text('No courts found for "$_searchQuery"',
-                            style: TextStyle(fontFamily: 'Poppins', color: Colors.grey.shade500, fontSize: 14)),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: filteredCourts.length,
-                    separatorBuilder: (context, index) => SizedBox(width: 16),
-                    itemBuilder: (context, index) {
-                      final court = filteredCourts[index];
-                      final String courtId = court['id'] ?? index.toString();
-                      final bool isFav = _favoriteCourts.contains(courtId);
-                      return _buildCourtCard(court, courtId, isFav);
-                    },
+                      Text(
+                        'Nearby Venues',
+                        style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedNavIndex = 1;
+                          });
+                        },
+                        child: Row(
+                          children: [
+                            Text(
+                              'See All ',
+                              style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                            ),
+                            Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.richBlack),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-          ),
+                ),
+
+                SizedBox(height: 16),
+
+                // Nearby Venues Horizontal List
+                SizedBox(
+                  height: 250,
+                  child: filteredVenues.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                              SizedBox(height: 8),
+                              Text('No venues found for "$_searchQuery"',
+                                  style: TextStyle(fontFamily: 'Poppins', color: Colors.grey.shade500, fontSize: 14)),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: filteredVenues.length,
+                          separatorBuilder: (context, index) => SizedBox(width: 16),
+                          itemBuilder: (context, index) {
+                            final venue = filteredVenues[index];
+                            final String venueId = venue['venueKey'] ?? index.toString();
+                            final bool isFav = _favoriteCourts.contains(venueId);
+                            return _buildVenueCard(venue, venueId, isFav);
+                          },
+                        ),
+                ),
 
           SizedBox(height: 24),
 
@@ -3698,6 +3807,390 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
       ],
+    );
+  Widget _buildSportCategoryChip(String catKey, String label) {
+    final bool isSelected = _selectedSportCategory == catKey;
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 12,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          color: isSelected ? AppColors.softWhite : AppColors.richBlack,
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: AppColors.primaryGreen,
+      backgroundColor: Colors.white,
+      elevation: isSelected ? 2 : 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: isSelected ? AppColors.primaryGreen : Colors.grey.shade300),
+      ),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() {
+            _selectedSportCategory = catKey;
+          });
+        }
+      },
+    );
+  }
+
+  Widget _buildVenueCard(Map<String, dynamic> venue, String venueId, bool isFav) {
+    final List<dynamic> courts = venue['courts'] ?? [];
+    final List<dynamic> sports = venue['sports'] ?? ['Pickleball'];
+
+    return Container(
+      width: 200,
+      decoration: BoxDecoration(
+        color: AppColors.softWhite,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 8, offset: Offset(0, 4)),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          _showVenueBookingModal(context, venue);
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Image Header
+            Container(
+              width: double.infinity,
+              height: 100,
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen,
+                image: venue['image'] != null && venue['image'].toString().isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(venue['image']),
+                        fit: BoxFit.cover,
+                        colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
+                      )
+                    : null,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          CustomPaddleIcon(color: AppColors.softWhite, size: 14),
+                          SizedBox(width: 4),
+                          Text(venue['rating'] ?? '4.8', style: TextStyle(color: AppColors.softWhite, fontSize: 11, fontWeight: FontWeight.bold)),
+                          Icon(Icons.star, color: Colors.amber, size: 11),
+                        ],
+                      ),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            if (isFav) {
+                              _favoriteCourts.remove(venueId);
+                            } else {
+                              _favoriteCourts.add(venueId);
+                            }
+                          });
+                        },
+                        child: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          color: isFav ? Colors.red : AppColors.softWhite,
+                          size: 14,
+                        ),
+                      )
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      if (venue['logo_url'] != null && venue['logo_url'].toString().trim().isNotEmpty) ...[
+                        Container(
+                          width: 22,
+                          height: 22,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: ClipOval(
+                            child: Image.network(
+                              venue['logo_url'].toString().trim(),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(Icons.business, size: 12, color: AppColors.primaryGreen),
+                            ),
+                          ),
+                        ),
+                      ],
+                      Expanded(
+                        child: Text(
+                          venue['venueName'] ?? 'Venue',
+                          style: TextStyle(color: AppColors.softWhite, fontSize: 12, fontWeight: FontWeight.bold),
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            // 2. Highlight Strip (Court Count & Price)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              color: Color(0xFFE8F5E9),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${courts.length} ${courts.length == 1 ? 'Court' : 'Courts'} Available',
+                    style: TextStyle(color: AppColors.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'From P${venue['basePrice']}/hr',
+                    style: TextStyle(color: AppColors.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            
+            // 3. White Body
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      venue['address'] ?? 'Cayang, Bogo',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.richBlack),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4),
+                    Wrap(
+                      spacing: 4,
+                      children: sports.map<Widget>((sp) {
+                        return Container(
+                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
+                          child: Text(
+                            sp == 'Pickleball' ? '🏓 Pickleball' : '🎾 Tennis',
+                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.deepTeal),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    Spacer(),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 32,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _showVenueBookingModal(context, venue);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryGreen,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: EdgeInsets.zero,
+                        ),
+                        child: const Text('Book Court', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showVenueBookingModal(BuildContext context, Map<String, dynamic> venue) {
+    final List<dynamic> courts = venue['courts'] ?? [];
+    int selectedCourtIndex = 0;
+    String selectedSlot = '';
+    
+    if (courts.isNotEmpty) {
+      final firstSlots = courts[0]['slots'] as List<dynamic>?;
+      if (firstSlots != null && firstSlots.isNotEmpty) {
+        selectedSlot = firstSlots.first.toString();
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final selectedCourt = courts.isNotEmpty ? courts[selectedCourtIndex] : venue;
+            final List<dynamic> slots = selectedCourt['slots'] ?? ['8:00 AM', '10:00 AM', '1:00 PM', '4:00 PM'];
+            final String price = selectedCourt['price'] ?? venue['basePrice'] ?? '300';
+            
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.softWhite,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              height: MediaQuery.of(ctx).size.height * 0.82,
+              padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Row(
+                    children: [
+                      if (venue['logo_url'] != null && venue['logo_url'].toString().trim().isNotEmpty) ...[
+                        ClipOval(
+                          child: Image.network(venue['logo_url'], width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(Icons.business, size: 28, color: AppColors.primaryGreen)),
+                        ),
+                        SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(venue['venueName'] ?? 'Venue', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+                            SizedBox(height: 2),
+                            Text(venue['address'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                      IconButton(icon: Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  Divider(height: 1),
+                  SizedBox(height: 16),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('1. Select Court to Rent', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.deepTeal)),
+                          SizedBox(height: 10),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: List.generate(courts.length, (idx) {
+                              final c = courts[idx];
+                              final bool isSelected = idx == selectedCourtIndex;
+                              return ChoiceChip(
+                                label: Text(
+                                  c['name'] ?? 'Court ${idx + 1}',
+                                  style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : AppColors.richBlack),
+                                ),
+                                selected: isSelected,
+                                selectedColor: AppColors.primaryGreen,
+                                backgroundColor: Colors.grey.shade100,
+                                onSelected: (val) {
+                                  if (val) {
+                                    setModalState(() {
+                                      selectedCourtIndex = idx;
+                                      final sList = c['slots'] as List<dynamic>?;
+                                      if (sList != null && sList.isNotEmpty) {
+                                        selectedSlot = sList.first.toString();
+                                      }
+                                    });
+                                  }
+                                },
+                              );
+                            }),
+                          ),
+                          SizedBox(height: 24),
+                          Text('2. Select Available Timeslot', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.deepTeal)),
+                          SizedBox(height: 10),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: slots.map<Widget>((s) {
+                              final slotStr = s.toString();
+                              final bool isSelected = slotStr == selectedSlot;
+                              return ChoiceChip(
+                                label: Text(
+                                  slotStr,
+                                  style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : AppColors.richBlack),
+                                ),
+                                selected: isSelected,
+                                selectedColor: AppColors.primaryGreen,
+                                backgroundColor: Colors.grey.shade100,
+                                onSelected: (val) {
+                                  if (val) {
+                                    setModalState(() {
+                                      selectedSlot = slotStr;
+                                    });
+                                  }
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          SizedBox(height: 24),
+                          if (venue['aboutVenue'] != null && venue['aboutVenue'].toString().trim().isNotEmpty) ...[
+                            Text('About Venue', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                            SizedBox(height: 6),
+                            Text(venue['aboutVenue'].toString(), style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                            SizedBox(height: 16),
+                          ],
+                          if (venue['bookingPolicy'] != null && venue['bookingPolicy'].toString().trim().isNotEmpty) ...[
+                            Text('Booking Policy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                            SizedBox(height: 6),
+                            Text(venue['bookingPolicy'].toString(), style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                            SizedBox(height: 16),
+                          ],
+                          if (venue['faq'] != null && venue['faq'].toString().trim().isNotEmpty) ...[
+                            Text('Frequently Asked Questions (FAQ)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                            SizedBox(height: 6),
+                            Text(venue['faq'].toString(), style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                            SizedBox(height: 16),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _navigateToBookingScreen(
+                          initialServiceName: selectedCourt['name'] ?? venue['venueName'],
+                          skipServiceSelection: true,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text(
+                        'Rent ${selectedCourt['name']} — P$price/hr',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
