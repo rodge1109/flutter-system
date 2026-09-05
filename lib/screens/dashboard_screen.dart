@@ -50,6 +50,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> _outgoingPasaloRequests = [];
   int _unreadCount = 0;
   int _unreadMessageCount = 0;
+  int _selectedNavIndex = 0;
   bool _isLoading = true;
   String _selectedSportCategory = 'ALL'; // 'ALL', 'Pickleball', 'Tennis'
   Set<String> _favoriteCourts = {};
@@ -214,13 +215,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _navigateToBookingScreen({String? initialServiceName, bool skipServiceSelection = false}) async {
+  Future<void> _navigateToBookingScreen({String? initialServiceName, bool skipServiceSelection = false, String? initialTime}) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => BookingScreen(
           initialServiceName: initialServiceName,
           skipServiceSelection: skipServiceSelection,
+          initialTime: initialTime,
         ),
       ),
     );
@@ -3808,6 +3810,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
       ],
     );
+  }
+
   Widget _buildSportCategoryChip(String catKey, String label) {
     final bool isSelected = _selectedSportCategory == catKey;
     return ChoiceChip(
