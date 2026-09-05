@@ -167,14 +167,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final userStr = prefs.getString('user');
     if (userStr != null) {
       final userObj = json.decode(userStr);
+      final email = userObj['email'] ?? '';
       setState(() {
         _userName = userObj['full_name'] ?? 'Roger';
-        _userEmail = userObj['email'] ?? '';
+        _userEmail = email;
       });
-      _fetchBookings(_userEmail);
-      _fetchBookings(_userEmail);
-      _fetchUnreadNotifications(_userEmail);
-      _fetchUnreadMessages(_userEmail);
+
+      // ── Load cached bookings instantly so UI shows immediately ──
+      final cachedBookingsStr = prefs.getString('cached_bookings_$email');
+      if (cachedBookingsStr != null) {
+        try {
+          final cachedList = json.decode(cachedBookingsStr) as List<dynamic>;
+          _applyBookings(cachedList);
+        } catch (_) {}
+      }
+
+      // ── Then fetch fresh data from server in background ──
+      _fetchBookings(email);
+      _fetchUnreadNotifications(email);
+      _fetchUnreadMessages(email);
       _fetchCourts();
       _fetchOpenPlays();
       _fetchOpenChallenges();
@@ -454,19 +465,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  Future<void> _fetchBookings(String email) async {
-    print('Fetching bookings for email: $email');
-    final bookings = await _apiService.fetchUserBookings(email);
-
-    // If null, it means a network/server error — don't wipe the existing list
-    if (bookings == null) {
-      print('fetchUserBookings returned null (server error), keeping existing data');
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-
-    print('Fetched ${bookings.length} raw bookings');
-    
+  // Applies a raw bookings list to state (used for both cache and live data)
+  void _applyBookings(List<dynamic> bookings) {
     final now = DateTime.now();
     final upcoming = [];
     final past = [];
@@ -476,20 +476,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       try {
         String dateString = b['appointment_date'].toString().substring(0, 10);
         final timeStr = b['appointment_time'];
-        
         String timeString = timeStr.toString().trim();
         int hour = int.parse(timeString.split(':')[0]);
         int minute = int.parse(timeString.split(':')[1].substring(0, 2));
         bool isPM = timeString.toUpperCase().contains('PM');
-        
         if (isPM && hour < 12) hour += 12;
         if (!isPM && hour == 12) hour = 0;
-        
-        String hourStr = hour.toString().padLeft(2, '0');
-        String minStr = minute.toString().padLeft(2, '0');
-        
-        final dt = DateTime.parse('$dateString $hourStr:$minStr:00');
-        
+        final dt = DateTime.parse('${dateString} ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:00');
         if (dt.isAfter(now)) {
           upcoming.add(b);
         } else {
@@ -500,13 +493,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
-    print('Upcoming bookings length: ${upcoming.length}');
-    print('Past bookings length: ${past.length}');
-    setState(() {
-      _upcomingBookings = upcoming.reversed.toList();
-      _pastBookings = past;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _upcomingBookings = upcoming.reversed.toList();
+        _pastBookings = past;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchBookings(String email) async {
+    print('Fetching bookings for email: $email');
+    final bookings = await _apiService.fetchUserBookings(email);
+
+    // If null, it means a network/server error — keep existing (cached) data
+    if (bookings == null) {
+      print('fetchUserBookings returned null (server error), keeping existing data');
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    print('Fetched ${bookings.length} raw bookings');
+
+    // ── Save to local cache so next refresh is instant ──
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_bookings_$email', json.encode(bookings));
+    } catch (_) {}
+
+    _applyBookings(bookings);
   }
 
   String _getMonthAbbr(int month) {
