@@ -27,6 +27,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   final _nightRateCtrl = TextEditingController();
   final _openTimeCtrl = TextEditingController(text: '00:00');
   final _closeTimeCtrl = TextEditingController(text: '23:59');
+  final _logoUrlCtrl = TextEditingController();
   final ApiService _apiService = ApiService();
   
   final List<String> _availableFacilities = [
@@ -55,6 +56,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _nightRateCtrl.text = widget.court!['base_price']?.toString() ?? '';
       _openTimeCtrl.text = widget.court!['open_time'] ?? '00:00';
       _closeTimeCtrl.text = widget.court!['close_time'] ?? '23:59';
+      _logoUrlCtrl.text = widget.court!['logo_url'] ?? widget.court!['logo'] ?? '';
 
       final rawFacilities = widget.court!['facilities'];
       if (rawFacilities != null) {
@@ -109,6 +111,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     _nightRateCtrl.dispose();
     _openTimeCtrl.dispose();
     _closeTimeCtrl.dispose();
+    _logoUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -146,6 +149,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'facilities': _selectedFacilities,
       'openTime': _openTimeCtrl.text,
       'closeTime': _closeTimeCtrl.text,
+      'logoUrl': _logoUrlCtrl.text.trim(),
     };
 
     final Map<String, dynamic> res;
@@ -231,6 +235,32 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                     ),
                     SizedBox(height: 16),
                     _buildTextField('Description', _descCtrl, maxLines: 3),
+                    SizedBox(height: 16),
+                    _buildTextField('Court / Business Logo Image URL (Optional)', _logoUrlCtrl),
+                    if (_logoUrlCtrl.text.trim().isNotEmpty) ...[
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.primaryGreen, width: 1.5),
+                            ),
+                            child: ClipOval(
+                              child: Image.network(
+                                _logoUrlCtrl.text.trim(),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 18, color: Colors.grey),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text('Logo Preview', style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ],
                     SizedBox(height: 16),
                     _buildSectionTitle('Pricing Setup'),
                     Text('Set your standard rates. The system will automatically apply the correct price based on the booked time.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),

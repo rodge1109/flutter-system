@@ -2057,10 +2057,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   SizedBox(height: 8),
-                  Text(
-                    court['name'] ?? 'Court',
-                    style: TextStyle(color: AppColors.softWhite, fontSize: 12, fontWeight: FontWeight.bold),
-                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      if (court['logo_url'] != null && court['logo_url'].toString().trim().isNotEmpty) ...[
+                        Container(
+                          width: 22,
+                          height: 22,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: ClipOval(
+                            child: Image.network(
+                              court['logo_url'].toString().trim(),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(Icons.business, size: 12, color: AppColors.primaryGreen),
+                            ),
+                          ),
+                        ),
+                      ] else if (court['logo'] != null && court['logo'].toString().trim().isNotEmpty) ...[
+                        Container(
+                          width: 22,
+                          height: 22,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: ClipOval(
+                            child: Image.network(
+                              court['logo'].toString().trim(),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(Icons.business, size: 12, color: AppColors.primaryGreen),
+                            ),
+                          ),
+                        ),
+                      ],
+                      Expanded(
+                        child: Text(
+                          court['name'] ?? 'Court',
+                          style: TextStyle(color: AppColors.softWhite, fontSize: 12, fontWeight: FontWeight.bold),
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
