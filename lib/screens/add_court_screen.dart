@@ -1,6 +1,7 @@
 import 'package:flutter_project/theme/app_colors.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/api_service.dart';
 import 'map_picker_screen.dart';
@@ -41,6 +42,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   List<String> _selectedFacilities = [];
   
   bool _isSaving = false;
+  bool _isUploadingLogo = false;
 
   @override
   void initState() {
@@ -113,6 +115,42 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     _closeTimeCtrl.dispose();
     _logoUrlCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadLogo() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() => _isUploadingLogo = true);
+        final String? uploadedUrl = await _apiService.uploadImageToCloudinary(pickedFile);
+        setState(() => _isUploadingLogo = false);
+
+        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+          setState(() {
+            _logoUrlCtrl.text = uploadedUrl;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Logo uploaded to Cloudinary successfully!'), backgroundColor: AppColors.primaryGreen)
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to upload image to Cloudinary.'), backgroundColor: Colors.red)
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isUploadingLogo = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e'), backgroundColor: Colors.red)
+      );
+    }
   }
 
   Future<void> _saveCourt() async {
@@ -235,29 +273,54 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                     ),
                     SizedBox(height: 16),
                     _buildTextField('Description', _descCtrl, maxLines: 3),
-                    SizedBox(height: 16),
-                    _buildTextField('Court / Business Logo Image URL (Optional)', _logoUrlCtrl),
+                    SizedBox(height: 24),
+                    _buildSectionTitle('Court / Business Logo'),
+                    Text('Upload your court or business logo from your phone or device directly to your Cloudinary account.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isUploadingLogo ? null : _pickAndUploadLogo,
+                      icon: _isUploadingLogo 
+                        ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.softWhite))
+                        : Icon(Icons.cloud_upload, color: AppColors.softWhite),
+                      label: Text(_isUploadingLogo ? 'Uploading to Cloudinary...' : 'Upload Logo from Phone / Device', style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    _buildTextField('Logo Image URL', _logoUrlCtrl),
                     if (_logoUrlCtrl.text.trim().isNotEmpty) ...[
                       SizedBox(height: 8),
                       Row(
                         children: [
                           Container(
-                            width: 36,
-                            height: 36,
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.primaryGreen, width: 1.5),
+                              border: Border.all(color: AppColors.primaryGreen, width: 2),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black12, blurRadius: 4),
+                              ],
                             ),
                             child: ClipOval(
                               child: Image.network(
                                 _logoUrlCtrl.text.trim(),
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 18, color: Colors.grey),
+                                errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 20, color: Colors.grey),
                               ),
                             ),
                           ),
-                          SizedBox(width: 8),
-                          Text('Logo Preview', style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w500)),
+                          SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Logo Active', style: TextStyle(color: AppColors.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+                              Text('Hosted on Cloudinary', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                            ],
+                          ),
                         ],
                       ),
                     ],

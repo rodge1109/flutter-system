@@ -1044,4 +1044,30 @@ class ApiService {
       return null;
     }
   }
+
+  // Upload image (XFile or File) to Cloudinary via backend endpoint
+  Future<String?> uploadImageToCloudinary(dynamic imageFile) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/staff/upload'));
+      if (kIsWeb) {
+        final bytes = await imageFile.readAsBytes();
+        final fileName = imageFile.name ?? 'upload_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+      } else {
+        request.files.add(await http.MultipartFile.fromPath('file', imageFile.path));
+      }
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['url'] != null) {
+          return data['url'].toString();
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Cloudinary upload error: $e');
+      return null;
+    }
+  }
 }
