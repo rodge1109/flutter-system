@@ -941,13 +941,33 @@ class _BookingScreenState extends State<BookingScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        time.toUpperCase().contains('AM') ? Icons.wb_sunny_outlined : Icons.nights_stay_outlined,
+                                        size: 13,
+                                        color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.deepTeal),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        displayTime,
+                                        style: TextStyle(
+                                          color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.richBlack),
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                          decoration: null,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 2),
                                   Text(
-                                    displayTime,
+                                    time.toUpperCase().contains('AM') ? 'Morning' : 'Aft/Eve',
                                     style: TextStyle(
-                                      color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.richBlack),
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                      decoration: null,
-                                      fontSize: 12,
+                                      color: isSelected ? AppColors.softWhite.withOpacity(0.7) : (isDisabled ? Colors.grey.shade300 : Colors.grey.shade500),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                   SizedBox(height: 2),

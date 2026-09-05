@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 void main() async {
-  final email = 'rodge.tonacao@gmail.com';
-  final url = 'http://localhost:5000/api/user/bookings/${Uri.encodeComponent(email)}';
+  final email = 'roger@rogertonacao.com';
+  final url = 'https://pickle-system.onrender.com/api/user/bookings/${Uri.encodeComponent(email)}';
   
   try {
     final res = await http.get(Uri.parse(url));
@@ -20,12 +20,8 @@ void main() async {
     for (var b in bookings) {
       if (b['status'] == 'cancelled') continue;
       try {
-        final dateStr = b['appointment_date'];
+        String dateString = b['appointment_date'].toString().substring(0, 10);
         final timeStr = b['appointment_time'];
-        
-        DateTime parsedUtc = DateTime.parse(dateStr.toString());
-        DateTime localDate = parsedUtc.toLocal();
-        String dateString = '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
         
         String timeString = timeStr.toString().trim();
         int hour = int.parse(timeString.split(':')[0]);
@@ -46,6 +42,7 @@ void main() async {
           past.add(b);
         }
       } catch (e) {
+        print('Caught error for booking ${b['id']}: $e');
         upcoming.add(b);
       }
     }
@@ -54,7 +51,7 @@ void main() async {
     print('Past count: ${past.length}');
     
     for (var b in upcoming) {
-      print('UPCOMING: ${b['appointment_date']} ${b['appointment_time']}');
+      print('UPCOMING: ${b['appointment_date']} ${b['appointment_time']} STATUS: "${b['status']}"');
     }
     for (var b in past) {
       print('PAST: ${b['appointment_date']} ${b['appointment_time']}');
