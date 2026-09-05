@@ -753,7 +753,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 110),
+            SizedBox(height: 100),
 
           // My Next Booking Card
           _buildNextBookingCard(),
