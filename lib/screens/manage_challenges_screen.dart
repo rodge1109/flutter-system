@@ -39,7 +39,9 @@ class _ManageChallengesScreenState extends State<ManageChallengesScreen> {
       final plays = await _apiService.fetchUserBookings(_userEmail!);
       if (mounted) {
         setState(() {
-          _myChallenges = plays.where((p) => p['is_open_challenge'] == true && p['status'] != 'cancelled').cast<Map<String, dynamic>>().toList();
+          if (plays != null) {
+            _myChallenges = plays.where((p) => p['is_open_challenge'] == true && p['status'] != 'cancelled').cast<Map<String, dynamic>>().toList();
+          }
           _isLoading = false;
         });
       }
