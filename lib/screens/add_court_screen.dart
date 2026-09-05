@@ -49,9 +49,11 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     'Seating'
   ];
   List<String> _selectedFacilities = [];
+  List<String> _courtPhotos = [];
   
   bool _isSaving = false;
   bool _isUploadingLogo = false;
+  bool _isUploadingPhoto = false;
 
   @override
   void initState() {
@@ -74,6 +76,15 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       
       _enableNightDiscount = widget.court!['is_night_discount_active'] == true || widget.court!['is_night_discount_active'] == 'true' || widget.court!['is_night_discount_active'] == 1;
       _nightDiscountCtrl.text = widget.court!['night_discount_rate']?.toString() ?? '';
+
+      final rawImages = widget.court!['images'] ?? widget.court!['photos'] ?? [];
+      List<dynamic> parsedImages = [];
+      if (rawImages is String) {
+        try { parsedImages = json.decode(rawImages); } catch (_) {}
+      } else if (rawImages is List) {
+        parsedImages = rawImages;
+      }
+      _courtPhotos = parsedImages.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
 
       const String defaultPolicy = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
       const String defaultAbout = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
@@ -117,38 +128,115 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     super.dispose();
   }
 
-  Future<void> _pickAndUploadLogo() async {
+  void _showImageSourceActionSheet({required bool isLogo}) {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (BuildContext ctx) {
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(isLogo ? Icons.business : Icons.photo_camera, color: AppColors.primaryGreen),
+                  SizedBox(width: 10),
+                  Text(
+                    isLogo ? 'Select Logo Source' : 'Select Court Photo Source',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Color(0xFFE2F999), shape: BoxShape.circle),
+                  child: Icon(Icons.camera_alt, color: AppColors.primaryGreen),
+                ),
+                title: Text('Take Photo with Camera', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('Snap a new photo directly from your phone camera', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadImage(ImageSource.camera, isLogo: isLogo);
+                },
+              ),
+              Divider(),
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Colors.blue.shade50, shape: BoxShape.circle),
+                  child: Icon(Icons.photo_library, color: Colors.blue.shade700),
+                ),
+                title: Text('Choose from Photo Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('Select existing photos from your phone album', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadImage(ImageSource.gallery, isLogo: isLogo);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndUploadImage(ImageSource source, {required bool isLogo}) async {
     try {
       final picker = ImagePicker();
       final XFile? pickedFile = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
         imageQuality: 85,
       );
 
       if (pickedFile != null) {
-        setState(() => _isUploadingLogo = true);
+        if (isLogo) {
+          setState(() => _isUploadingLogo = true);
+        } else {
+          setState(() => _isUploadingPhoto = true);
+        }
+
         final String? uploadedUrl = await _apiService.uploadImageToCloudinary(pickedFile);
-        setState(() => _isUploadingLogo = false);
+
+        if (isLogo) {
+          setState(() => _isUploadingLogo = false);
+        } else {
+          setState(() => _isUploadingPhoto = false);
+        }
 
         if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
           setState(() {
-            _logoUrlCtrl.text = uploadedUrl;
+            if (isLogo) {
+              _logoUrlCtrl.text = uploadedUrl;
+            } else {
+              _courtPhotos.add(uploadedUrl);
+            }
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Logo uploaded to Cloudinary successfully!'), backgroundColor: AppColors.primaryGreen)
+            SnackBar(
+              content: Text(isLogo ? 'Logo uploaded successfully!' : 'Court photo uploaded successfully!'),
+              backgroundColor: AppColors.primaryGreen,
+            ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to upload image to Cloudinary.'), backgroundColor: Colors.red)
+            SnackBar(content: Text('Failed to upload image to Cloudinary.'), backgroundColor: Colors.red),
           );
         }
       }
     } catch (e) {
-      setState(() => _isUploadingLogo = false);
+      if (isLogo) {
+        setState(() => _isUploadingLogo = false);
+      } else {
+        setState(() => _isUploadingPhoto = false);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e'), backgroundColor: Colors.red)
+        SnackBar(content: Text('Error picking image: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -216,6 +304,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'openTime': _openTimeCtrl.text,
       'closeTime': _closeTimeCtrl.text,
       'logoUrl': _logoUrlCtrl.text.trim(),
+      'images': _courtPhotos,
+      'photos': _courtPhotos,
       'dayRate': dayStandard,
       'dayDiscountRate': dayDiscount,
       'isDayDiscountActive': isDayDiscountActive,
@@ -312,14 +402,14 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                     _buildTextField('Description', _descCtrl, maxLines: 3),
                     SizedBox(height: 24),
                     _buildSectionTitle('Court / Business Logo'),
-                    Text('Upload your court or business logo from your phone or device directly to your Cloudinary account.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    Text('Upload your court or business logo from your phone camera or photo gallery directly to Cloudinary.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                     SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: _isUploadingLogo ? null : _pickAndUploadLogo,
+                      onPressed: _isUploadingLogo ? null : () => _showImageSourceActionSheet(isLogo: true),
                       icon: _isUploadingLogo 
                         ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.softWhite))
-                        : Icon(Icons.cloud_upload, color: AppColors.softWhite),
-                      label: Text(_isUploadingLogo ? 'Uploading to Cloudinary...' : 'Upload Logo from Phone / Device', style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold)),
+                        : Icon(Icons.add_a_photo, color: AppColors.softWhite),
+                      label: Text(_isUploadingLogo ? 'Uploading to Cloudinary...' : 'Upload Logo from Phone', style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryGreen,
                         padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -361,7 +451,82 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                         ],
                       ),
                     ],
-                    SizedBox(height: 16),
+
+                    SizedBox(height: 24),
+                    _buildSectionTitle('Court / Venue Photos'),
+                    Text('Add photos of your pickleball court surface, lighting, and facilities from your phone camera or gallery.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isUploadingPhoto ? null : () => _showImageSourceActionSheet(isLogo: false),
+                      icon: _isUploadingPhoto
+                          ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.softWhite))
+                          : Icon(Icons.photo_camera_back, color: AppColors.softWhite),
+                      label: Text(
+                        _isUploadingPhoto ? 'Uploading Court Photo...' : 'Add Court Photo from Phone',
+                        style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    if (_courtPhotos.isNotEmpty) ...[
+                      SizedBox(height: 14),
+                      Container(
+                        height: 100,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _courtPhotos.length,
+                          itemBuilder: (context, index) {
+                            final photoUrl = _courtPhotos[index];
+                            return Container(
+                              margin: EdgeInsets.only(right: 12),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      photoUrl,
+                                      width: 100,
+                                      height: 100,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        width: 100,
+                                        height: 100,
+                                        color: Colors.grey.shade300,
+                                        child: Icon(Icons.broken_image, color: Colors.grey),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _courtPhotos.removeAt(index);
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.7),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(Icons.close, color: Colors.white, size: 14),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+
+                    SizedBox(height: 24),
                     _buildSectionTitle('Pricing Setup'),
                     Text('Set standard rates and optionally enable promotional discounted rates for Day and Night hours.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                     SizedBox(height: 16),
