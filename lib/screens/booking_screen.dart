@@ -21,6 +21,8 @@ class BookingScreen extends StatefulWidget {
   final String? initialDate;
   final String? initialTime;
 
+  final Map<String, dynamic>? venue;
+
   const BookingScreen({
     Key? key,
     this.initialService,
@@ -28,6 +30,7 @@ class BookingScreen extends StatefulWidget {
     this.skipServiceSelection = false,
     this.initialDate,
     this.initialTime,
+    this.venue,
   }) : super(key: key);
 
   @override
@@ -41,6 +44,7 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _isLoading = true;
   
   ServiceModel? _selectedService;
+  Set<int> _selectedServiceIds = {};
   DateTime? _selectedDate;
   List<String> _selectedTimes = [];
   List<String> _bookedSlots = [];
@@ -111,6 +115,35 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _loadServices() async {
+    if (widget.venue != null && widget.venue!['courts'] != null) {
+      final List<dynamic> rawCourts = widget.venue!['courts'];
+      final List<ServiceModel> venueCourts = rawCourts.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final c = entry.value;
+        return ServiceModel(
+          id: c['id'] ?? (1000 + idx),
+          name: c['name'] ?? 'Court ${idx + 1}',
+          description: 'Court at ${widget.venue!['venueName'] ?? 'Venue'}',
+          price: 'PHP ${c['price'] ?? widget.venue!['basePrice'] ?? '300'}',
+          icon: '🎾',
+          duration: '1H',
+          category: 'pickle',
+          isActive: true,
+        );
+      }).toList();
+
+      if (venueCourts.isNotEmpty) {
+        setState(() {
+          _services = venueCourts;
+          _selectedService = venueCourts.first;
+          _selectedServiceIds = venueCourts.map((s) => s.id).toSet();
+          _isLoading = false;
+        });
+        _fetchSlots();
+        return;
+      }
+    }
+
     try {
       final services = await _apiService.fetchServices();
       setState(() {
@@ -119,6 +152,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
         if (widget.initialService != null) {
           _selectedService = widget.initialService;
+          _selectedServiceIds = {_selectedService!.id};
         } else if (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
           final matchName = widget.initialServiceName!.toLowerCase();
           final match = _services.firstWhere(
@@ -135,6 +169,10 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
           );
           _selectedService = match;
+          _selectedServiceIds = {match.id};
+        } else if (_services.isNotEmpty) {
+          _selectedService = _services.first;
+          _selectedServiceIds = {_services.first.id};
         }
       });
       _fetchSlots();
@@ -898,6 +936,70 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
           ),
           SizedBox(height: 24),
+          if (_services.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0, bottom: 12.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Select Court(s)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.richBlack)),
+                  Text('Tap to multi-select courts', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _services.length,
+                itemBuilder: (context, index) {
+                  final service = _services[index];
+                  final isSelected = _selectedServiceIds.contains(service.id);
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          if (_selectedServiceIds.length > 1) {
+                            _selectedServiceIds.remove(service.id);
+                          }
+                        } else {
+                          _selectedServiceIds.add(service.id);
+                        }
+                        _selectedService = _services.firstWhere((s) => _selectedServiceIds.contains(s.id));
+                      });
+                      _fetchSlots();
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      margin: EdgeInsets.only(right: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primaryGreen : AppColors.softWhite,
+                        borderRadius: BorderRadius.circular(20),
+                        border: isSelected ? null : Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          if (isSelected) ...[
+                            Icon(Icons.check_circle, size: 15, color: Colors.white),
+                            SizedBox(width: 4),
+                          ],
+                          Text(
+                            service.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected ? Colors.white : AppColors.richBlack,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: 20),
+          ],
           if (_selectedDate != null)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
