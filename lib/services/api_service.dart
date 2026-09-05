@@ -537,7 +537,7 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> fetchUserBookings(String email) async {
+  Future<List<dynamic>?> fetchUserBookings(String email) async {
     try {
       final t = DateTime.now().millisecondsSinceEpoch;
       final response = await http.get(Uri.parse('$baseUrl/user/bookings/${Uri.encodeComponent(email)}?t=$t'));
@@ -547,10 +547,10 @@ class ApiService {
           return data['bookings'] ?? [];
         }
       }
-      return [];
+      return null; // server error — caller keeps existing data
     } catch (e) {
       print('Fetch bookings error: $e');
-      return [];
+      return null; // network error — caller keeps existing data
     }
   }
 

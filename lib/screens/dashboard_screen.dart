@@ -457,6 +457,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchBookings(String email) async {
     print('Fetching bookings for email: $email');
     final bookings = await _apiService.fetchUserBookings(email);
+
+    // If null, it means a network/server error — don't wipe the existing list
+    if (bookings == null) {
+      print('fetchUserBookings returned null (server error), keeping existing data');
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
     print('Fetched ${bookings.length} raw bookings');
     
     final now = DateTime.now();
