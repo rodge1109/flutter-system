@@ -197,19 +197,30 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _fetchSlots() async {
-    if (_selectedDate == null || _selectedService == null) return;
+    if (_selectedDate == null || _services.isEmpty) return;
     setState(() => _isLoadingSlots = true);
     
     final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
-    final result = await _apiService.fetchAvailableSlots(dateStr, _selectedService!.name);
+    
+    List<String> allBooked = [];
+    final activeServices = _services.where((s) => _selectedServiceIds.contains(s.id)).toList();
+    final fetchTargetServices = activeServices.isNotEmpty ? activeServices : [_services.first];
+
+    for (var service in fetchTargetServices) {
+      final result = await _apiService.fetchAvailableSlots(dateStr, service.name);
+      final List<String> booked = (result['bookedSlots'] ?? []).map<String>((s) => s.toString()).toList();
+      final List<String> blocked = (result['blockedSlots'] ?? []).map<String>((s) => s.toString()).toList();
+      allBooked.addAll(booked);
+      allBooked.addAll(blocked);
+    }
     
     setState(() {
-      final List<String> booked = result['bookedSlots'] ?? [];
-      final List<String> blocked = result['blockedSlots'] ?? [];
-      _bookedSlots = [...booked, ...blocked];
-      
-      // Remove any selected times that are now booked or blocked
-      _selectedTimes.removeWhere((time) => _bookedSlots.contains(time));
+      _bookedSlots = allBooked.toSet().toList();
+      // Remove selected times if booked
+      _selectedTimes.removeWhere((rawTime) {
+        final cleanTime = rawTime.contains(': ') ? rawTime.split(': ')[1] : rawTime;
+        return _bookedSlots.contains(cleanTime);
+      });
       _isLoadingSlots = false;
     });
   }
@@ -224,7 +235,7 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _holdSelectedSlots() async {
-    if (_selectedService == null || _selectedDate == null || _selectedTimes.isEmpty || _nameController.text.isEmpty) {
+    if (_selectedDate == null || _selectedTimes.isEmpty || _nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please select a date, time, and enter your name first'), backgroundColor: Colors.redAccent),
       );
@@ -234,18 +245,48 @@ class _BookingScreenState extends State<BookingScreen> {
     setState(() => _isLoading = true);
 
     final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
-    final holdToken = await _apiService.holdSlots(
-      dateStr: dateStr,
-      times: _selectedTimes,
-      serviceType: _selectedService!.name,
-      email: _emailController.text,
-    );
+    
+    // Group selected times by court/service name
+    Map<String, List<String>> slotsByService = {};
+    for (var rawTime in _selectedTimes) {
+      String sName = _selectedService?.name ?? 'Court';
+      String cleanTime = rawTime;
+      if (rawTime.contains(': ')) {
+        final parts = rawTime.split(': ');
+        sName = parts[0];
+        cleanTime = parts[1];
+      }
+      slotsByService.putIfAbsent(sName, () => []);
+      slotsByService[sName]!.add(cleanTime);
+    }
+
+    String? lastHoldToken;
+    bool holdFailed = false;
+
+    for (var entry in slotsByService.entries) {
+      final sName = entry.key;
+      final timesList = entry.value;
+
+      final holdToken = await _apiService.holdSlots(
+        dateStr: dateStr,
+        times: timesList,
+        serviceType: sName,
+        email: _emailController.text,
+      );
+
+      if (holdToken != null) {
+        lastHoldToken = holdToken;
+      } else {
+        holdFailed = true;
+        break;
+      }
+    }
 
     setState(() => _isLoading = false);
 
-    if (holdToken != null) {
+    if (!holdFailed && lastHoldToken != null) {
       setState(() {
-        _holdToken = holdToken;
+        _holdToken = lastHoldToken;
         _holdSecondsRemaining = 300; // 5 minutes
       });
       _holdTimer?.cancel();
@@ -274,7 +315,7 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _submitBooking() async {
-    if (_selectedService == null || _selectedDate == null || _selectedTimes.isEmpty || _nameController.text.isEmpty) {
+    if (_selectedDate == null || _selectedTimes.isEmpty || _nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Please fill all required fields'),
@@ -291,15 +332,37 @@ class _BookingScreenState extends State<BookingScreen> {
 
     bool allSuccess = true;
 
-    for (var time in _selectedTimes) {
-      String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
-      double slotAmount = double.tryParse(priceStr) ?? 0.0;
+    for (var rawTime in _selectedTimes) {
+      String sName = _selectedService?.name ?? 'Court';
+      String cleanTime = rawTime;
+      if (rawTime.contains(': ')) {
+        final parts = rawTime.split(': ');
+        sName = parts[0];
+        cleanTime = parts[1];
+      }
+
+      final matchedService = _services.firstWhere(
+        (s) => s.name == sName,
+        orElse: () => _selectedService ?? ServiceModel(
+          id: 999,
+          name: sName,
+          description: '',
+          price: 'PHP 350',
+          icon: '🎾',
+          duration: '1H',
+          category: 'pickle',
+          isActive: true,
+        ),
+      );
+
+      String priceStr = _getPriceForTime(cleanTime, service: matchedService).replaceAll(RegExp(r'[^0-9.]'), '');
+      double slotAmount = double.tryParse(priceStr) ?? 350.0;
 
       final appointmentData = {
-        'serviceType': _selectedService!.name, 
-        'specialistId': _selectedService!.id.toString(),
+        'serviceType': sName, 
+        'specialistId': matchedService.id.toString(),
         'preferredDate': '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
-        'preferredTime': time,
+        'preferredTime': cleanTime,
         'fullName': _nameController.text,
         'email': _emailController.text,
         'phoneNumber': _phoneController.text,
