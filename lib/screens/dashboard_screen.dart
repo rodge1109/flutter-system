@@ -941,26 +941,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               ),
 
-              SizedBox(height: 16),
 
-              // Sport Category Selector Bar (SEE ALL, Pickleball, Tennis)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildSportCategoryChip('ALL', '🎾 SEE ALL'),
-                      SizedBox(width: 8),
-                      _buildSportCategoryChip('Pickleball', '🏓 Pickleball'),
-                      SizedBox(width: 8),
-                      _buildSportCategoryChip('Tennis', '🎾 Tennis'),
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 16),
               Expanded(
                 child: SingleChildScrollView(
             padding: EdgeInsets.only(bottom: 16),
