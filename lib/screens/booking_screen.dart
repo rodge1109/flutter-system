@@ -251,10 +251,10 @@ class _BookingScreenState extends State<BookingScreen> {
     for (var rawTime in _selectedTimes) {
       String sName = _selectedService?.name ?? 'Court';
       String cleanTime = rawTime;
-      if (rawTime.contains(': ')) {
-        final parts = rawTime.split(': ');
-        sName = parts[0];
-        cleanTime = parts[1];
+      int idx = rawTime.indexOf(': ');
+      if (idx != -1) {
+        sName = rawTime.substring(0, idx).trim();
+        cleanTime = rawTime.substring(idx + 2).trim();
       }
       slotsByService.putIfAbsent(sName, () => []);
       slotsByService[sName]!.add(cleanTime);
@@ -335,10 +335,10 @@ class _BookingScreenState extends State<BookingScreen> {
     for (var rawTime in _selectedTimes) {
       String sName = _selectedService?.name ?? 'Court';
       String cleanTime = rawTime;
-      if (rawTime.contains(': ')) {
-        final parts = rawTime.split(': ');
-        sName = parts[0];
-        cleanTime = parts[1];
+      int idx = rawTime.indexOf(': ');
+      if (idx != -1) {
+        sName = rawTime.substring(0, idx).trim();
+        cleanTime = rawTime.substring(idx + 2).trim();
       }
 
       final matchedService = _services.firstWhere(
