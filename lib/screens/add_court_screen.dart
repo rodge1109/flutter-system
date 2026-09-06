@@ -18,6 +18,7 @@ class AddCourtScreen extends StatefulWidget {
 
 class _AddCourtScreenState extends State<AddCourtScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _venueNameCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final _numberCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
@@ -59,6 +60,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   void initState() {
     super.initState();
     if (widget.court != null) {
+      _venueNameCtrl.text = widget.court!['venue_name'] ?? widget.court!['venueName'] ?? widget.court!['venue'] ?? '';
       _nameCtrl.text = widget.court!['name'] ?? '';
       _numberCtrl.text = widget.court!['court_number']?.toString() ?? '';
       _addressCtrl.text = widget.court!['address'] ?? '';
@@ -108,6 +110,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
 
   @override
   void dispose() {
+    _venueNameCtrl.dispose();
     _nameCtrl.dispose();
     _numberCtrl.dispose();
     _addressCtrl.dispose();
@@ -292,6 +295,9 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
 
     final courtData = {
       'ownerEmail': widget.userEmail,
+      'venue_name': _venueNameCtrl.text.trim(),
+      'venueName': _venueNameCtrl.text.trim(),
+      'venue': _venueNameCtrl.text.trim(),
       'name': _nameCtrl.text,
       'courtNumber': _numberCtrl.text,
       'address': _addressCtrl.text,
@@ -357,9 +363,11 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSectionTitle('Basic Information'),
+                    _buildTextField('Venue Name (e.g. AMINOVA COURT)', _venueNameCtrl, required: true),
+                    SizedBox(height: 16),
                     Row(
                       children: [
-                        Expanded(flex: 3, child: _buildTextField('Court Name', _nameCtrl, required: true)),
+                        Expanded(flex: 3, child: _buildTextField('Court Name (e.g. Court 1)', _nameCtrl, required: true)),
                         SizedBox(width: 16),
                         Expanded(flex: 2, child: _buildTextField('Court #', _numberCtrl, required: true, isNumber: true)),
                       ],
