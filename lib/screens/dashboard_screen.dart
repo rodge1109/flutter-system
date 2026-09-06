@@ -66,17 +66,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     for (var rawItem in rawCourts) {
       if (rawItem is! Map) continue;
       Map<String, dynamic> court = Map<String, dynamic>.from(rawItem);
-      String rawName = court['name'] ?? 'Court';
-      String addr = court['address'] ?? 'Cayang, Bogo';
       
-      String cleanVenueName = rawName
-          .replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '')
-          .trim();
-      if (cleanVenueName.isEmpty || cleanVenueName.toLowerCase() == 'court') {
-        cleanVenueName = addr.isNotEmpty ? addr : 'Pickleball & Tennis Venue';
+      String? explicitVenue = court['venue_name'] ?? court['venueName'] ?? court['venue'];
+      String ownerEmail = court['email'] ?? court['owner_email'] ?? court['ownerEmail'] ?? '';
+      
+      String cleanVenueName = '';
+      if (explicitVenue != null && explicitVenue.toString().trim().isNotEmpty) {
+        cleanVenueName = explicitVenue.toString().trim();
+      } else {
+        String rawName = court['name'] ?? 'Court';
+        String addr = court['address'] ?? 'Cayang, Bogo';
+        cleanVenueName = rawName
+            .replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '')
+            .trim();
+        if (cleanVenueName.isEmpty || cleanVenueName.toLowerCase() == 'court') {
+          cleanVenueName = addr.isNotEmpty ? addr : 'Pickleball & Tennis Venue';
+        }
       }
 
-      String venueKey = cleanVenueName.toLowerCase();
+      String venueKey = ownerEmail.isNotEmpty
+          ? '${cleanVenueName}_$ownerEmail'.toLowerCase()
+          : cleanVenueName.toLowerCase();
 
       if (!venueGroups.containsKey(venueKey)) {
         venueGroups[venueKey] = [];
@@ -109,8 +119,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       if (lowestPrice == 9999) lowestPrice = 300;
 
-      String vTitle = first['name'] ?? 'Venue';
-      if (courtList.length > 1) {
+      String vTitle = first['venue_name'] ?? first['venueName'] ?? first['venue'] ?? first['name'] ?? 'Venue';
+      if (first['venue_name'] == null && first['venueName'] == null && first['venue'] == null && courtList.length > 1) {
         vTitle = first['name'].replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '').trim();
         if (vTitle.isEmpty) vTitle = first['address'] ?? 'Sports Venue';
       }
