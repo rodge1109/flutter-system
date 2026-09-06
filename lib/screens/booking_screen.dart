@@ -1564,6 +1564,148 @@ class _BookingScreenState extends State<BookingScreen> {
                 ],
               ],
             ),
+          // Venue Overview (About, Policies, Q&A, Facilities)
+          _buildVenueInformationSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVenueInformationSection() {
+    final Map<String, dynamic>? v = widget.venue;
+    
+    // 1. About Venue
+    String aboutText = (v?['aboutVenue'] ?? v?['about_venue'] ?? v?['description'] ?? _selectedService?.aboutVenue ?? _selectedService?.description ?? '').toString().trim();
+    if (aboutText.isEmpty) {
+      aboutText = 'Welcome to our premier sports facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
+    }
+
+    // 2. Booking Policy
+    String policyText = (v?['bookingPolicy'] ?? v?['booking_policy'] ?? _selectedService?.bookingPolicy ?? '').toString().trim();
+    if (policyText.isEmpty) {
+      policyText = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
+    }
+
+    // 3. FAQ / Q&A
+    String faqText = (v?['faq'] ?? v?['faqText'] ?? _selectedService?.faq ?? '').toString().trim();
+    if (faqText.isEmpty) {
+      faqText = 'Q: Are paddles and balls available for rent or purchase?\nA: Yes! High-quality rental paddles and pickleballs are available at the front desk.\n\nQ: Is on-site parking available for players?\nA: Yes, we provide free dedicated parking directly adjacent to the venue.\n\nQ: What footwear is allowed on the courts?\nA: Only non-marking court or athletic shoes are permitted.\n\nQ: Can I host Open Plays or Pasalo transfers here?\nA: Absolutely! You can post Open Plays or offer Pasalo slots directly through the app.';
+    }
+
+    // 4. Facilities
+    List<dynamic> rawFacilities = v?['facilities'] ?? _selectedService?.facilities ?? [];
+    List<String> facilities = rawFacilities.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+    if (facilities.isEmpty) {
+      facilities = ['Covered Court', 'Restrooms', 'Water Station', 'Parking', 'Equipment Rental'];
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 24),
+      decoration: BoxDecoration(
+        color: AppColors.softWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.primaryGreen.withOpacity(0.08),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: AppColors.primaryGreen, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Venue Information & Rules',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack),
+                ),
+              ],
+            ),
+          ),
+          
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: Column(
+              children: [
+                // About Venue Accordion
+                ExpansionTile(
+                  leading: Icon(Icons.business, color: AppColors.primaryGreen, size: 20),
+                  title: Text('About This Venue', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                  initiallyExpanded: true,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Text(aboutText, style: TextStyle(color: Colors.grey.shade800, fontSize: 13, height: 1.4)),
+                    ),
+                  ],
+                ),
+                Divider(height: 1, color: Colors.grey.shade200),
+
+                // Booking Policy Accordion
+                ExpansionTile(
+                  leading: Icon(Icons.gavel, color: AppColors.primaryGreen, size: 20),
+                  title: Text('Booking Policy & Rules', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                  initiallyExpanded: false,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Text(policyText, style: TextStyle(color: Colors.grey.shade800, fontSize: 13, height: 1.4)),
+                    ),
+                  ],
+                ),
+                Divider(height: 1, color: Colors.grey.shade200),
+
+                // Q & A Accordion
+                ExpansionTile(
+                  leading: Icon(Icons.help_outline, color: AppColors.primaryGreen, size: 20),
+                  title: Text('Frequently Asked Questions (Q&A)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                  initiallyExpanded: false,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Text(faqText, style: TextStyle(color: Colors.grey.shade800, fontSize: 13, height: 1.4)),
+                    ),
+                  ],
+                ),
+                Divider(height: 1, color: Colors.grey.shade200),
+
+                // Facilities & Amenities
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.star_outline, color: AppColors.primaryGreen, size: 20),
+                          SizedBox(width: 8),
+                          Text('Amenities & Facilities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                        ],
+                      ),
+                      SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: facilities.map((f) => Chip(
+                          avatar: Icon(Icons.check, size: 14, color: AppColors.primaryGreen),
+                          label: Text(f, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                          backgroundColor: AppColors.creamWhite,
+                          side: BorderSide(color: Colors.grey.shade300),
+                        )).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
