@@ -391,10 +391,11 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  String _getPriceForTime(String time) {
-    if (_selectedService == null) return '';
-    if (_selectedService!.variablePrices != null && _selectedService!.variablePrices!.isNotEmpty) {
-      for (var vp in _selectedService!.variablePrices!) {
+  String _getPriceForTime(String time, {ServiceModel? service}) {
+    final s = service ?? _selectedService;
+    if (s == null) return '';
+    if (s.variablePrices != null && s.variablePrices!.isNotEmpty) {
+      for (var vp in s.variablePrices!) {
         String? vpTime = vp['time']?.toString();
         String? vpHour = vp['hour']?.toString();
         
@@ -407,7 +408,7 @@ class _BookingScreenState extends State<BookingScreen> {
         }
       }
     }
-    return _selectedService!.price;
+    return s.price;
   }
 
   String _normalizeTime(String t) {
@@ -1010,170 +1011,219 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
                 _isLoadingSlots 
                   ? Padding(padding: const EdgeInsets.all(24.0), child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.richBlack))))
-                  : GridView.builder(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      physics: NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: 2.0,
-                      ),
-                      itemCount: _getDisplayTimeSlots().length,
-                      itemBuilder: (context, index) {
-                        final time = _getDisplayTimeSlots()[index];
-                    final isSelected = _selectedTimes.contains(time);
-                    final isBooked = _bookedSlots.contains(time);
-                    
-                    bool isPast = false;
-                    bool isOutsideHours = false;
-                    
-                    int slotHour = 0;
-                    if (time.contains(':')) {
-                      final parts = time.split(RegExp(r'[:\s]'));
-                      if (parts.length >= 3) {
-                        slotHour = int.tryParse(parts[0]) ?? 0;
-                        if (parts[2].toUpperCase() == 'PM' && slotHour < 12) slotHour += 12;
-                        if (parts[2].toUpperCase() == 'AM' && slotHour == 12) slotHour = 0;
-                      }
-                    } else {
-                      slotHour = _allTimeSlots.indexOf(time);
-                    }
-
-                    if (_selectedDate != null) {
-                      final now = DateTime.now();
-                      if (_selectedDate!.year == now.year &&
-                          _selectedDate!.month == now.month &&
-                          _selectedDate!.day == now.day) {
-                        if (slotHour < now.hour) {
-                          isPast = true;
-                        } else if (slotHour == now.hour && now.minute > 0) {
-                          isPast = true;
-                        }
-                      }
-                    }
-
-                    if (_selectedService != null) {
-                      if (_selectedService!.openTime != null && _selectedService!.openTime!.contains(':')) {
-                        int openHour = int.tryParse(_selectedService!.openTime!.split(':')[0]) ?? 0;
-                        if (slotHour < openHour) isOutsideHours = true;
-                      }
-                      if (_selectedService!.closeTime != null && _selectedService!.closeTime!.contains(':')) {
-                        int closeHour = int.tryParse(_selectedService!.closeTime!.split(':')[0]) ?? 24;
-                        if (slotHour >= closeHour) isOutsideHours = true;
-                      }
-                    }
-
-                    final bool isDisabled = isBooked || isPast || isOutsideHours;
-                    
-                    String getEndStr(String t) {
-                      final parts = t.split(RegExp(r'[:\s]'));
-                      if (parts.length >= 3) {
-                        int h = int.tryParse(parts[0]) ?? 0;
-                        String ampm = parts[2].toUpperCase();
-                        int endH = h + 1;
-                        if (endH == 12) ampm = ampm == 'AM' ? 'PM' : 'AM';
-                        if (endH > 12) endH -= 12;
-                        return '$endH$ampm';
-                      }
-                      return t;
-                    }
-                    
-                    final String startStr = time.replaceFirst(':00', '').replaceAll(' ', '').replaceFirst(RegExp(r'^0'), '');
-                    final String displayTime = '$startStr-${getEndStr(time)}';
-
-                    return InkWell(
-                      onTap: isDisabled ? null : () {
-                        setState(() {
-                          if (isSelected) {
-                            _selectedTimes.remove(time);
-                          } else {
-                            _selectedTimes.add(time);
-                          }
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: isDisabled 
-                                    ? Colors.grey.shade200 
-                                    : (isSelected ? AppColors.accentLime : AppColors.softWhite),
-                                border: isSelected ? null : Border.all(
-                                  width: 1,
-                                  color: Colors.grey.shade300,
+                  : Column(
+                      children: (_services.where((s) => _selectedServiceIds.contains(s.id)).isEmpty
+                              ? (_services.isNotEmpty ? [_services.first] : <ServiceModel>[])
+                              : _services.where((s) => _selectedServiceIds.contains(s.id))).map((court) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 20),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: Offset(0, 3)),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Court Header Banner
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryGreen,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        time.toUpperCase().contains('AM') ? Icons.wb_sunny_outlined : Icons.nights_stay_outlined,
-                                        size: 13,
-                                        color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.deepTeal),
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        displayTime,
-                                        style: TextStyle(
-                                          color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.richBlack),
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                          decoration: null,
-                                          fontSize: 12,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        CustomPaddleIcon(color: Colors.white, size: 16),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          court.name,
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    time.toUpperCase().contains('AM') ? 'Morning' : 'Aft/Eve',
-                                    style: TextStyle(
-                                      color: isSelected ? AppColors.softWhite.withOpacity(0.7) : (isDisabled ? Colors.grey.shade300 : Colors.grey.shade500),
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w500,
+                                      ],
                                     ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    isOutsideHours ? 'CLOSED' : (isPast ? 'PASSED' : (isBooked ? 'Booked' : _getPriceForTime(time))),
-                                    style: TextStyle(
-                                      color: isSelected ? AppColors.softWhite.withOpacity(0.90) : (isDisabled ? Colors.grey.shade500 : AppColors.richBlack),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: (isBooked || isOutsideHours) ? 10 : 11,
+                                    Text(
+                                      court.price,
+                                      style: TextStyle(color: AppColors.accentLime, fontWeight: FontWeight.bold, fontSize: 12),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (isSelected)
-                              Positioned(
-                                top: -6,
-                                right: -6,
-                                child: Container(
-                                  padding: EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.softWhite,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: AppColors.accentLime, width: 1.5),
-                                  ),
-                                  child: Icon(Icons.check, size: 10, color: AppColors.accentLime),
+                                  ],
                                 ),
                               ),
-                          ],
-                        ),
-                    );
-                  },
-                ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Available Timeslots for ${court.name}:',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Timeslot Grid for this court
+                              GridView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
+                                  childAspectRatio: 2.0,
+                                ),
+                                itemCount: _getDisplayTimeSlots().length,
+                                itemBuilder: (context, index) {
+                                  final time = _getDisplayTimeSlots()[index];
+                                  final slotKey = '${court.name}: $time';
+                                  final isSelected = _selectedTimes.contains(slotKey) || (_selectedServiceIds.length == 1 && _selectedTimes.contains(time));
+                                  final isBooked = _bookedSlots.contains(time);
+                                  
+                                  bool isPast = false;
+                                  bool isOutsideHours = false;
+                                  
+                                  int slotHour = 0;
+                                  if (time.contains(':')) {
+                                    final parts = time.split(RegExp(r'[:\s]'));
+                                    if (parts.length >= 3) {
+                                      slotHour = int.tryParse(parts[0]) ?? 0;
+                                      if (parts[2].toUpperCase() == 'PM' && slotHour < 12) slotHour += 12;
+                                      if (parts[2].toUpperCase() == 'AM' && slotHour == 12) slotHour = 0;
+                                    }
+                                  } else {
+                                    slotHour = _allTimeSlots.indexOf(time);
+                                  }
+
+                                  if (_selectedDate != null) {
+                                    final now = DateTime.now();
+                                    if (_selectedDate!.year == now.year &&
+                                        _selectedDate!.month == now.month &&
+                                        _selectedDate!.day == now.day) {
+                                      if (slotHour < now.hour) {
+                                        isPast = true;
+                                      } else if (slotHour == now.hour && now.minute > 0) {
+                                        isPast = true;
+                                      }
+                                    }
+                                  }
+
+                                  if (court.openTime != null && court.openTime!.contains(':')) {
+                                    int openHour = int.tryParse(court.openTime!.split(':')[0]) ?? 0;
+                                    if (slotHour < openHour) isOutsideHours = true;
+                                  }
+                                  if (court.closeTime != null && court.closeTime!.contains(':')) {
+                                    int closeHour = int.tryParse(court.closeTime!.split(':')[0]) ?? 24;
+                                    if (slotHour >= closeHour) isOutsideHours = true;
+                                  }
+
+                                  final bool isDisabled = isBooked || isPast || isOutsideHours;
+                                  
+                                  String getEndStr(String t) {
+                                    final parts = t.split(RegExp(r'[:\s]'));
+                                    if (parts.length >= 3) {
+                                      int h = int.tryParse(parts[0]) ?? 0;
+                                      String ampm = parts[2].toUpperCase();
+                                      int endH = h + 1;
+                                      if (endH == 12) ampm = ampm == 'AM' ? 'PM' : 'AM';
+                                      if (endH > 12) endH -= 12;
+                                      return '$endH$ampm';
+                                    }
+                                    return t;
+                                  }
+                                  
+                                  final String startStr = time.replaceFirst(':00', '').replaceAll(' ', '').replaceFirst(RegExp(r'^0'), '');
+                                  final String displayTime = '$startStr-${getEndStr(time)}';
+
+                                  return InkWell(
+                                    onTap: isDisabled ? null : () {
+                                      setState(() {
+                                        if (isSelected) {
+                                          _selectedTimes.remove(slotKey);
+                                          _selectedTimes.remove(time);
+                                        } else {
+                                          _selectedTimes.add(slotKey);
+                                        }
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: isDisabled 
+                                                ? Colors.grey.shade200 
+                                                : (isSelected ? AppColors.accentLime : AppColors.softWhite),
+                                            border: isSelected ? null : Border.all(
+                                              width: 1,
+                                              color: Colors.grey.shade300,
+                                            ),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    time.toUpperCase().contains('AM') ? Icons.wb_sunny_outlined : Icons.nights_stay_outlined,
+                                                    size: 12,
+                                                    color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.deepTeal),
+                                                  ),
+                                                  const SizedBox(width: 3),
+                                                  Text(
+                                                    displayTime,
+                                                    style: TextStyle(
+                                                      color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.richBlack),
+                                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                isOutsideHours ? 'CLOSED' : (isPast ? 'PASSED' : (isBooked ? 'Booked' : _getPriceForTime(time, service: court))),
+                                                style: TextStyle(
+                                                  color: isSelected ? AppColors.softWhite.withOpacity(0.90) : (isDisabled ? Colors.grey.shade500 : AppColors.richBlack),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: (isBooked || isOutsideHours) ? 9 : 10,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          Positioned(
+                                            top: -5,
+                                            right: -5,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(2),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.softWhite,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(color: AppColors.accentLime, width: 1.5),
+                                              ),
+                                              child: Icon(Icons.check, size: 9, color: AppColors.accentLime),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
             ],
           ),
           
