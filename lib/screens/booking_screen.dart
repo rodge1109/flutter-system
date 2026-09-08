@@ -48,6 +48,7 @@ class _BookingScreenState extends State<BookingScreen> {
   DateTime? _selectedDate;
   List<String> _selectedTimes = [];
   List<String> _bookedSlots = [];
+  Map<String, List<String>> _courtBookedSlots = {};
   bool _isLoadingSlots = false;
   String _selectedCategory = 'All';
   Set<int> _expandedCourtIds = {};
@@ -204,24 +205,36 @@ class _BookingScreenState extends State<BookingScreen> {
     
     final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
     
-    List<String> allBooked = [];
-    final activeServices = _services.where((s) => _selectedServiceIds.contains(s.id)).toList();
-    final fetchTargetServices = activeServices.isNotEmpty ? activeServices : [_services.first];
-
-    for (var service in fetchTargetServices) {
+    Map<String, List<String>> courtBookings = {};
+    
+    for (var service in _services) {
       final result = await _apiService.fetchAvailableSlots(dateStr, service.name);
       final List<String> booked = (result['bookedSlots'] ?? []).map<String>((s) => s.toString()).toList();
       final List<String> blocked = (result['blockedSlots'] ?? []).map<String>((s) => s.toString()).toList();
-      allBooked.addAll(booked);
-      allBooked.addAll(blocked);
+      courtBookings[service.name] = [...booked, ...blocked];
     }
     
     setState(() {
+      _courtBookedSlots = courtBookings;
+      
+      // We still update a unified _bookedSlots for legacy compatibility if needed
+      List<String> allBooked = [];
+      for (var list in courtBookings.values) {
+        allBooked.addAll(list);
+      }
       _bookedSlots = allBooked.toSet().toList();
-      // Remove selected times if booked
+      
+      // Remove selected times if booked for that specific court
       _selectedTimes.removeWhere((rawTime) {
-        final cleanTime = rawTime.contains(': ') ? rawTime.split(': ')[1] : rawTime;
-        return _bookedSlots.contains(cleanTime);
+        if (rawTime.contains(': ')) {
+          final parts = rawTime.split(': ');
+          final courtName = parts[0];
+          final cleanTime = parts[1];
+          return _courtBookedSlots[courtName]?.contains(cleanTime) ?? false;
+        } else if (_selectedService != null) {
+           return _courtBookedSlots[_selectedService!.name]?.contains(rawTime) ?? false;
+        }
+        return false;
       });
       _isLoadingSlots = false;
     });
@@ -1012,7 +1025,7 @@ class _BookingScreenState extends State<BookingScreen> {
                             final time = _getDisplayTimeSlots()[idx];
                             final slotKey = '${court.name}: $time';
                             final isSelected = _selectedTimes.contains(slotKey) || (_selectedServiceIds.length == 1 && _selectedTimes.contains(time));
-                            final isBooked = _bookedSlots.contains(time);
+                            final isBooked = _courtBookedSlots[court.name]?.contains(time) ?? false;
 
                             bool isPast = false;
                             bool isOutsideHours = false;
