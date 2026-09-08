@@ -48,7 +48,6 @@ class _BookingScreenState extends State<BookingScreen> {
   DateTime? _selectedDate;
   List<String> _selectedTimes = [];
   List<String> _bookedSlots = [];
-  Map<String, List<String>> _courtBookedSlots = {};
   bool _isLoadingSlots = false;
   String _selectedCategory = 'All';
   Set<int> _expandedCourtIds = {};
@@ -205,36 +204,24 @@ class _BookingScreenState extends State<BookingScreen> {
     
     final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
     
-    Map<String, List<String>> courtBookings = {};
-    
-    for (var service in _services) {
+    List<String> allBooked = [];
+    final activeServices = _services.where((s) => _selectedServiceIds.contains(s.id)).toList();
+    final fetchTargetServices = activeServices.isNotEmpty ? activeServices : [_services.first];
+
+    for (var service in fetchTargetServices) {
       final result = await _apiService.fetchAvailableSlots(dateStr, service.name);
       final List<String> booked = (result['bookedSlots'] ?? []).map<String>((s) => s.toString()).toList();
       final List<String> blocked = (result['blockedSlots'] ?? []).map<String>((s) => s.toString()).toList();
-      courtBookings[service.name] = [...booked, ...blocked];
+      allBooked.addAll(booked);
+      allBooked.addAll(blocked);
     }
     
     setState(() {
-      _courtBookedSlots = courtBookings;
-      
-      // We still update a unified _bookedSlots for legacy compatibility if needed
-      List<String> allBooked = [];
-      for (var list in courtBookings.values) {
-        allBooked.addAll(list);
-      }
       _bookedSlots = allBooked.toSet().toList();
-      
-      // Remove selected times if booked for that specific court
+      // Remove selected times if booked
       _selectedTimes.removeWhere((rawTime) {
-        if (rawTime.contains(': ')) {
-          final parts = rawTime.split(': ');
-          final courtName = parts[0];
-          final cleanTime = parts[1];
-          return _courtBookedSlots[courtName]?.contains(cleanTime) ?? false;
-        } else if (_selectedService != null) {
-           return _courtBookedSlots[_selectedService!.name]?.contains(rawTime) ?? false;
-        }
-        return false;
+        final cleanTime = rawTime.contains(': ') ? rawTime.split(': ')[1] : rawTime;
+        return _bookedSlots.contains(cleanTime);
       });
       _isLoadingSlots = false;
     });
@@ -760,9 +747,9 @@ class _BookingScreenState extends State<BookingScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('VENUE SELECTED', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.richBlack.withOpacity(0.54), letterSpacing: 0.5)),
+                                      Text('COURT SELECTED', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.richBlack.withOpacity(0.54), letterSpacing: 0.5)),
                                       SizedBox(height: 2),
-                                      Text((widget.venue?['venueName'] ?? widget.venue?['name'] ?? 'KAPENARRA COURTSIDE').toString().toUpperCase(), style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+                                      Text(_selectedService?.name ?? widget.initialServiceName ?? 'Pickleball Court', style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
                                     ],
                                   ),
                                 ),
@@ -845,8 +832,6 @@ class _BookingScreenState extends State<BookingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildVenueInformationSection(),
-        SizedBox(height: 16),
         // Date Selector Header
         InkWell(
           onTap: () async {
@@ -1025,7 +1010,7 @@ class _BookingScreenState extends State<BookingScreen> {
                             final time = _getDisplayTimeSlots()[idx];
                             final slotKey = '${court.name}: $time';
                             final isSelected = _selectedTimes.contains(slotKey) || (_selectedServiceIds.length == 1 && _selectedTimes.contains(time));
-                            final isBooked = _courtBookedSlots[court.name]?.contains(time) ?? false;
+                            final isBooked = _bookedSlots.contains(time);
 
                             bool isPast = false;
                             bool isOutsideHours = false;
@@ -1175,127 +1160,7 @@ class _BookingScreenState extends State<BookingScreen> {
           },
         ),
 
-        // Host Open Play / Challenge UI
-        if (_selectedTimes.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Open Play Toggle
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: CheckboxListTile(
-                    title: Text('Host an Open Play', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-                    subtitle: Text('Allow others to join your court slot', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                    value: _isOpenPlay,
-                    activeColor: AppColors.primaryGreen,
-                    onChanged: (val) {
-                      setState(() {
-                        _isOpenPlay = val ?? false;
-                        if (_isOpenPlay) _isOpenChallenge = false;
-                      });
-                    },
-                  ),
-                ),
-                if (_isOpenPlay)
-                  Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DropdownButtonFormField<String>(
-                          value: _openPlayType,
-                          decoration: InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
-                          items: ['SINGLES', 'DOUBLES', 'MIXED'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                          onChanged: (val) => setState(() => _openPlayType = val!),
-                        ),
-                        SizedBox(height: 12),
-                        TextFormField(
-                          controller: _openPlayMaxPlayersController,
-                          decoration: InputDecoration(labelText: 'Max Players', border: OutlineInputBorder()),
-                          keyboardType: TextInputType.number,
-                        ),
-                        SizedBox(height: 12),
-                        TextFormField(
-                          controller: _openPlayPriceController,
-                          decoration: InputDecoration(labelText: 'Price per player (?)', border: OutlineInputBorder()),
-                          keyboardType: TextInputType.number,
-                        ),
-                        SizedBox(height: 12),
-                        TextFormField(
-                          controller: _openPlayInstructionsController,
-                          decoration: InputDecoration(labelText: 'Instructions / Level', border: OutlineInputBorder()),
-                          maxLines: 2,
-                        ),
-                        SizedBox(height: 12),
-                        TextFormField(
-                          controller: _openPlayPaymentDetailsController,
-                          decoration: InputDecoration(labelText: 'Your GCash / Payment Info', border: OutlineInputBorder()),
-                          maxLines: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                SizedBox(height: 12),
-
-                // Challenge Toggle
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: CheckboxListTile(
-                    title: Text('Post as a Challenge', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-                    subtitle: Text('Challenge other players or tandems', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                    value: _isOpenChallenge,
-                    activeColor: AppColors.primaryGreen,
-                    onChanged: (val) {
-                      setState(() {
-                        _isOpenChallenge = val ?? false;
-                        if (_isOpenChallenge) _isOpenPlay = false;
-                      });
-                    },
-                  ),
-                ),
-                if (_isOpenChallenge)
-                  Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DropdownButtonFormField<String>(
-                          value: _challengeType,
-                          decoration: InputDecoration(labelText: 'Challenge Type', border: OutlineInputBorder()),
-                          items: ['singles', 'doubles', 'mixed'].map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase()))).toList(),
-                          onChanged: (val) => setState(() => _challengeType = val!),
-                        ),
-                        SizedBox(height: 12),
-                        TextFormField(
-                          controller: _hostTandemNameController,
-                          decoration: InputDecoration(labelText: 'Your Team / Player Name', border: OutlineInputBorder()),
-                        ),
-                        SizedBox(height: 12),
-                        TextFormField(
-                          controller: _challengeDescriptionController,
-                          decoration: InputDecoration(labelText: 'Description / Stakes', border: OutlineInputBorder()),
-                          maxLines: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
         // Lock in Time UI
-
         if (_selectedTimes.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 16.0),
@@ -1698,57 +1563,53 @@ class _BookingScreenState extends State<BookingScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: SizedBox.shrink(),
+          child: Text(
+            'Please scan the QR code below to pay. Your booking will only be confirmed once payment is verified.',
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+          ),
         ),
         SizedBox(height: 16),
         Center(
           child: Container(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: AppColors.softWhite,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey.shade300),
               boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    'assets/qr-code.jpg',
-                    height: 200,
-                    width: 200,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                SizedBox(width: 24),
-                InkWell(
-                  onTap: () {
-                    downloadImage('assets/qr-code.jpg');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Downloading QR Code...'), duration: Duration(seconds: 2))
-                    );
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.primaryGreen),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.download, color: AppColors.primaryGreen, size: 24),
-                        SizedBox(height: 8),
-                        Text('Download
-QR Code', textAlign: TextAlign.center, style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 12)),
-                      ],
+            child: InkWell(
+              onTap: () {
+                downloadImage('assets/qr-code.PNG');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Downloading QR Code...'), duration: Duration(seconds: 2))
+                );
+              },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/qr-code.PNG',
+                      height: 200,
+                      fit: BoxFit.contain,
                     ),
                   ),
-                ),
-              ],
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.richBlack.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.download, color: AppColors.softWhite, size: 20),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1775,12 +1636,14 @@ QR Code', textAlign: TextAlign.center, style: TextStyle(color: AppColors.primary
                 text: TextSpan(
                   style: TextStyle(color: AppColors.primaryGreen, height: 1.5, fontSize: 13, fontFamily: 'Poppins'),
                   children: [
-                    TextSpan(text: 'Court Fee: ${_getTotalAmount()}
-'),
-                    TextSpan(text: 'Service Charge: PHP 15.00
-'),
+                    TextSpan(text: 'Court Fee: ${_getTotalAmount()}\n'),
+                    TextSpan(text: 'Service Charge: PHP 15.00\n'),
                     TextSpan(text: 'Total Amount to Pay: '),
-                    TextSpan(text: '${_getTotalDue()}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    TextSpan(text: '${_getTotalDue()}\n\n', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    TextSpan(text: ''),                    TextSpan(text: 'GCash: ${_getPaymentDetail('gcash_number', '09123456789')}\n'),
+                    TextSpan(text: 'Maya: ${_getPaymentDetail('paymaya_number', '09123456789')}\n'),
+                    TextSpan(text: 'Bank: ${_getPaymentDetail('bank_account', 'BDO - 1234567890')}\n'),
+                    TextSpan(text: 'Account Name: ${_getPaymentDetail('bank_account_name', 'Pickle Booking')}'),
                   ],
                 ),
               ),
