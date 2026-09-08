@@ -858,7 +858,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 100),
+            SizedBox(height: 90),
 
           // My Next Booking Card
           _buildNextBookingCard(),
@@ -4066,11 +4066,9 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(0, -10),
-      child: SizedBox(
-        height: 185,
-        child: PageView.builder(
+    return SizedBox(
+      height: 185,
+      child: PageView.builder(
         controller: _pageController,
         itemCount: widget.bookings.length,
         itemBuilder: (context, index) {
@@ -4249,7 +4247,6 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
             ),
           );
         },
-        ),
       ),
     );
   }
