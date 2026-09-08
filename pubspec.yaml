@@ -80,6 +80,7 @@ flutter:
     - assets/logo.png
     - assets/logo_small.png
     - assets/qr-code.PNG
+    - assets/qr-code.jpg
     - assets/splash.png
 
   fonts:
