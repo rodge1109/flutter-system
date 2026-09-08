@@ -4066,9 +4066,11 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 185,
-      child: PageView.builder(
+    return Transform.translate(
+      offset: const Offset(0, -10),
+      child: SizedBox(
+        height: 185,
+        child: PageView.builder(
         controller: _pageController,
         itemCount: widget.bookings.length,
         itemBuilder: (context, index) {
@@ -4247,6 +4249,7 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
             ),
           );
         },
+        ),
       ),
     );
   }
