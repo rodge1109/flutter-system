@@ -1666,6 +1666,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Widget _buildSummaryRow(dynamic iconOrText, String label, String value) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         iconOrText is IconData 
             ? Icon(iconOrText, color: AppColors.richBlack, size: 20)
@@ -1676,8 +1677,14 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
         SizedBox(width: 16),
         Text(label, style: TextStyle(color: AppColors.richBlack)),
-        Spacer(),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+        SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right, 
+            style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.richBlack)
+          ),
+        ),
       ],
     );
   }
