@@ -832,6 +832,8 @@ class _BookingScreenState extends State<BookingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildVenueInformationSection(),
+        SizedBox(height: 16),
         // Date Selector Header
         InkWell(
           onTap: () async {
