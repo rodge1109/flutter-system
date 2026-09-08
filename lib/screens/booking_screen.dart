@@ -1710,8 +1710,8 @@ class _BookingScreenState extends State<BookingScreen> {
               border: Border.all(color: Colors.grey.shade300),
               boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -1722,28 +1722,24 @@ class _BookingScreenState extends State<BookingScreen> {
                     fit: BoxFit.cover,
                   ),
                 ),
-                SizedBox(width: 24),
-                InkWell(
-                  onTap: () {
-                    downloadImage('assets/qr-code.jpg');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Downloading QR Code...'), duration: Duration(seconds: 2))
-                    );
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.primaryGreen),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.download, color: AppColors.primaryGreen, size: 24),
-                        SizedBox(height: 8),
-                        Text('Download\nQR Code', textAlign: TextAlign.center, style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 12)),
-                      ],
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: InkWell(
+                    onTap: () {
+                      downloadImage('assets/qr-code.jpg');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Downloading QR Code...'), duration: Duration(seconds: 2))
+                      );
+                    },
+                    child: Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.softWhite,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.1), blurRadius: 4, offset: Offset(0, 2))],
+                      ),
+                      child: Icon(Icons.download, color: AppColors.primaryGreen, size: 20),
                     ),
                   ),
                 ),
