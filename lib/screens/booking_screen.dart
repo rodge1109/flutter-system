@@ -1693,15 +1693,32 @@ class _BookingScreenState extends State<BookingScreen> {
                         ],
                       ),
                       SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: facilities.map((f) => Chip(
-                          avatar: Icon(Icons.check, size: 14, color: AppColors.primaryGreen),
-                          label: Text(f, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                          backgroundColor: AppColors.creamWhite,
-                          side: BorderSide(color: Colors.grey.shade300),
-                        )).toList(),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final itemWidth = (constraints.maxWidth - 16) / 2;
+                          return Wrap(
+                            spacing: 16,
+                            runSpacing: 12,
+                            children: facilities.map((f) {
+                              return SizedBox(
+                                width: itemWidth,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.check_circle_outline, color: AppColors.primaryGreen, size: 18),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        f,
+                                        style: TextStyle(fontSize: 13, color: Colors.grey.shade800, height: 1.3),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        }
                       ),
                     ],
                   ),
