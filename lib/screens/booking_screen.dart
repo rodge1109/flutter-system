@@ -1742,8 +1742,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       children: [
                         Icon(Icons.download, color: AppColors.primaryGreen, size: 24),
                         SizedBox(height: 8),
-                        Text('Download
-QR Code', textAlign: TextAlign.center, style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 12)),
+                        Text('Download\nQR Code', textAlign: TextAlign.center, style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -1775,10 +1774,8 @@ QR Code', textAlign: TextAlign.center, style: TextStyle(color: AppColors.primary
                 text: TextSpan(
                   style: TextStyle(color: AppColors.primaryGreen, height: 1.5, fontSize: 13, fontFamily: 'Poppins'),
                   children: [
-                    TextSpan(text: 'Court Fee: ${_getTotalAmount()}
-'),
-                    TextSpan(text: 'Service Charge: PHP 15.00
-'),
+                    TextSpan(text: 'Court Fee: ${_getTotalAmount()}\n'),
+                    TextSpan(text: 'Service Charge: PHP 15.00\n'),
                     TextSpan(text: 'Total Amount to Pay: '),
                     TextSpan(text: '${_getTotalDue()}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   ],
