@@ -49,6 +49,8 @@ class _BookingScreenState extends State<BookingScreen> {
   List<String> _selectedTimes = [];
   List<String> _bookedSlots = [];
   bool _isLoadingSlots = false;
+  String _selectedCategory = 'All';
+  Set<int> _expandedCourtIds = {};
   
   final List<String> _allTimeSlots = List.generate(24, (i) {
     int h = i % 12 == 0 ? 12 : i % 12;
@@ -529,56 +531,27 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
   void _handleStepContinue(bool skipChooseService) {
-    if (!skipChooseService) {
-      if (_currentStep == 0 && _selectedService == null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select a service to continue')));
-        return;
-      }
-      if (_currentStep == 1 && (_selectedDate == null || _selectedTimes.isEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select date and at least one time')));
-        return;
-      }
-      if (_currentStep == 1 && _holdToken == null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please click "Lock in this time" below the time slots before proceeding.')));
-        return;
-      }
-      if (_currentStep == 2 && (_nameController.text.isEmpty || _phoneController.text.isEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill your details')));
-        return;
-      }
-      if (_currentStep == 3 && _referenceNumberController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter your reference number to continue')));
-        return;
-      }
+    if (_currentStep == 0 && (_selectedDate == null || _selectedTimes.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select at least one time slot')));
+      return;
+    }
+    if (_currentStep == 0 && _holdToken == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please click "Lock in this time" before proceeding.')));
+      return;
+    }
+    if (_currentStep == 1 && (_nameController.text.isEmpty || _phoneController.text.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill your details')));
+      return;
+    }
+    if (_currentStep == 2 && _referenceNumberController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter your reference number to continue')));
+      return;
+    }
 
-      if (_currentStep < 4) {
-        setState(() => _currentStep += 1);
-      } else {
-        _submitBooking();
-      }
+    if (_currentStep < 3) {
+      setState(() => _currentStep += 1);
     } else {
-      if (_currentStep == 0 && (_selectedDate == null || _selectedTimes.isEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select date and at least one time')));
-        return;
-      }
-      if (_currentStep == 0 && _holdToken == null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please click "Lock in this time" below the time slots before proceeding.')));
-        return;
-      }
-      if (_currentStep == 1 && (_nameController.text.isEmpty || _phoneController.text.isEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill your details')));
-        return;
-      }
-      if (_currentStep == 2 && _referenceNumberController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter your reference number to continue')));
-        return;
-      }
-
-      if (_currentStep < 3) {
-        setState(() => _currentStep += 1);
-      } else {
-        _submitBooking();
-      }
+      _submitBooking();
     }
   }
 
@@ -593,21 +566,24 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   Widget build(BuildContext context) {
     final bool skipChooseService = widget.skipServiceSelection || widget.initialService != null || (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty);
-    final int maxStep = skipChooseService ? 3 : 4;
+    final int maxStep = 3;
 
     List<Step> steps = [];
 
     if (!skipChooseService) {
       steps.add(
         Step(
-          title: Text('Choose Service', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-          subtitle: _currentStep == 0 
-              ? Text('Select the court you want to book')
-              : Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: _buildServiceSelection(),
-                ),
-          content: _currentStep == 0 ? _buildServiceSelection() : SizedBox.shrink(),
+          title: Text('Courts & Times', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+          content: _buildSelectCourtsAndTimes(),
+          isActive: _currentStep >= 0,
+          state: _currentStep > 0 ? StepState.complete : StepState.indexed,
+        ),
+      );
+    } else {
+      steps.add(
+        Step(
+          title: Text('Date & Time', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+          content: _buildSelectCourtsAndTimes(),
           isActive: _currentStep >= 0,
           state: _currentStep > 0 ? StepState.complete : StepState.indexed,
         ),
@@ -615,12 +591,6 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     steps.addAll([
-      Step(
-        title: Text('Date & Time', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-        content: _buildDateTimeSelection(),
-        isActive: _currentStep >= (skipChooseService ? 0 : 1),
-        state: _currentStep > (skipChooseService ? 0 : 1) ? StepState.complete : StepState.indexed,
-      ),
       Step(
         title: Text('Your Details', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
         content: _buildUserDetails(),
@@ -644,7 +614,7 @@ class _BookingScreenState extends State<BookingScreen> {
     // Step labels
     final List<String> stepLabels = skipChooseService
         ? ['Date & Time', 'Your Details', 'Payment', 'Confirm']
-        : ['Court', 'Date & Time', 'Your Details', 'Payment', 'Confirm'];
+        : ['Courts & Times', 'Your Details', 'Payment', 'Confirm'];
 
     return Scaffold(
       backgroundColor: AppColors.creamWhite,
@@ -834,742 +804,407 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
 
-  Widget _buildServiceSelection() {
-    return SizedBox(
-      height: 64,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _services.length,
-        itemBuilder: (context, index) {
-          final service = _services[index];
-          final isSelected = _selectedService?.id == service.id;
-          
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedService = service;
-                _selectedTimes.clear();
-              });
-              _fetchSlots();
-            },
-            child: Container(
-              width: 100,
-              margin: EdgeInsets.only(right: 16),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFDDF7E8) : AppColors.softWhite,
-                borderRadius: BorderRadius.circular(12),
-                border: isSelected ? null : Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    service.name,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? AppColors.primaryGreen : AppColors.richBlack,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    service.price,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? AppColors.primaryGreen : AppColors.richBlack,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildDateTimeSelection() {
-    final now = DateTime.now();
-    final List<DateTime> dates = List.generate(90, (i) => now.add(Duration(days: i)));
+  Widget _buildSelectCourtsAndTimes() {
     final List<String> fullMonths = [
       'January', 'February', 'March', 'April', 'May', 'June', 
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
-    final List<String> shortMonths = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
-    ];
-    final List<String> weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8.0, right: 16.0, bottom: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Select Date', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.richBlack)),
-                if (_selectedDate != null)
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen,
-                      borderRadius: BorderRadius.circular(50),
-                    ),
-                    child: Text(
-                      '${fullMonths[_selectedDate!.month - 1]} ${_selectedDate!.year}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.softWhite, letterSpacing: 0.5),
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    String displayDate = '';
+    if (_selectedDate != null) {
+      displayDate = '${weekdays[_selectedDate!.weekday - 1]}, ${fullMonths[_selectedDate!.month - 1]} ${_selectedDate!.day}, ${_selectedDate!.year}';
+    }
+
+    // Get unique categories from services
+    final categories = ['All'];
+    for (var s in _services) {
+      if (s.category.isNotEmpty && !categories.contains(s.category)) {
+        categories.add(s.category);
+      }
+    }
+
+    final filteredServices = _selectedCategory == 'All' 
+        ? _services 
+        : _services.where((s) => s.category == _selectedCategory).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Date Selector Header
+        InkWell(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _selectedDate ?? DateTime.now(),
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(Duration(days: 90)),
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: ColorScheme.light(
+                      primary: AppColors.primaryGreen,
+                      onPrimary: Colors.white,
+                      onSurface: AppColors.richBlack,
                     ),
                   ),
+                  child: child!,
+                );
+              },
+            );
+            if (picked != null) {
+              setState(() {
+                _selectedDate = picked;
+                _selectedTimes.clear();
+              });
+              _fetchSlots();
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                Text(
+                  displayDate,
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                ),
+                Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey.shade600),
               ],
             ),
           ),
-          SizedBox(
-            height: 72,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: dates.length,
-              itemBuilder: (context, index) {
-                final date = dates[index];
-                final isSelected = _selectedDate != null && 
-                    date.year == _selectedDate!.year && 
-                    date.month == _selectedDate!.month && 
-                    date.day == _selectedDate!.day;
-                    
-                final weekdayStr = weekdays[date.weekday - 1];
-                final monthStr = shortMonths[date.month - 1];
-                
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedDate = date;
-                      _selectedTimes.clear();
-                    });
-                    _fetchSlots();
-                  },
-                  child: Container(
-                    width: 65,
-                    margin: EdgeInsets.only(right: 16),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primaryGreen : AppColors.softWhite,
-                      borderRadius: BorderRadius.circular(12),
-                      border: isSelected ? null : Border.all(color: Colors.grey.shade300),
+        ),
+        SizedBox(height: 16),
+
+        // Category Filter
+        Row(
+          children: [
+            Text('Sport', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            SizedBox(width: 12),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: categories.map((cat) {
+                    final isSelected = _selectedCategory == cat;
+                    IconData? catIcon;
+                    if (cat.toLowerCase().contains('pickle')) catIcon = Icons.sports_tennis;
+                    if (cat.toLowerCase().contains('basket')) catIcon = Icons.sports_basketball;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ChoiceChip(
+                        label: Row(
+                          children: [
+                            if (catIcon != null) ...[
+                              Icon(catIcon, size: 14, color: isSelected ? Colors.white : Colors.grey.shade800),
+                              SizedBox(width: 4),
+                            ],
+                            Text(
+                              cat,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isSelected ? Colors.white : Colors.grey.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        selected: isSelected,
+                        onSelected: (val) {
+                          if (val) {
+                            setState(() => _selectedCategory = cat);
+                          }
+                        },
+                        selectedColor: AppColors.primaryGreen,
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: isSelected ? AppColors.primaryGreen : Colors.grey.shade300),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 16),
+
+        // Courts List
+        ListView.builder(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          itemCount: filteredServices.length,
+          itemBuilder: (context, index) {
+            final court = filteredServices[index];
+            final isExpanded = _expandedCourtIds.contains(court.id);
+            
+            return Container(
+              margin: EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: Offset(0, 2)),
+                ],
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: isExpanded,
+                onExpansionChanged: (expanded) {
+                  setState(() {
+                    if (expanded) {
+                      _expandedCourtIds.add(court.id);
+                      // Auto-select this court if expanding
+                      _selectedServiceIds.add(court.id);
+                      _selectedService = court;
+                      if (_selectedTimes.isEmpty) _fetchSlots();
+                    } else {
+                      _expandedCourtIds.remove(court.id);
+                    }
+                  });
+                },
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      court.name,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.richBlack),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    SizedBox(height: 4),
+                    Row(
                       children: [
                         Text(
-                          weekdayStr,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? AppColors.softWhite : Colors.grey.shade600,
-                          ),
+                          court.price,
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                         ),
-                        SizedBox(height: 8),
+                        SizedBox(width: 12),
+                        Icon(Icons.camera_alt_outlined, size: 14, color: Colors.grey.shade500),
+                        SizedBox(width: 4),
                         Text(
-                          '${date.day}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? AppColors.softWhite : AppColors.richBlack,
-                            height: 1.1,
-                          ),
+                          '3 photos', // Mock for now as per plan
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                         ),
-                        SizedBox(height: 8),
+                      ],
+                    ),
+                  ],
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: _isLoadingSlots 
+                      ? Center(child: CircularProgressIndicator())
+                      : GridView.builder(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 2.0,
+                          ),
+                          itemCount: _getDisplayTimeSlots().length,
+                          itemBuilder: (context, idx) {
+                            final time = _getDisplayTimeSlots()[idx];
+                            final slotKey = '${court.name}: $time';
+                            final isSelected = _selectedTimes.contains(slotKey) || (_selectedServiceIds.length == 1 && _selectedTimes.contains(time));
+                            final isBooked = _bookedSlots.contains(time);
+
+                            bool isPast = false;
+                            bool isOutsideHours = false;
+
+                            int slotHour = 0;
+                            if (time.contains(':')) {
+                              final parts = time.split(RegExp(r'[:\s]'));
+                              if (parts.length >= 3) {
+                                slotHour = int.tryParse(parts[0]) ?? 0;
+                                if (parts[2].toUpperCase() == 'PM' && slotHour < 12) slotHour += 12;
+                                if (parts[2].toUpperCase() == 'AM' && slotHour == 12) slotHour = 0;
+                              }
+                            } else {
+                              slotHour = _allTimeSlots.indexOf(time);
+                            }
+
+                            if (_selectedDate != null) {
+                              final now = DateTime.now();
+                              if (_selectedDate!.year == now.year &&
+                                  _selectedDate!.month == now.month &&
+                                  _selectedDate!.day == now.day) {
+                                if (slotHour < now.hour) {
+                                  isPast = true;
+                                } else if (slotHour == now.hour && now.minute > 0) {
+                                  isPast = true;
+                                }
+                              }
+                            }
+
+                            if (court.openTime != null && court.openTime!.contains(':')) {
+                              int openHour = int.tryParse(court.openTime!.split(':')[0]) ?? 0;
+                              if (slotHour < openHour) isOutsideHours = true;
+                            }
+                            if (court.closeTime != null && court.closeTime!.contains(':')) {
+                              int closeHour = int.tryParse(court.closeTime!.split(':')[0]) ?? 24;
+                              if (slotHour >= closeHour) isOutsideHours = true;
+                            }
+
+                            final bool isDisabled = isBooked || isPast || isOutsideHours;
+
+                            String getEndStr(String t) {
+                              final parts = t.split(RegExp(r'[:\s]'));
+                              if (parts.length >= 3) {
+                                int h = int.tryParse(parts[0]) ?? 0;
+                                String ampm = parts[2].toUpperCase();
+                                int endH = h + 1;
+                                if (endH == 12) ampm = ampm == 'AM' ? 'PM' : 'AM';
+                                if (endH > 12) endH -= 12;
+                                return '${endH}${ampm}';
+                              }
+                              return t;
+                            }
+
+                            final String startStr = time.replaceFirst(':00', '').replaceAll(' ', '').replaceFirst(RegExp(r'^0'), '');
+                            final String displayTime = '${startStr}-${getEndStr(time)}';
+
+                            return InkWell(
+                              onTap: isDisabled ? null : () {
+                                setState(() {
+                                  // Ensure court is selected
+                                  _selectedServiceIds.add(court.id);
+                                  _selectedService = court;
+
+                                  if (isSelected) {
+                                    _selectedTimes.remove(slotKey);
+                                    _selectedTimes.remove(time);
+                                  } else {
+                                    _selectedTimes.add(slotKey);
+                                  }
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: isDisabled 
+                                          ? Colors.grey.shade200 
+                                          : (isSelected ? AppColors.accentLime : AppColors.softWhite),
+                                      border: isSelected ? null : Border.all(
+                                        width: 1,
+                                        color: Colors.grey.shade300,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              time.toUpperCase().contains('AM') ? Icons.wb_sunny_outlined : Icons.nights_stay_outlined,
+                                              size: 12,
+                                              color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.deepTeal),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              displayTime,
+                                              style: TextStyle(
+                                                color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.richBlack),
+                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          isOutsideHours ? 'CLOSED' : (isPast ? 'PASSED' : (isBooked ? 'Booked' : _getPriceForTime(time, service: court))),
+                                          style: TextStyle(
+                                            color: isSelected ? AppColors.softWhite.withOpacity(0.90) : (isDisabled ? Colors.grey.shade500 : AppColors.richBlack),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: (isBooked || isOutsideHours) ? 9 : 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Positioned(
+                                      top: -5,
+                                      right: -5,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.softWhite,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: AppColors.accentLime, width: 1.5),
+                                        ),
+                                        child: Icon(Icons.check, size: 9, color: AppColors.accentLime),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        // Lock in Time UI
+        if (_selectedTimes.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0),
+            child: Column(
+              children: [
+                if (_holdToken == null)
+                  ElevatedButton.icon(
+                    icon: Icon(Icons.lock_clock, color: Colors.white),
+                    label: Text('Lock in this time (5:00)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      minimumSize: Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _isLoading ? null : _holdSelectedSlots,
+                  ),
+                if (_holdToken != null)
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border.all(color: Colors.orange.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.timer, color: Colors.orange.shade800),
+                        SizedBox(width: 8),
                         Text(
-                          monthStr,
+                          'Time remaining to pay: ${_holdSecondsRemaining ~/ 60}:${(_holdSecondsRemaining % 60).toString().padLeft(2, '0')}',
                           style: TextStyle(
-                            fontSize: 10,
+                            color: Colors.orange.shade800,
                             fontWeight: FontWeight.bold,
-                            color: isSelected ? AppColors.softWhite : Colors.grey.shade600,
+                            fontSize: 16,
                           ),
                         ),
                       ],
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          SizedBox(height: 24),
-          if (_services.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0, bottom: 12.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Select Court(s)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.richBlack)),
-                  Text('Tap to multi-select courts', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _services.length,
-                itemBuilder: (context, index) {
-                  final service = _services[index];
-                  final isSelected = _selectedServiceIds.contains(service.id);
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (isSelected) {
-                          if (_selectedServiceIds.length > 1) {
-                            _selectedServiceIds.remove(service.id);
-                          }
-                        } else {
-                          _selectedServiceIds.add(service.id);
-                        }
-                        _selectedService = _services.firstWhere((s) => _selectedServiceIds.contains(s.id));
-                      });
-                      _fetchSlots();
-                    },
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      margin: EdgeInsets.only(right: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryGreen : AppColors.softWhite,
-                        borderRadius: BorderRadius.circular(20),
-                        border: isSelected ? null : Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        children: [
-                          if (isSelected) ...[
-                            Icon(Icons.check_circle, size: 15, color: Colors.white),
-                            SizedBox(width: 4),
-                          ],
-                          Text(
-                            service.name,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? Colors.white : AppColors.richBlack,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            SizedBox(height: 20),
-          ],
-          if (_selectedDate != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 8.0, bottom: 16.0),
-                  child: Text('Select Time(s)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.richBlack)),
-                ),
-                _isLoadingSlots 
-                  ? Padding(padding: const EdgeInsets.all(24.0), child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.richBlack))))
-                  : Column(
-                      children: (_services.where((s) => _selectedServiceIds.contains(s.id)).isEmpty
-                              ? (_services.isNotEmpty ? [_services.first] : <ServiceModel>[])
-                              : _services.where((s) => _selectedServiceIds.contains(s.id))).map((court) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 20),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: Offset(0, 3)),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Court Header Banner
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryGreen,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        CustomPaddleIcon(color: Colors.white, size: 16),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          court.name,
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                                        ),
-                                      ],
-                                    ),
-                                    Text(
-                                      court.price,
-                                      style: TextStyle(color: AppColors.accentLime, fontWeight: FontWeight.bold, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Available Timeslots for ${court.name}:',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
-                              ),
-                              const SizedBox(height: 10),
-
-                              // Timeslot Grid for this court
-                              GridView.builder(
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 8,
-                                  mainAxisSpacing: 8,
-                                  childAspectRatio: 2.0,
-                                ),
-                                itemCount: _getDisplayTimeSlots().length,
-                                itemBuilder: (context, index) {
-                                  final time = _getDisplayTimeSlots()[index];
-                                  final slotKey = '${court.name}: $time';
-                                  final isSelected = _selectedTimes.contains(slotKey) || (_selectedServiceIds.length == 1 && _selectedTimes.contains(time));
-                                  final isBooked = _bookedSlots.contains(time);
-                                  
-                                  bool isPast = false;
-                                  bool isOutsideHours = false;
-                                  
-                                  int slotHour = 0;
-                                  if (time.contains(':')) {
-                                    final parts = time.split(RegExp(r'[:\s]'));
-                                    if (parts.length >= 3) {
-                                      slotHour = int.tryParse(parts[0]) ?? 0;
-                                      if (parts[2].toUpperCase() == 'PM' && slotHour < 12) slotHour += 12;
-                                      if (parts[2].toUpperCase() == 'AM' && slotHour == 12) slotHour = 0;
-                                    }
-                                  } else {
-                                    slotHour = _allTimeSlots.indexOf(time);
-                                  }
-
-                                  if (_selectedDate != null) {
-                                    final now = DateTime.now();
-                                    if (_selectedDate!.year == now.year &&
-                                        _selectedDate!.month == now.month &&
-                                        _selectedDate!.day == now.day) {
-                                      if (slotHour < now.hour) {
-                                        isPast = true;
-                                      } else if (slotHour == now.hour && now.minute > 0) {
-                                        isPast = true;
-                                      }
-                                    }
-                                  }
-
-                                  if (court.openTime != null && court.openTime!.contains(':')) {
-                                    int openHour = int.tryParse(court.openTime!.split(':')[0]) ?? 0;
-                                    if (slotHour < openHour) isOutsideHours = true;
-                                  }
-                                  if (court.closeTime != null && court.closeTime!.contains(':')) {
-                                    int closeHour = int.tryParse(court.closeTime!.split(':')[0]) ?? 24;
-                                    if (slotHour >= closeHour) isOutsideHours = true;
-                                  }
-
-                                  final bool isDisabled = isBooked || isPast || isOutsideHours;
-                                  
-                                  String getEndStr(String t) {
-                                    final parts = t.split(RegExp(r'[:\s]'));
-                                    if (parts.length >= 3) {
-                                      int h = int.tryParse(parts[0]) ?? 0;
-                                      String ampm = parts[2].toUpperCase();
-                                      int endH = h + 1;
-                                      if (endH == 12) ampm = ampm == 'AM' ? 'PM' : 'AM';
-                                      if (endH > 12) endH -= 12;
-                                      return '$endH$ampm';
-                                    }
-                                    return t;
-                                  }
-                                  
-                                  final String startStr = time.replaceFirst(':00', '').replaceAll(' ', '').replaceFirst(RegExp(r'^0'), '');
-                                  final String displayTime = '$startStr-${getEndStr(time)}';
-
-                                  return InkWell(
-                                    onTap: isDisabled ? null : () {
-                                      setState(() {
-                                        if (isSelected) {
-                                          _selectedTimes.remove(slotKey);
-                                          _selectedTimes.remove(time);
-                                        } else {
-                                          _selectedTimes.add(slotKey);
-                                        }
-                                      });
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: isDisabled 
-                                                ? Colors.grey.shade200 
-                                                : (isSelected ? AppColors.accentLime : AppColors.softWhite),
-                                            border: isSelected ? null : Border.all(
-                                              width: 1,
-                                              color: Colors.grey.shade300,
-                                            ),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    time.toUpperCase().contains('AM') ? Icons.wb_sunny_outlined : Icons.nights_stay_outlined,
-                                                    size: 12,
-                                                    color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.deepTeal),
-                                                  ),
-                                                  const SizedBox(width: 3),
-                                                  Text(
-                                                    displayTime,
-                                                    style: TextStyle(
-                                                      color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.richBlack),
-                                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                isOutsideHours ? 'CLOSED' : (isPast ? 'PASSED' : (isBooked ? 'Booked' : _getPriceForTime(time, service: court))),
-                                                style: TextStyle(
-                                                  color: isSelected ? AppColors.softWhite.withOpacity(0.90) : (isDisabled ? Colors.grey.shade500 : AppColors.richBlack),
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: (isBooked || isOutsideHours) ? 9 : 10,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          Positioned(
-                                            top: -5,
-                                            right: -5,
-                                            child: Container(
-                                              padding: const EdgeInsets.all(2),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.softWhite,
-                                                shape: BoxShape.circle,
-                                                border: Border.all(color: AppColors.accentLime, width: 1.5),
-                                              ),
-                                              child: Icon(Icons.check, size: 9, color: AppColors.accentLime),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-            ],
-          ),
-          
-          if (_selectedTimes.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: Column(
-                children: [
-                  if (_holdToken == null)
-                    ElevatedButton.icon(
-                      icon: Icon(Icons.lock_clock, color: Colors.white),
-                      label: Text('Lock in this time (5:00)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGreen,
-                        minimumSize: Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: _isLoading ? null : _holdSelectedSlots,
-                    ),
-                  if (_holdToken != null)
-                    Container(
-                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        border: Border.all(color: Colors.orange.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.timer, color: Colors.orange.shade800),
-                          SizedBox(width: 8),
-                          Text(
-                            'Time remaining to pay: ${_holdSecondsRemaining ~/ 60}:${(_holdSecondsRemaining % 60).toString().padLeft(2, '0')}',
-                            style: TextStyle(
-                              color: Colors.orange.shade800,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            
-          SizedBox(height: 24),
-          // Open Play Toggle
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.softWhite,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Host as Open Play', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          SizedBox(height: 8),
-                          Text('Allow other players to join and buy spots in your session.', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _isOpenPlay,
-                      onChanged: (val) {
-                        setState(() { 
-                          _isOpenPlay = val; 
-                          if (val) _isOpenChallenge = false;
-                        });
-                      },
-                      activeColor: AppColors.accentLime,
-                    ),
-                  ],
-                ),
-                if (_isOpenPlay) ...[
-                  SizedBox(height: 16),
-                  Text('Play Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
-                  SizedBox(height: 8),
-                  Row(
-                    children: ['SINGLES', 'DOUBLES', 'SOCIAL'].map((type) {
-                      final isSelected = _openPlayType == type;
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(right: type == 'SOCIAL' ? 0 : 8.0),
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _openPlayType = type;
-                                if (type == 'SINGLES') _openPlayMaxPlayersController.text = '2';
-                                else if (type == 'DOUBLES') _openPlayMaxPlayersController.text = '4';
-                              });
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primaryGreen : AppColors.softWhite,
-                                border: Border.all(color: isSelected ? AppColors.primaryGreen : Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                type,
-                                style: TextStyle(
-                                  color: isSelected ? AppColors.softWhite : AppColors.richBlack,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _openPlayMaxPlayersController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Max Players',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _openPlayPriceController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Price per Spot',
-                            prefixText: 'P ',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  TextFormField(
-                    controller: _openPlayInstructionsController,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: 'Instructions for Joiners',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  TextFormField(
-                    controller: _openPlayPaymentDetailsController,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: 'Payment Details (e.g. GCash number, Bank Info)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
-          
-          // Open Challenge Toggle
-          SizedBox(height: 16),
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.softWhite,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Post an Open Challenge', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          SizedBox(height: 8),
-                          Text('Look for opponents. Review and accept challengers.', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _isOpenChallenge,
-                      onChanged: (val) {
-                        setState(() { 
-                          _isOpenChallenge = val; 
-                          if (val) _isOpenPlay = false;
-                        });
-                      },
-                      activeColor: AppColors.primaryGreen,
-                    ),
-                  ],
-                ),
-                if (_isOpenChallenge) ...[
-                  SizedBox(height: 16),
-                  Text('Challenge Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
-                  SizedBox(height: 8),
-                  Row(
-                    children: ['singles', 'doubles'].map((type) {
-                      final isSelected = _challengeType == type;
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(right: type == 'singles' ? 8.0 : 0.0),
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _challengeType = type;
-                              });
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primaryGreen : AppColors.softWhite,
-                                border: Border.all(color: isSelected ? AppColors.primaryGreen : Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                type.toUpperCase(),
-                                style: TextStyle(
-                                  color: isSelected ? AppColors.softWhite : AppColors.richBlack,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  if (_challengeType == 'doubles') ...[
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _hostTandemNameController,
-                      decoration: InputDecoration(
-                        labelText: 'Tandem Name / Partner Name',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      ),
-                    ),
-                  ],
-                  SizedBox(height: 16),
-                  TextFormField(
-                    controller: _challengeDescriptionController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: 'Challenge Description / Details',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          
-          // Venue Overview (About, Policies, Q&A, Facilities)
-          _buildVenueInformationSection(),
-        ],
-      ),
+      ],
     );
   }
 
