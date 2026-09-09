@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'screens/splash_screen.dart';
+import 'screens/deep_link_handler_screen.dart';
 import 'theme/app_colors.dart';
 
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
@@ -10,6 +12,7 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (kIsWeb) {
+    usePathUrlStrategy();
     await FacebookAuth.instance.webAndDesktopInitialize(
       appId: '1788135815163201',
       cookie: true,
@@ -105,7 +108,19 @@ class PicklebookApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: SplashScreen(),
+      initialRoute: '/',
+      onGenerateRoute: (settings) {
+        if (settings.name != null && settings.name != '/') {
+          final uri = Uri.parse(settings.name!);
+          if (uri.pathSegments.isNotEmpty) {
+            final slug = uri.pathSegments[0];
+            return MaterialPageRoute(
+              builder: (context) => DeepLinkHandlerScreen(slug: slug),
+            );
+          }
+        }
+        return MaterialPageRoute(builder: (context) => SplashScreen());
+      },
     );
   }
 }
