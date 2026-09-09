@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'booking_screen.dart';
+import 'dashboard_screen.dart';
+import 'login_screen.dart';
 import 'splash_screen.dart';
 
 class DeepLinkHandlerScreen extends StatefulWidget {
@@ -138,7 +141,17 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
         if (!mounted) return;
 
         if (matchedVenue != null) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => SplashScreen()));
+          final prefs = await SharedPreferences.getInstance();
+          final userStr = prefs.getString('user');
+          
+          Widget baseScreen = userStr != null ? DashboardScreen() : LoginScreen();
+          
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => baseScreen),
+            (route) => false,
+          );
+          
           Navigator.push(context, MaterialPageRoute(
             builder: (_) => BookingScreen(
               venue: matchedVenue,
