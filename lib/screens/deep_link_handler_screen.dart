@@ -26,7 +26,7 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
 
   Future<void> _processDeepLink() async {
     try {
-      final services = await _apiService.fetchServices();
+      final services = await _apiService.fetchRawServices();
       
       if (services.isNotEmpty) {
         final List<String> fallbackImages = [
@@ -38,32 +38,33 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
         List<Map<String, dynamic>> courts = services.asMap().entries.map((entry) {
             int idx = entry.key;
             var s = entry.value;
-            String rawPrice = s.price.replaceAll(RegExp(r'[^0-9.]'), '');
+            String rawPrice = (s['price'] ?? '300').toString().replaceAll(RegExp(r'[^0-9.]'), '');
             if (rawPrice.isEmpty || rawPrice == '0') rawPrice = '300';
             else rawPrice = double.parse(rawPrice).toStringAsFixed(0);
             
-            String addr = s.address.isNotEmpty ? s.address : (s.description.isNotEmpty ? s.description : 'Cayang, Bogo');
+            String addr = (s['address'] ?? '').toString().isNotEmpty ? s['address'] : ((s['description'] ?? '').toString().isNotEmpty ? s['description'] : 'Cayang, Bogo');
 
             String imageUrl = fallbackImages[idx % fallbackImages.length];
-            if (s.icon.startsWith('http') || s.icon.startsWith('/uploads')) {
-              imageUrl = s.icon.startsWith('/uploads') ? 'https://pickle-system.onrender.com${s.icon}' : s.icon;
+            String iconStr = (s['icon'] ?? '').toString();
+            if (iconStr.startsWith('http') || iconStr.startsWith('/uploads')) {
+              imageUrl = iconStr.startsWith('/uploads') ? 'https://pickle-system.onrender.com$iconStr' : iconStr;
             }
             
             return {
-              'id': s.id.toString(),
-              'name': s.name,
+              'id': s['id'].toString(),
+              'name': s['name'] ?? 'Court',
               'address': addr,
               'price': rawPrice,
               'image': imageUrl,
-              'latitude': s.latitude,
-              'longitude': s.longitude,
-              'facilities': s.facilities,
-              'ownerEmail': s.ownerEmail,
-              'venueName': s.venueName,
-              'logo': s.logo,
-              'about_venue': s.aboutVenue,
-              'booking_policy': s.bookingPolicy,
-              'faq': s.faq,
+              'latitude': s['latitude'],
+              'longitude': s['longitude'],
+              'facilities': s['facilities'] ?? [],
+              'ownerEmail': s['owner_email'] ?? s['email'] ?? '',
+              'venueName': s['venue_name'] ?? s['venueName'] ?? '',
+              'logo': s['logo_url'] ?? s['logo'] ?? '',
+              'about_venue': s['about_venue'] ?? s['aboutVenue'] ?? '',
+              'booking_policy': s['booking_policy'] ?? s['bookingPolicy'] ?? '',
+              'faq': s['faq'] ?? '',
             };
         }).toList();
 

@@ -48,7 +48,26 @@ class ApiService {
       }
       throw Exception('Failed to load services');
     } catch (e) {
-      throw Exception('Error fetching services: $e');
+      print('Error fetching services: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchRawServices() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/booking-services'));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        if (data['success'] == true && data['services'] != null) {
+          final List<dynamic> servicesJson = data['services'];
+          return servicesJson.map((e) => Map<String, dynamic>.from(e)).toList();
+        }
+      }
+      throw Exception('Failed to load raw services');
+    } catch (e) {
+      print('Error fetching raw services: $e');
+      return [];
     }
   }
 
