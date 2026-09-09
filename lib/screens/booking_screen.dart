@@ -313,17 +313,44 @@ class _BookingScreenState extends State<BookingScreen> {
             _holdTimer?.cancel();
             _holdToken = null;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Hold expired! Please hold your slots again.'), backgroundColor: Colors.orange),
+              SnackBar(
+                content: Text('Hold expired! Please hold your slots again.'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).size.height - 180,
+                  left: 16,
+                  right: 16,
+                ),
+              ),
             );
           }
         });
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Slots held! You have 5 minutes to complete your booking.'), backgroundColor: AppColors.primaryGreen),
+        SnackBar(
+          content: Text('Slots held! You have 5 minutes to complete your booking.'),
+          backgroundColor: AppColors.primaryGreen,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 180,
+            left: 16,
+            right: 16,
+          ),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sorry, one or more slots are already taken or held.'), backgroundColor: Colors.redAccent),
+        SnackBar(
+          content: Text('Sorry, one or more slots are already taken or held.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height - 180,
+            left: 16,
+            right: 16,
+          ),
+        ),
       );
       _fetchSlots();
     }
