@@ -755,7 +755,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Text(
             'Hello, ${_userName.split(' ').first}!',
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.softWhite),
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.richBlack),
           ),
           Text(
             "Let's book your court.",
@@ -871,11 +871,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Color(0xFFFAFAFA),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(32),
-              topRight: Radius.circular(32),
-            ),
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(32),
+                topRight: Radius.circular(32),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.richBlack.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: Offset(0, -4),
+                ),
+              ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1075,7 +1082,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Text(
             'Active Open Plays',
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
           ),
           if (_openPlays.isNotEmpty)
             GestureDetector(
@@ -1783,7 +1790,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Text(
             'Active Open Challenges',
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
           ),
           if (_openChallenges.isNotEmpty)
             GestureDetector(
@@ -3615,7 +3622,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Text(
             'Pasalo Courts',
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
           ),
           if (_pasaloCourts.isNotEmpty)
             GestureDetector(
