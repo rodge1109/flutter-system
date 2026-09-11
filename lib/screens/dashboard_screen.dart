@@ -630,9 +630,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFFFAFAFA),
-      extendBodyBehindAppBar: true,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.creamWhite,
+            Colors.white,
+          ],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: true,
       appBar: _buildAppBar(),
       drawer: Drawer(
         child: ListView(
@@ -734,6 +745,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
       bottomNavigationBar: _buildBottomNavigationBar(),
+      ),
     );
   }
 
