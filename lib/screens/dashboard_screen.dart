@@ -736,7 +736,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     final bool isMain = _selectedNavIndex == 0;
-    final Color iconColor = isMain ? AppColors.softWhite : AppColors.richBlack;
+    final Color iconColor = AppColors.richBlack;
 
     return AppBar(
       backgroundColor: Colors.transparent,
@@ -759,7 +759,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           Text(
             "Let's book your court.",
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: AppColors.softWhite.withOpacity(0.8)),
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: AppColors.richBlack.withOpacity(0.8)),
           ),
         ],
       ) : null,
@@ -956,7 +956,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Nearby Venues Header
+                SizedBox(height: 2),
+                  // Nearby Venues Header
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
@@ -964,7 +965,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text(
                         'Nearby Venues',
-                        style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+                        style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
                       ),
                       InkWell(
                         onTap: () {
