@@ -52,6 +52,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _unreadMessageCount = 0;
   int _selectedNavIndex = 0;
   bool _isLoading = true;
+  bool _openPlaysFetched = false;
+  bool _openChallengesFetched = false;
+  bool _pasaloCourtsFetched = false;
   String _selectedSportCategory = 'ALL'; // 'ALL', 'Pickleball', 'Tennis'
   Set<String> _favoriteCourts = {};
   String _searchQuery = '';
@@ -725,25 +728,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       body: _isLoading 
           ? Center(child: CircularProgressIndicator(color: AppColors.accentLime)) 
-          : Stack(
-              children: [
-                if (_selectedNavIndex == 0)
-                  Container(
-                    height: 360,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        stops: [0.0, 0.4, 0.7, 1.0],
-                        colors: AppColors.brandingGradient,
-                      ),
-                    ),
-                  ),
-                _buildBodyContent(),
-              ],
-            ),
+          : _buildBodyContent(),
       bottomNavigationBar: _buildBottomNavigationBar(),
       ),
     );
@@ -1075,40 +1060,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildOpenPlaysSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                'Active Open Plays',
-                style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
-              ),
-              if (_openPlays.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AllOpenPlaysScreen(
-                          openPlays: _openPlays,
-                          onJoinPlay: _showJoinOpenPlayDialog,
-                          onViewJoiners: _showJoinersListBottomSheet,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Text('See All', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-            ],
+    return ExpansionTile(
+      shape: const Border(),
+      collapsedShape: const Border(),
+      initiallyExpanded: false,
+      onExpansionChanged: (expanded) {
+        if (expanded && !_openPlaysFetched) {
+          _fetchOpenPlays();
+          setState(() { _openPlaysFetched = true; });
+        }
+      },
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Active Open Plays',
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
           ),
-        ),
-        SizedBox(height: 16),
+          if (_openPlays.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AllOpenPlaysScreen(
+                      openPlays: _openPlays,
+                      onJoinPlay: _showJoinOpenPlayDialog,
+                      onViewJoiners: _showJoinersListBottomSheet,
+                    ),
+                  ),
+                );
+              },
+              child: Text('See All', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
+        ],
+      ),
+      children: [
+        if (!_openPlaysFetched)
+          Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: AppColors.accentLime))
+        else
         if (_openPlays.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1778,36 +1768,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildOpenChallengesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                'Active Open Challenges',
-                style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
-              ),
-              if (_openChallenges.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => OpenChallengesScreen(),
-                      ),
-                    ).then((_) => _loadUserData());
-                  },
-                  child: Text('See All', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-            ],
+    return ExpansionTile(
+      shape: const Border(),
+      collapsedShape: const Border(),
+      initiallyExpanded: false,
+      onExpansionChanged: (expanded) {
+        if (expanded && !_openChallengesFetched) {
+          _fetchOpenChallenges();
+          setState(() { _openChallengesFetched = true; });
+        }
+      },
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Active Open Challenges',
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
           ),
-        ),
-        SizedBox(height: 16),
+          if (_openChallenges.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OpenChallengesScreen(),
+                  ),
+                ).then((_) => _loadUserData());
+              },
+              child: Text('See All', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
+        ],
+      ),
+      children: [
+        if (!_openChallengesFetched)
+          Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: AppColors.accentLime))
+        else
         if (_openChallenges.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -2801,8 +2796,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Player accepted! Waiting for them to send payment.'), backgroundColor: AppColors.primaryGreen));
                                     _fetchBookings(_userEmail);
-                                    _fetchPasaloCourts();
-                                  } else {
+                                                              } else {
                                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to accept request.'), backgroundColor: Colors.red));
                                   }
                                 },
@@ -2817,8 +2811,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Acceptance cancelled. Court is back on the Pasalo board.'), backgroundColor: Colors.orange));
                                     _fetchBookings(_userEmail);
-                                    _fetchPasaloCourts();
-                                  } else {
+                                                              } else {
                                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to cancel.'), backgroundColor: Colors.red));
                                   }
                                 },
@@ -2833,8 +2826,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment verified! Court transferred.'), backgroundColor: AppColors.primaryGreen));
                                     _fetchBookings(_userEmail);
-                                    _fetchPasaloCourts();
-                                  } else {
+                                                              } else {
                                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to verify transfer.'), backgroundColor: Colors.red));
                                   }
                                 },
@@ -2937,8 +2929,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Posted for Pasalo successfully!'), backgroundColor: AppColors.primaryGreen));
                             _fetchBookings(_userEmail);
-                            _fetchPasaloCourts();
-                          } else {
+                                              } else {
                             setStateSB(() => isSubmitting = false);
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to post.'), backgroundColor: Colors.red));
                           }
@@ -3609,36 +3600,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPasaloCourtsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                'Pasalo Courts',
-                style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
-              ),
-              if (_pasaloCourts.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PasaloCourtsScreen(),
-                      ),
-                    );
-                  },
-                  child: Text('See All', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
-            ],
+    return ExpansionTile(
+      shape: const Border(),
+      collapsedShape: const Border(),
+      initiallyExpanded: false,
+      onExpansionChanged: (expanded) {
+        if (expanded && !_pasaloCourtsFetched) {
+          _fetchPasaloCourts();
+          setState(() { _pasaloCourtsFetched = true; });
+        }
+      },
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Pasalo Courts',
+            style: TextStyle(fontFamily: 'Poppins', fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
           ),
-        ),
-        SizedBox(height: 16),
+          if (_pasaloCourts.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PasaloCourtsScreen(),
+                  ),
+                );
+              },
+              child: Text('See All', style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
+        ],
+      ),
+      children: [
+        if (!_pasaloCourtsFetched)
+          Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: AppColors.accentLime))
+        else
         if (_pasaloCourts.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
