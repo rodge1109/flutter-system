@@ -17,6 +17,9 @@ class ServiceModel {
   final dynamic hourlyPrices;
   final String? openTime;
   final String? closeTime;
+  final String? aboutVenue;
+  final String? bookingPolicy;
+  final String? faq;
 
   ServiceModel({
     required this.id,
@@ -37,6 +40,9 @@ class ServiceModel {
     this.hourlyPrices,
     this.openTime,
     this.closeTime,
+    this.aboutVenue,
+    this.bookingPolicy,
+    this.faq,
   });
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
@@ -59,6 +65,9 @@ class ServiceModel {
       hourlyPrices: json['variable_prices'] ?? json['hourly_prices'],
       openTime: json['open_time']?.toString(),
       closeTime: json['close_time']?.toString(),
+      aboutVenue: json['about_venue']?.toString(),
+      bookingPolicy: json['booking_policy']?.toString(),
+      faq: json['faq']?.toString(),
     );
   }
 }

@@ -875,44 +875,31 @@ class _BookingScreenState extends State<BookingScreen> {
         _buildVenueInformationSection(),
         SizedBox(height: 16),
         // Date Selector Header
-        InkWell(
-          onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: AppColors.primaryGreen,
+                onPrimary: Colors.white,
+                onSurface: AppColors.richBlack,
+              ),
+            ),
+            child: CalendarDatePicker(
               initialDate: _selectedDate ?? DateTime.now(),
               firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(Duration(days: 90)),
-              builder: (context, child) {
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: ColorScheme.light(
-                      primary: AppColors.primaryGreen,
-                      onPrimary: Colors.white,
-                      onSurface: AppColors.richBlack,
-                    ),
-                  ),
-                  child: child!,
-                );
+              lastDate: DateTime.now().add(const Duration(days: 90)),
+              onDateChanged: (picked) {
+                setState(() {
+                  _selectedDate = picked;
+                  _selectedTimes.clear();
+                });
+                _fetchSlots();
               },
-            );
-            if (picked != null) {
-              setState(() {
-                _selectedDate = picked;
-                _selectedTimes.clear();
-              });
-              _fetchSlots();
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
-              children: [
-                Text(
-                  displayDate,
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                ),
-                Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey.shade600),
-              ],
             ),
           ),
         ),

@@ -531,6 +531,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               'facilities': s.facilities,
               'base_price': s.basePrice,
               'hourly_prices': s.hourlyPrices,
+              'aboutVenue': s.aboutVenue,
+              'bookingPolicy': s.bookingPolicy,
+              'faq': s.faq,
               'serviceObj': s,
             };
           }).toList();
