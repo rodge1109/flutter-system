@@ -261,6 +261,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _userName = userObj['full_name'] ?? 'Roger';
         _userEmail = email;
+        _isLoading = false; // Add this so the UI renders instantly
       });
 
       // ── Load cached bookings instantly so UI shows immediately ──
@@ -3864,7 +3865,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // 1. Image Header
             Container(
               width: double.infinity,
-              height: 100,
+              height: 110,
               padding: EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppColors.primaryGreen,
@@ -3876,90 +3877,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       )
                     : null,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          CustomPaddleIcon(color: AppColors.softWhite, size: 14),
-                          SizedBox(width: 4),
-                          Text(venue['rating'] ?? '4.8', style: TextStyle(color: AppColors.softWhite, fontSize: 11, fontWeight: FontWeight.bold)),
-                          Icon(Icons.star, color: Colors.amber, size: 11),
-                        ],
-                      ),
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            if (isFav) {
-                              _favoriteCourts.remove(venueId);
-                            } else {
-                              _favoriteCourts.add(venueId);
-                            }
-                          });
-                        },
-                        child: Icon(
-                          isFav ? Icons.favorite : Icons.favorite_border,
-                          color: isFav ? Colors.red : AppColors.softWhite,
-                          size: 14,
-                        ),
-                      )
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      if (venue['logo_url'] != null && venue['logo_url'].toString().trim().isNotEmpty) ...[
-                        Container(
-                          width: 22,
-                          height: 22,
-                          margin: const EdgeInsets.only(right: 6),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                            border: Border.all(color: Colors.white, width: 1),
-                          ),
-                          child: ClipOval(
-                            child: Image.network(
-                              venue['logo_url'].toString().trim(),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(Icons.business, size: 12, color: AppColors.primaryGreen),
-                            ),
-                          ),
-                        ),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        CustomPaddleIcon(color: AppColors.softWhite, size: 14),
+                        SizedBox(width: 4),
+                        Text(venue['rating'] ?? '4.8', style: TextStyle(color: AppColors.softWhite, fontSize: 11, fontWeight: FontWeight.bold)),
+                        Icon(Icons.star, color: Colors.amber, size: 11),
                       ],
-                      Expanded(
-                        child: Text(
-                          venue['venueName'] ?? 'Venue',
-                          style: TextStyle(color: AppColors.softWhite, fontSize: 12, fontWeight: FontWeight.bold),
-                          maxLines: 2, overflow: TextOverflow.ellipsis,
-                        ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (isFav) {
+                            _favoriteCourts.remove(venueId);
+                          } else {
+                            _favoriteCourts.add(venueId);
+                          }
+                        });
+                      },
+                      child: Icon(
+                        isFav ? Icons.favorite : Icons.favorite_border,
+                        color: isFav ? Colors.red : AppColors.softWhite,
+                        size: 14,
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            
-            // 2. Highlight Strip (Court Count & Price)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              color: Color(0xFFE8F5E9),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${courts.length} ${courts.length == 1 ? 'Court' : 'Courts'} Available',
-                    style: TextStyle(color: AppColors.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'From P${venue['basePrice']}/hr',
-                    style: TextStyle(color: AppColors.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                ],
+                    )
+                  ],
+                ),
               ),
             ),
             
@@ -3970,10 +3918,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      venue['address'] ?? 'Cayang, Bogo',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.richBlack),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        if (venue['logo_url'] != null && venue['logo_url'].toString().trim().isNotEmpty) ...[
+                          Container(
+                            width: 22,
+                            height: 22,
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              border: Border.all(color: Colors.grey.shade300, width: 1),
+                            ),
+                            child: ClipOval(
+                              child: Image.network(
+                                venue['logo_url'].toString().trim(),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(Icons.business, size: 12, color: AppColors.primaryGreen),
+                              ),
+                            ),
+                          ),
+                        ],
+                        Expanded(
+                          child: Text(
+                            venue['venueName'] ?? 'Venue',
+                            style: TextStyle(color: AppColors.richBlack, fontSize: 14, fontWeight: FontWeight.bold),
+                            maxLines: 2, overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_on, size: 12, color: Colors.grey.shade500),
+                        SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            venue['address'] ?? 'Cayang, Bogo',
+                            style: TextStyle(fontWeight: FontWeight.normal, fontSize: 11, color: Colors.grey.shade700),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                     SizedBox(height: 4),
                     Wrap(
