@@ -220,6 +220,25 @@ class _BookingScreenState extends State<BookingScreen> {
           }
         }
 
+        List<String> courtFac = [];
+        final rawF = c['facilities'] ?? c['amenities'] ?? widget.venue!['facilities'] ?? widget.venue!['amenities'];
+        if (rawF != null) {
+          if (rawF is List) {
+            courtFac = rawF.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+          } else if (rawF is String && rawF.trim().isNotEmpty) {
+            try {
+              final decoded = json.decode(rawF);
+              if (decoded is List) courtFac = decoded.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+            } catch (_) {
+              if (rawF.contains(',')) {
+                courtFac = rawF.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+              } else {
+                courtFac = [rawF.trim()];
+              }
+            }
+          }
+        }
+
         String cOwner = (c['owner_email'] ?? c['ownerEmail'] ?? widget.venue!['owner_email'] ?? widget.venue!['ownerEmail'] ?? widget.venue!['email'] ?? '').toString();
         return ServiceModel(
           id: courtId,
@@ -243,6 +262,7 @@ class _BookingScreenState extends State<BookingScreen> {
           faq: c['faq'] ?? widget.venue!['faq'],
           dayStartHour: c['day_start_hour'] ?? c['dayStartHour'] ?? widget.venue!['day_start_hour'] ?? widget.venue!['dayStartHour'],
           nightStartHour: c['night_start_hour'] ?? c['nightStartHour'] ?? widget.venue!['night_start_hour'] ?? widget.venue!['nightStartHour'],
+          facilities: courtFac,
         );
       }).toList();
 
