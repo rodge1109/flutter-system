@@ -655,6 +655,25 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _handleStepCancel() {
+    if (_holdToken != null) {
+      _holdTimer?.cancel();
+      setState(() {
+        _holdToken = null;
+        _holdSecondsRemaining = 0;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Timeslot lock reset. You can now select different timeslots.'),
+          backgroundColor: AppColors.primaryGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (_currentStep > 0) {
+        setState(() => _currentStep -= 1);
+      }
+      return;
+    }
+
     if (_currentStep > 0) {
       setState(() => _currentStep -= 1);
     } else {
@@ -715,23 +734,33 @@ class _BookingScreenState extends State<BookingScreen> {
         ? ['Date & Time', 'Your Details', 'Payment', 'Confirm']
         : ['Courts & Times', 'Your Details', 'Payment', 'Confirm'];
 
-    return Scaffold(
-      backgroundColor: AppColors.creamWhite,
-      appBar: AppBar(
-        title: RichText(
-          text: TextSpan(
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 21, color: AppColors.richBlack, letterSpacing: 1),
-            children: [
-              TextSpan(text: 'PICKLE', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w900)),
-              TextSpan(text: 'BOOK', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w300)),
-            ]
+    return PopScope(
+      canPop: _currentStep == 0 && _holdToken == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleStepCancel();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.creamWhite,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: AppColors.richBlack),
+            onPressed: _handleStepCancel,
           ),
+          title: RichText(
+            text: TextSpan(
+              style: TextStyle(fontFamily: 'Poppins', fontSize: 21, color: AppColors.richBlack, letterSpacing: 1),
+              children: [
+                TextSpan(text: 'PICKLE', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w900)),
+                TextSpan(text: 'BOOK', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w300)),
+              ]
+            ),
+          ),
+          centerTitle: false,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          iconTheme: IconThemeData(color: AppColors.richBlack),
         ),
-        centerTitle: false,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: IconThemeData(color: AppColors.richBlack),
-      ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: AppColors.richBlack))
           : Column(
@@ -899,6 +928,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
               ],
             ),
+      ),
     );
   }
 
@@ -953,6 +983,16 @@ class _BookingScreenState extends State<BookingScreen> {
               firstDate: DateTime.now(),
               lastDate: DateTime.now().add(const Duration(days: 90)),
               onDateChanged: (picked) {
+                if (_holdToken != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Timeslots are locked. Click BACK to modify your selection.'),
+                      backgroundColor: Colors.orange,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
                 setState(() {
                   _selectedDate = picked;
                   _selectedTimes.clear();
@@ -1000,6 +1040,16 @@ class _BookingScreenState extends State<BookingScreen> {
                         selected: isSelected,
                         onSelected: (val) {
                           if (val) {
+                            if (_holdToken != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Timeslots are locked. Click BACK to modify your selection.'),
+                                  backgroundColor: Colors.orange,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                              return;
+                            }
                             setState(() => _selectedCategory = cat);
                           }
                         },
@@ -1157,6 +1207,16 @@ class _BookingScreenState extends State<BookingScreen> {
 
                             return InkWell(
                               onTap: isDisabled ? null : () {
+                                if (_holdToken != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Timeslot locked. Click BACK to modify your selection.'),
+                                      backgroundColor: Colors.orange,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  return;
+                                }
                                 setState(() {
                                   // Ensure court is selected
                                   _selectedServiceIds.add(court.id);
@@ -1393,18 +1453,27 @@ class _BookingScreenState extends State<BookingScreen> {
                       border: Border.all(color: Colors.orange.shade300),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Column(
                       children: [
-                        Icon(Icons.timer, color: Colors.orange.shade800),
-                        SizedBox(width: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.timer, color: Colors.orange.shade800),
+                            SizedBox(width: 8),
+                            Text(
+                              'Time remaining to pay: ${_holdSecondsRemaining ~/ 60}:${(_holdSecondsRemaining % 60).toString().padLeft(2, '0')}',
+                              style: TextStyle(
+                                color: Colors.orange.shade800,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 4),
                         Text(
-                          'Time remaining to pay: ${_holdSecondsRemaining ~/ 60}:${(_holdSecondsRemaining % 60).toString().padLeft(2, '0')}',
-                          style: TextStyle(
-                            color: Colors.orange.shade800,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                          'Timeslots locked. Click BACK to unlock and edit.',
+                          style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontStyle: FontStyle.italic),
                         ),
                       ],
                     ),
