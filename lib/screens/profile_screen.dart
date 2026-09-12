@@ -186,7 +186,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'qr_code_url': _paymentQrUrl,
         'payment_qr_url': _paymentQrUrl,
       };
-      await ApiService().updateUserProfile(_userId!, profileData);
+      final res = await ApiService().updateUserProfile(_userId!, profileData);
+      if (res['success'] == true && res['user'] != null) {
+        Map<String, dynamic> updatedUser = Map<String, dynamic>.from(res['user']);
+        updatedUser['qr_code_url'] = updatedUser['qr_code_url'] ?? _paymentQrUrl;
+        updatedUser['payment_qr_url'] = updatedUser['payment_qr_url'] ?? _paymentQrUrl;
+        updatedUser['payment_instructions'] = updatedUser['payment_instructions'] ?? _paymentInstructionsController.text;
+        await prefs.setString('user', json.encode(updatedUser));
+      }
     }
     
     ScaffoldMessenger.of(context).showSnackBar(
