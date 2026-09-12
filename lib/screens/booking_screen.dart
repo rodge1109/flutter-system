@@ -2163,23 +2163,27 @@ class _BookingScreenState extends State<BookingScreen> {
   String _getPaymentDetail(String key, String fallback) {
     if (_selectedService?.ownerPayment != null) {
       final val = _selectedService!.ownerPayment![key];
-      if (val != null && val.toString().isNotEmpty) {
-        return val.toString();
+      if (val != null && val.toString().trim().isNotEmpty) {
+        return val.toString().trim();
       }
     }
     if (widget.venue != null) {
-      if (widget.venue!['owner_payment'] != null && widget.venue!['owner_payment'][key] != null) {
+      if (widget.venue!['owner_payment'] != null && widget.venue!['owner_payment'] is Map) {
         final val = widget.venue!['owner_payment'][key];
-        if (val != null && val.toString().isNotEmpty) return val.toString();
+        if (val != null && val.toString().trim().isNotEmpty) return val.toString().trim();
       }
-      if (widget.venue![key] != null && widget.venue![key].toString().isNotEmpty) {
-        return widget.venue![key].toString();
+      if (widget.venue![key] != null && widget.venue![key].toString().trim().isNotEmpty) {
+        return widget.venue![key].toString().trim();
       }
     }
+    final targetOwner = _selectedService?.ownerEmail.toLowerCase() ?? '';
     for (var service in _services) {
+      if (targetOwner.isNotEmpty && service.ownerEmail.toLowerCase() != targetOwner) {
+        continue; // Strictly match court owner!
+      }
       if (service.ownerPayment != null && service.ownerPayment![key] != null) {
         final val = service.ownerPayment![key];
-        if (val != null && val.toString().isNotEmpty) return val.toString();
+        if (val != null && val.toString().trim().isNotEmpty) return val.toString().trim();
       }
     }
     return fallback;
@@ -2241,9 +2245,6 @@ class _BookingScreenState extends State<BookingScreen> {
     // Fallbacks if empty
     if (gcashNum.isEmpty && widget.venue != null) {
       gcashNum = widget.venue!['gcash_number']?.toString() ?? widget.venue!['gcash']?.toString() ?? '';
-    }
-    if (gcashNum.isEmpty) {
-      gcashNum = '09177720346';
     }
 
     if (bankAccount.isEmpty && widget.venue != null) {

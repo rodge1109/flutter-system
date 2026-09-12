@@ -107,6 +107,44 @@ class ServiceModel {
       }
     }
 
+    Map<String, dynamic> parsedOwnerPayment = {};
+    final rawOwnerPayment = json['owner_payment'] ?? json['ownerPayment'];
+    if (rawOwnerPayment != null) {
+      if (rawOwnerPayment is Map) {
+        parsedOwnerPayment = Map<String, dynamic>.from(rawOwnerPayment);
+      } else if (rawOwnerPayment is String && rawOwnerPayment.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rawOwnerPayment);
+          if (decoded is Map) {
+            parsedOwnerPayment = Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {}
+      }
+    }
+
+    if ((parsedOwnerPayment['gcash_number'] == null || parsedOwnerPayment['gcash_number'].toString().trim().isEmpty) && json['gcash_number'] != null) {
+      parsedOwnerPayment['gcash_number'] = json['gcash_number'];
+    }
+    if ((parsedOwnerPayment['paymaya_number'] == null || parsedOwnerPayment['paymaya_number'].toString().trim().isEmpty) && json['paymaya_number'] != null) {
+      parsedOwnerPayment['paymaya_number'] = json['paymaya_number'];
+    }
+    final rootQr = json['qr_code_url'] ?? json['payment_qr_url'] ?? json['qr_code'];
+    if ((parsedOwnerPayment['qr_code_url'] == null || parsedOwnerPayment['qr_code_url'].toString().trim().isEmpty) && rootQr != null) {
+      parsedOwnerPayment['qr_code_url'] = rootQr;
+    }
+    if ((parsedOwnerPayment['payment_qr_url'] == null || parsedOwnerPayment['payment_qr_url'].toString().trim().isEmpty) && rootQr != null) {
+      parsedOwnerPayment['payment_qr_url'] = rootQr;
+    }
+    if ((parsedOwnerPayment['bank_account'] == null || parsedOwnerPayment['bank_account'].toString().trim().isEmpty) && json['bank_account'] != null) {
+      parsedOwnerPayment['bank_account'] = json['bank_account'];
+    }
+    if ((parsedOwnerPayment['bank_account_name'] == null || parsedOwnerPayment['bank_account_name'].toString().trim().isEmpty) && json['bank_account_name'] != null) {
+      parsedOwnerPayment['bank_account_name'] = json['bank_account_name'];
+    }
+    if ((parsedOwnerPayment['payment_instructions'] == null || parsedOwnerPayment['payment_instructions'].toString().trim().isEmpty) && json['payment_instructions'] != null) {
+      parsedOwnerPayment['payment_instructions'] = json['payment_instructions'];
+    }
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
@@ -120,7 +158,7 @@ class ServiceModel {
       category: json['category'] as String? ?? 'General',
       isActive: json['is_active'] as bool? ?? true,
       variablePrices: parsedVariablePrices,
-      ownerPayment: json['owner_payment'] as Map<String, dynamic>?,
+      ownerPayment: parsedOwnerPayment.isNotEmpty ? parsedOwnerPayment : null,
       latitude: json['latitude'] != null ? double.tryParse(json['latitude'].toString()) : null,
       longitude: json['longitude'] != null ? double.tryParse(json['longitude'].toString()) : null,
       basePrice: json['base_price']?.toString(),
