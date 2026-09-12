@@ -2186,6 +2186,27 @@ class _BookingScreenState extends State<BookingScreen> {
                   ],
                 ),
               ),
+              if (_customerLoyalty?.isMember == true && _loyaltySettings != null) ...[
+                SizedBox(height: 8),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.stars, color: Colors.amber, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'VIP Member Discount Applied (${_loyaltySettings!.memberDiscountType == "PERCENTAGE" ? "${_loyaltySettings!.memberDiscountValue.toInt()}% OFF" : "Special Member Price"})',
+                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
