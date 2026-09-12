@@ -193,11 +193,6 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       }
       _selectedFacilities = parsedFac.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
       _availableFacilities = List<String>.from(_selectedFacilities);
-      for (final p in _presetFacilities) {
-        if (!_availableFacilities.contains(p)) {
-          _availableFacilities.add(p);
-        }
-      }
 
       const String defaultPolicy = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
       const String defaultAbout = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
