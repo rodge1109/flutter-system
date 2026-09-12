@@ -2042,6 +2042,12 @@ class _BookingScreenState extends State<BookingScreen> {
         return widget.venue![key].toString();
       }
     }
+    for (var service in _services) {
+      if (service.ownerPayment != null && service.ownerPayment![key] != null) {
+        final val = service.ownerPayment![key];
+        if (val != null && val.toString().isNotEmpty) return val.toString();
+      }
+    }
     return fallback;
   }
 
