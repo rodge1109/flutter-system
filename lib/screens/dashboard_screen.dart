@@ -906,7 +906,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 24),
+              SizedBox(height: 19),
 
               // Search Bar
               Padding(
