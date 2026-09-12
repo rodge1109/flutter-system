@@ -523,7 +523,9 @@ class _BookingScreenState extends State<BookingScreen> {
             bookingDate: date,
             timeSlots: times,
             courtNumber: courtNum,
-            totalPaid: (totalAmount > 0 ? totalAmount : 350.0) + 15.0,
+            totalPaid: (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true))
+                ? 0.0
+                : (totalAmount > 0 ? totalAmount : 350.0) + _getServiceFee(),
           ),
         ),
       );
@@ -1722,7 +1724,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 Divider(height: 24, color: Colors.green.shade100),
                 _buildSummaryRow('P', 'Subtotal', _getTotalAmount()),
                 Divider(height: 24, color: Colors.green.shade100),
-                _buildSummaryRow(Icons.receipt, 'Service Charge', 'PHP 15.00'),
+                _buildSummaryRow(Icons.receipt, 'Service Charge', 'PHP ${_getServiceFee().toStringAsFixed(2)}'),
                 Divider(height: 24, color: Colors.green.shade100),
                 _buildSummaryRow('P', 'Total Due', _getTotalDue()),
                 SizedBox(height: 24),
@@ -1756,6 +1758,13 @@ class _BookingScreenState extends State<BookingScreen> {
         ],
       ),
     );
+  }
+
+  double _getServiceFee() {
+    int hours = _selectedTimes.length;
+    if (hours <= 0) hours = 1;
+    int blocks = (hours / 5.0).ceil();
+    return blocks * 15.0;
   }
 
   String _getTotalAmount() {
@@ -1792,7 +1801,7 @@ class _BookingScreenState extends State<BookingScreen> {
       }
       total += price;
     }
-    return 'PHP ${(total + 15.00).toStringAsFixed(2)}';
+    return 'PHP ${(total + _getServiceFee()).toStringAsFixed(2)}';
   }
 
   Widget _buildSummaryRow(dynamic iconOrText, String label, String value) {
@@ -1909,7 +1918,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   style: TextStyle(color: AppColors.primaryGreen, height: 1.5, fontSize: 13, fontFamily: 'Poppins'),
                   children: [
                     TextSpan(text: 'Court Fee: ${_getTotalAmount()}\n'),
-                    TextSpan(text: 'Service Charge: PHP 15.00\n'),
+                    TextSpan(text: 'Service Charge: PHP ${_getServiceFee().toStringAsFixed(2)}\n'),
                     TextSpan(text: 'Total Amount to Pay: '),
                     TextSpan(text: '${_getTotalDue()}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   ],
