@@ -148,21 +148,11 @@ class _BookingScreenState extends State<BookingScreen> {
     CustomerModel? loyalty;
     if (ownerEmail.isNotEmpty) {
       loyalty = await _apiService.fetchCustomerLoyaltyStatus(email, ownerEmail);
-    }
-
-    if (loyalty == null || ownerEmail.isEmpty) {
+    } else {
       final allLoyalty = await _apiService.fetchAllCustomerLoyalty(email);
       if (allLoyalty.isNotEmpty) {
-        if (ownerEmail.isNotEmpty) {
-          try {
-            loyalty = allLoyalty.firstWhere((l) => l.ownerEmail.toLowerCase() == ownerEmail.toLowerCase());
-          } catch (_) {
-            loyalty = allLoyalty.first;
-          }
-        } else {
-          loyalty = allLoyalty.first;
-          ownerEmail = loyalty.ownerEmail;
-        }
+        loyalty = allLoyalty.first;
+        ownerEmail = loyalty.ownerEmail;
       }
     }
 
