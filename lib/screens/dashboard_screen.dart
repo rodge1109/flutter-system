@@ -552,6 +552,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               'aboutVenue': s.aboutVenue,
               'bookingPolicy': s.bookingPolicy,
               'faq': s.faq,
+              'owner_payment': s.ownerPayment,
+              'ownerPayment': s.ownerPayment,
+              'owner_email': s.ownerEmail,
+              'ownerEmail': s.ownerEmail,
+              'email': s.ownerEmail,
+              'gcash_number': s.ownerPayment?['gcash_number'] ?? s.ownerPayment?['gcash'],
+              'paymaya_number': s.ownerPayment?['paymaya_number'] ?? s.ownerPayment?['paymaya'],
+              'bank_account': s.ownerPayment?['bank_account'],
+              'bank_account_name': s.ownerPayment?['bank_account_name'],
+              'qr_code_url': s.ownerPayment?['qr_code_url'] ?? s.ownerPayment?['payment_qr_url'] ?? s.ownerPayment?['qr_code'],
+              'payment_qr_url': s.ownerPayment?['payment_qr_url'] ?? s.ownerPayment?['qr_code_url'] ?? s.ownerPayment?['qr_code'],
               'serviceObj': s,
             };
           }).toList();

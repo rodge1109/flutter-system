@@ -230,13 +230,19 @@ class _BookingScreenState extends State<BookingScreen> {
         }
 
         Map<String, dynamic> cPayment = {};
+        if (c['serviceObj'] is ServiceModel) {
+          final sObj = c['serviceObj'] as ServiceModel;
+          if (sObj.ownerPayment != null) {
+            cPayment = Map<String, dynamic>.from(sObj.ownerPayment!);
+          }
+        }
         final rawOP = c['owner_payment'] ?? c['ownerPayment'] ?? widget.venue!['owner_payment'] ?? widget.venue!['ownerPayment'];
         if (rawOP is Map) {
-          cPayment = Map<String, dynamic>.from(rawOP);
+          cPayment.addAll(Map<String, dynamic>.from(rawOP));
         } else if (rawOP is String && rawOP.trim().isNotEmpty) {
           try {
             final dec = json.decode(rawOP);
-            if (dec is Map) cPayment = Map<String, dynamic>.from(dec);
+            if (dec is Map) cPayment.addAll(Map<String, dynamic>.from(dec));
           } catch (_) {}
         }
         if (cPayment['gcash_number'] == null || cPayment['gcash_number'].toString().trim().isEmpty) {
@@ -254,6 +260,9 @@ class _BookingScreenState extends State<BookingScreen> {
         }
 
         String cOwner = (c['owner_email'] ?? c['ownerEmail'] ?? widget.venue!['owner_email'] ?? widget.venue!['ownerEmail'] ?? widget.venue!['email'] ?? '').toString();
+        if (cOwner.isEmpty && c['serviceObj'] is ServiceModel) {
+          cOwner = (c['serviceObj'] as ServiceModel).ownerEmail;
+        }
         return ServiceModel(
           id: courtId,
           name: c['name'] ?? 'Court ${idx + 1}',
@@ -313,7 +322,7 @@ class _BookingScreenState extends State<BookingScreen> {
     try {
       final services = await _apiService.fetchServices();
       setState(() {
-        _services = services.where((s) => s.isActive && s.category.toLowerCase().contains('pickle')).toList();
+        _services = services.where((s) => s.isActive).toList();
         _isLoading = false;
 
         if (widget.initialService != null) {
@@ -321,10 +330,12 @@ class _BookingScreenState extends State<BookingScreen> {
           _selectedServiceIds = {_selectedService!.id};
           _expandedCourtIds = {_selectedService!.id};
         } else if (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
-          final matchName = widget.initialServiceName!.toLowerCase();
+          final matchName = widget.initialServiceName!.toLowerCase().trim();
           final match = _services.firstWhere(
-            (s) => s.name.toLowerCase().contains(matchName) || matchName.contains(s.name.toLowerCase()),
-            orElse: () => ServiceModel(
+            (s) => s.name.toLowerCase().trim() == matchName ||
+                   s.name.toLowerCase().contains(matchName) ||
+                   matchName.contains(s.name.toLowerCase()),
+            orElse: () => _services.isNotEmpty ? _services.first : ServiceModel(
               id: 999,
               name: widget.initialServiceName!,
               description: 'Enjoy a fun and active game on our well-maintained pickleball court, perfect for players of all skill levels.',
@@ -2200,10 +2211,13 @@ class _BookingScreenState extends State<BookingScreen> {
         return widget.venue![key].toString().trim();
       }
     }
-    final targetOwner = _selectedService?.ownerEmail.toLowerCase() ?? '';
+    final targetOwner = _selectedService?.ownerEmail.toLowerCase().trim() ?? '';
+    final selectedName = _selectedService?.name.toLowerCase().trim() ?? '';
     for (var service in _services) {
-      if (targetOwner.isNotEmpty && service.ownerEmail.toLowerCase() != targetOwner) {
-        continue; // Strictly match court owner!
+      final matchesOwner = targetOwner.isNotEmpty && service.ownerEmail.toLowerCase().trim() == targetOwner;
+      final matchesName = selectedName.isNotEmpty && (service.name.toLowerCase().trim() == selectedName || service.name.toLowerCase().contains(selectedName) || selectedName.contains(service.name.toLowerCase()));
+      if (!matchesOwner && !matchesName) {
+        continue; // Strictly match court owner or court name!
       }
       if (service.ownerPayment != null && service.ownerPayment![key] != null) {
         final val = service.ownerPayment![key];
