@@ -85,11 +85,19 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
 
       _dayStartHour = widget.court!['day_start_hour'] != null 
           ? (int.tryParse(widget.court!['day_start_hour'].toString()) ?? 6)
-          : (widget.court!['dayStartHour'] != null ? (int.tryParse(widget.court!['dayStartHour'].toString()) ?? 6) : 6);
+          : (widget.court!['dayStartHour'] != null 
+              ? (int.tryParse(widget.court!['dayStartHour'].toString()) ?? 6)
+              : (widget.court!['day_start'] != null 
+                  ? (int.tryParse(widget.court!['day_start'].toString()) ?? 6)
+                  : (widget.court!['dayStart'] != null ? (int.tryParse(widget.court!['dayStart'].toString()) ?? 6) : 6)));
 
       _nightStartHour = widget.court!['night_start_hour'] != null 
           ? (int.tryParse(widget.court!['night_start_hour'].toString()) ?? 18)
-          : (widget.court!['nightStartHour'] != null ? (int.tryParse(widget.court!['nightStartHour'].toString()) ?? 18) : 18);
+          : (widget.court!['nightStartHour'] != null 
+              ? (int.tryParse(widget.court!['nightStartHour'].toString()) ?? 18)
+              : (widget.court!['night_start'] != null 
+                  ? (int.tryParse(widget.court!['night_start'].toString()) ?? 18)
+                  : (widget.court!['nightStart'] != null ? (int.tryParse(widget.court!['nightStart'].toString()) ?? 18) : 18)));
 
       String dayRateStr = (widget.court!['day_rate'] ?? widget.court!['dayRate'] ?? widget.court!['base_price'] ?? '').toString();
       String nightRateStr = (widget.court!['night_rate'] ?? widget.court!['nightRate'] ?? widget.court!['night_price'] ?? '').toString();
@@ -103,6 +111,22 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       }
 
       if (pricesList.isNotEmpty) {
+        if (widget.court!['night_start_hour'] == null && widget.court!['nightStartHour'] == null && widget.court!['night_start'] == null && widget.court!['nightStart'] == null) {
+          double? dayPriceVal;
+          for (var p in pricesList) {
+            if (p is Map && p['time'] != null) {
+              final int h = int.tryParse(p['time'].toString().split(':')[0]) ?? -1;
+              final double price = double.tryParse((p['standardPrice'] ?? p['price'] ?? '0').toString()) ?? 0;
+              if (h == _dayStartHour && price > 0) {
+                dayPriceVal = price;
+              } else if (dayPriceVal != null && price != dayPriceVal && h > _dayStartHour && price > 0) {
+                _nightStartHour = h;
+                break;
+              }
+            }
+          }
+        }
+
         String nightStartStr = '${_nightStartHour.toString().padLeft(2, '0')}:00';
         String dayStartStr = '${_dayStartHour.toString().padLeft(2, '0')}:00';
         for (var p in pricesList) {
@@ -404,8 +428,12 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'is_night_discount_active': isNightDiscountActive,
       'dayStartHour': _dayStartHour,
       'day_start_hour': _dayStartHour,
+      'day_start': _dayStartHour,
+      'dayStart': _dayStartHour,
       'nightStartHour': _nightStartHour,
       'night_start_hour': _nightStartHour,
+      'night_start': _nightStartHour,
+      'nightStart': _nightStartHour,
       'bookingPolicy': _bookingPolicyCtrl.text.trim(),
       'booking_policy': _bookingPolicyCtrl.text.trim(),
       'aboutVenue': _aboutVenueCtrl.text.trim(),
@@ -664,14 +692,21 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                       ),
-                                      items: [5, 6, 7, 8, 9].map((h) {
+                                      items: List.generate(24, (i) => i).map((h) {
                                         return DropdownMenuItem<int>(
                                           value: h,
                                           child: Text(_formatHourLabel(h), style: TextStyle(fontSize: 13)),
                                         );
                                       }).toList(),
                                       onChanged: (val) {
-                                        if (val != null) setState(() => _dayStartHour = val);
+                                        if (val != null) {
+                                          setState(() {
+                                            _dayStartHour = val;
+                                            if (_nightStartHour == _dayStartHour) {
+                                              _nightStartHour = (_dayStartHour + 12) % 24;
+                                            }
+                                          });
+                                        }
                                       },
                                     ),
                                   ],
@@ -690,14 +725,21 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                       ),
-                                      items: [16, 17, 18, 19, 20, 21, 22].map((h) {
+                                      items: List.generate(24, (i) => i).map((h) {
                                         return DropdownMenuItem<int>(
                                           value: h,
                                           child: Text(_formatHourLabel(h), style: TextStyle(fontSize: 13)),
                                         );
                                       }).toList(),
                                       onChanged: (val) {
-                                        if (val != null) setState(() => _nightStartHour = val);
+                                        if (val != null) {
+                                          setState(() {
+                                            _nightStartHour = val;
+                                            if (_dayStartHour == _nightStartHour) {
+                                              _dayStartHour = (_nightStartHour + 12) % 24;
+                                            }
+                                          });
+                                        }
                                       },
                                     ),
                                   ],
