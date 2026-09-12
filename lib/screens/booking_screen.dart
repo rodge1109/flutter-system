@@ -2266,71 +2266,55 @@ class _BookingScreenState extends State<BookingScreen> {
 
         SizedBox(height: 20),
 
-        // QR Code Display Card
-        Center(
-          child: Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.softWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300),
-              boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.qr_code_2, color: AppColors.primaryGreen, size: 22),
-                    SizedBox(width: 6),
-                    Text(
-                      hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Scan QR Code to Pay',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () {
-                    if (hasCloudinaryQr) {
-                      _showFullQrCodeModal(qrUrl);
-                    }
-                  },
-                  child: Stack(
-                    alignment: Alignment.center,
+        // QR Code Display Card (Only show if owner uploaded official QR code)
+        if (hasCloudinaryQr) ...[
+          Center(
+            child: Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.softWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: hasCloudinaryQr
-                            ? Image.network(
-                                qrUrl,
+                      Icon(Icons.qr_code_2, color: AppColors.primaryGreen, size: 22),
+                      SizedBox(width: 6),
+                      Text(
+                        'Official Owner Payment QR Code',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => _showFullQrCodeModal(qrUrl),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            qrUrl,
+                            height: 220,
+                            width: 220,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
                                 height: 220,
                                 width: 220,
-                                fit: BoxFit.contain,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    height: 220,
-                                    width: 220,
-                                    color: Colors.grey.shade100,
-                                    child: Center(child: CircularProgressIndicator(color: AppColors.primaryGreen)),
-                                  );
-                                },
-                                errorBuilder: (_, __, ___) => Image.asset(
-                                  'assets/qr-code.jpg',
-                                  height: 200,
-                                  width: 200,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : Image.asset(
-                                'assets/qr-code.jpg',
-                                height: 200,
-                                width: 200,
-                                fit: BoxFit.cover,
-                              ),
-                      ),
-                      if (hasCloudinaryQr)
+                                color: Colors.grey.shade100,
+                                child: Center(child: CircularProgressIndicator(color: AppColors.primaryGreen)),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => SizedBox.shrink(),
+                          ),
+                        ),
                         Positioned(
                           bottom: 8,
                           right: 8,
@@ -2350,15 +2334,15 @@ class _BookingScreenState extends State<BookingScreen> {
                             ),
                           ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-
-        SizedBox(height: 20),
+          SizedBox(height: 20),
+        ],
 
         // Available Payment Options Header
         Text('Owner Payment Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
