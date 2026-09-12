@@ -128,12 +128,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (vTitle.isEmpty) vTitle = first['address'] ?? 'Sports Venue';
       }
 
+      String venueUploadedLogo = '';
+      for (var c in courtList) {
+        String candidate = (c['logo_url'] ?? c['logoUrl'] ?? c['logo'] ?? c['court_logo'] ?? c['icon'] ?? '').toString().trim();
+        if (candidate.startsWith('http') || candidate.startsWith('/uploads')) {
+          venueUploadedLogo = candidate.startsWith('/uploads') ? 'https://pickle-system.onrender.com$candidate' : candidate;
+          break;
+        }
+      }
+
+      String displayImage = venueUploadedLogo.isNotEmpty 
+          ? venueUploadedLogo 
+          : ((first['image'] != null && first['image'].toString().isNotEmpty) ? first['image'].toString() : '');
+
       venueList.add({
         'venueKey': key,
         'venueName': vTitle,
         'address': first['address'] ?? 'Cayang, Bogo',
-        'image': first['image'],
-        'logo_url': first['logo_url'] ?? first['logo'],
+        'image': displayImage,
+        'logo_url': venueUploadedLogo.isNotEmpty ? venueUploadedLogo : displayImage,
         'rating': first['rating'] ?? '4.8',
         'distance': first['distance'] ?? '2.0 km away',
         'basePrice': lowestPrice.toInt().toString(),
@@ -511,10 +524,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? s.address 
                 : (s.description.isNotEmpty ? s.description : 'Cayang, Bogo');
 
-            // Use real image from server icon if URL, otherwise fallback
+            // Extract owner uploaded logo URL if present (from Cloudinary icon, logo_url, ownerPayment)
+            String ownerLogo = s.icon.trim();
+            if ((ownerLogo.isEmpty || (!ownerLogo.startsWith('http') && !ownerLogo.startsWith('/uploads'))) && s.ownerPayment != null) {
+              ownerLogo = (s.ownerPayment?['logo_url'] ?? s.ownerPayment?['logoUrl'] ?? s.ownerPayment?['logo'] ?? '').toString().trim();
+            }
+
+            // Use real Cloudinary logo image uploaded by owner, otherwise fallback
             String imageUrl = fallbackImages[idx % fallbackImages.length];
-            if (s.icon.startsWith('http') || s.icon.startsWith('/uploads')) {
-              imageUrl = s.icon.startsWith('/uploads') ? 'https://pickle-system.onrender.com${s.icon}' : s.icon;
+            if (ownerLogo.startsWith('http') || ownerLogo.startsWith('/uploads')) {
+              imageUrl = ownerLogo.startsWith('/uploads') ? 'https://pickle-system.onrender.com$ownerLogo' : ownerLogo;
             }
 
             // Extract real available slot times
@@ -3981,12 +4000,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String logoUrl = (venue['logo_url'] ?? venue['logoUrl'] ?? venue['logo'] ?? venue['court_logo'] ?? '').toString().trim();
     if (logoUrl.isEmpty && courts.isNotEmpty) {
       for (var c in courts) {
-        if (c is Map && (c['logo_url'] ?? c['logoUrl'] ?? c['logo']) != null) {
-          logoUrl = (c['logo_url'] ?? c['logoUrl'] ?? c['logo']).toString().trim();
-          if (logoUrl.isNotEmpty) break;
+        if (c is Map) {
+          String cand = (c['logo_url'] ?? c['logoUrl'] ?? c['logo'] ?? c['court_logo'] ?? c['icon'] ?? '').toString().trim();
+          if (cand.startsWith('http') || cand.startsWith('/uploads')) {
+            logoUrl = cand.startsWith('/uploads') ? 'https://pickle-system.onrender.com$cand' : cand;
+            break;
+          }
         }
       }
     }
+
+    String displayPhoto = logoUrl.isNotEmpty 
+        ? logoUrl 
+        : ((venue['image'] != null && venue['image'].toString().isNotEmpty) ? venue['image'].toString() : '');
 
     return Container(
       width: 200,
@@ -4020,9 +4046,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     height: 115,
                     decoration: BoxDecoration(
                       color: AppColors.primaryGreen,
-                      image: venue['image'] != null && venue['image'].toString().isNotEmpty
+                      image: displayPhoto.isNotEmpty
                           ? DecorationImage(
-                              image: NetworkImage(venue['image']),
+                              image: NetworkImage(displayPhoto),
                               fit: BoxFit.cover,
                               colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.35), BlendMode.darken),
                             )

@@ -145,6 +145,13 @@ class ServiceModel {
       parsedOwnerPayment['payment_instructions'] = json['payment_instructions'];
     }
 
+    final String parsedIcon = json['logo_url']?.toString() ?? 
+        json['logoUrl']?.toString() ?? 
+        json['logo']?.toString() ?? 
+        json['court_logo']?.toString() ?? 
+        json['icon']?.toString() ?? 
+        (json['owner_payment'] != null ? json['owner_payment']['logo_url']?.toString() ?? json['owner_payment']['logo']?.toString() ?? '' : '');
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
@@ -153,7 +160,7 @@ class ServiceModel {
       ownerEmail: parsedOwnerEmail,
       address: json['address'] as String? ?? '',
       facilities: parsedFacilities,
-      icon: json['icon'] as String? ?? '',
+      icon: parsedIcon,
       duration: json['duration']?.toString() ?? '30M',
       category: json['category'] as String? ?? 'General',
       isActive: json['is_active'] as bool? ?? true,
