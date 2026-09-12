@@ -4303,8 +4303,9 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
                   ),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: AppColors.accentLime,
+                      color: AppColors.primaryGreen.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
                     ),
                     child: Row(
                       children: [
