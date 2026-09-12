@@ -184,9 +184,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
         parsedFac = rawFac;
       }
       _selectedFacilities = parsedFac.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
-      Set<String> combined = Set.from(_presetFacilities);
-      combined.addAll(_selectedFacilities);
-      _availableFacilities = combined.toList();
+      _availableFacilities = List<String>.from(_selectedFacilities);
 
       const String defaultPolicy = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
       const String defaultAbout = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
@@ -997,8 +995,35 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 12),
-                    Text('Court Facilities & Features', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+                    if (_presetFacilities.where((p) => !_availableFacilities.contains(p)).isNotEmpty) ...[
+                      SizedBox(height: 10),
+                      Text('Quick Add Common Features:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                      SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6.0,
+                        runSpacing: 4.0,
+                        children: _presetFacilities.where((p) => !_availableFacilities.contains(p)).map((preset) {
+                          return ActionChip(
+                            avatar: Icon(Icons.add, size: 14, color: AppColors.primaryGreen),
+                            label: Text(preset, style: TextStyle(fontSize: 11, color: AppColors.richBlack)),
+                            backgroundColor: Colors.grey.shade100,
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                            onPressed: () {
+                              setState(() {
+                                if (!_availableFacilities.contains(preset)) {
+                                  _availableFacilities.add(preset);
+                                }
+                                if (!_selectedFacilities.contains(preset)) {
+                                  _selectedFacilities.add(preset);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    SizedBox(height: 14),
+                    Text('Active Court Facilities & Features', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
                     Text('Tap a feature chip to toggle selection. Tap the (x) on any feature chip to delete it.', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
                     SizedBox(height: 8),
                     Wrap(
