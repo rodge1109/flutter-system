@@ -2139,6 +2139,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildCourtCard(Map<String, dynamic> court, String courtId, bool isFav) {
+    String logoUrl = (court['logo_url'] ?? court['logoUrl'] ?? court['logo'] ?? court['court_logo'] ?? '').toString().trim();
+
     return Container(
       width: 170,
       decoration: BoxDecoration(
@@ -2157,102 +2159,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Image Header
-            Container(
+            // 1. Image Header with Court Logo Overlay
+            SizedBox(
               width: double.infinity,
-              height: 100,
-              padding: EdgeInsets.fromLTRB(12, 12, 12, 12),
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen,
-                image: court['image'] != null && court['image'].toString().isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(court['image']),
-                        fit: BoxFit.cover,
-                        colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.45), BlendMode.darken),
-                      )
-                    : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              height: 105,
+              child: Stack(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          CustomPaddleIcon(color: AppColors.softWhite, size: 14),
-                          SizedBox(width: 4),
-                          Text(court['rating'] ?? '4.8', style: TextStyle(color: AppColors.softWhite, fontSize: 11, fontWeight: FontWeight.bold)),
-                          Icon(Icons.star, color: Colors.amber, size: 11),
-                        ],
-                      ),
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            if (isFav) {
-                              _favoriteCourts.remove(courtId);
-                            } else {
-                              _favoriteCourts.add(courtId);
-                            }
-                          });
-                        },
-                        child: Icon(
-                          isFav ? Icons.favorite : Icons.favorite_border,
-                          color: isFav ? Colors.red : AppColors.softWhite,
-                          size: 14,
-                        ),
-                      )
-                    ],
+                  Container(
+                    width: double.infinity,
+                    height: 105,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen,
+                      image: court['image'] != null && court['image'].toString().isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(court['image']),
+                              fit: BoxFit.cover,
+                              colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
+                            )
+                          : null,
+                    ),
                   ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      if (court['logo_url'] != null && court['logo_url'].toString().trim().isNotEmpty) ...[
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
                         Container(
-                          width: 22,
-                          height: 22,
-                          margin: const EdgeInsets.only(right: 6),
+                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                            border: Border.all(color: Colors.white, width: 1),
+                            color: Colors.black.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: ClipOval(
-                            child: Image.network(
-                              court['logo_url'].toString().trim(),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(Icons.business, size: 12, color: AppColors.primaryGreen),
-                            ),
+                          child: Row(
+                            children: [
+                              CustomPaddleIcon(color: AppColors.softWhite, size: 12),
+                              SizedBox(width: 4),
+                              Text(court['rating'] ?? '4.8', style: TextStyle(color: AppColors.softWhite, fontSize: 11, fontWeight: FontWeight.bold)),
+                              Icon(Icons.star, color: Colors.amber, size: 11),
+                            ],
                           ),
                         ),
-                      ] else if (court['logo'] != null && court['logo'].toString().trim().isNotEmpty) ...[
-                        Container(
-                          width: 22,
-                          height: 22,
-                          margin: const EdgeInsets.only(right: 6),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                            border: Border.all(color: Colors.white, width: 1),
-                          ),
-                          child: ClipOval(
-                            child: Image.network(
-                              court['logo'].toString().trim(),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(Icons.business, size: 12, color: AppColors.primaryGreen),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              if (isFav) {
+                                _favoriteCourts.remove(courtId);
+                              } else {
+                                _favoriteCourts.add(courtId);
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isFav ? Icons.favorite : Icons.favorite_border,
+                              color: isFav ? Colors.red : AppColors.softWhite,
+                              size: 14,
                             ),
                           ),
                         ),
                       ],
-                      Expanded(
-                        child: Text(
-                          court['name'] ?? 'Court',
-                          style: TextStyle(color: AppColors.softWhite, fontSize: 12, fontWeight: FontWeight.bold),
-                          maxLines: 2, overflow: TextOverflow.ellipsis,
-                        ),
+                    ),
+                  ),
+                  // Court Logo Badge overlay on bottom-left of photo card
+                  Positioned(
+                    bottom: 6,
+                    left: 8,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                        ],
                       ),
-                    ],
+                      child: ClipOval(
+                        child: logoUrl.isNotEmpty
+                            ? Image.network(
+                                logoUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(Icons.sports_tennis, size: 16, color: AppColors.primaryGreen),
+                              )
+                            : Icon(Icons.sports_tennis, size: 16, color: AppColors.primaryGreen),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -3891,6 +3890,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<dynamic> courts = venue['courts'] ?? [];
     final List<dynamic> sports = venue['sports'] ?? ['Pickleball'];
 
+    String logoUrl = (venue['logo_url'] ?? venue['logoUrl'] ?? venue['logo'] ?? venue['court_logo'] ?? '').toString().trim();
+    if (logoUrl.isEmpty && courts.isNotEmpty) {
+      for (var c in courts) {
+        if (c is Map && (c['logo_url'] ?? c['logoUrl'] ?? c['logo']) != null) {
+          logoUrl = (c['logo_url'] ?? c['logoUrl'] ?? c['logo']).toString().trim();
+          if (logoUrl.isNotEmpty) break;
+        }
+      }
+    }
+
     return Container(
       width: 200,
       decoration: BoxDecoration(
@@ -3912,52 +3921,101 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Image Header
-            Container(
+            // 1. Image Header Card with Court Logo Overlay
+            SizedBox(
               width: double.infinity,
-              height: 110,
-              padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen,
-                image: venue['image'] != null && venue['image'].toString().isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(venue['image']),
-                        fit: BoxFit.cover,
-                        colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
-                      )
-                    : null,
-              ),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+              height: 115,
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 115,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen,
+                      image: venue['image'] != null && venue['image'].toString().isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(venue['image']),
+                              fit: BoxFit.cover,
+                              colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.35), BlendMode.darken),
+                            )
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        CustomPaddleIcon(color: AppColors.softWhite, size: 14),
-                        SizedBox(width: 4),
-                        Text(venue['rating'] ?? '4.8', style: TextStyle(color: AppColors.softWhite, fontSize: 11, fontWeight: FontWeight.bold)),
-                        Icon(Icons.star, color: Colors.amber, size: 11),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              CustomPaddleIcon(color: AppColors.softWhite, size: 12),
+                              SizedBox(width: 4),
+                              Text(venue['rating'] ?? '4.8', style: TextStyle(color: AppColors.softWhite, fontSize: 11, fontWeight: FontWeight.bold)),
+                              Icon(Icons.star, color: Colors.amber, size: 11),
+                            ],
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              if (isFav) {
+                                _favoriteCourts.remove(venueId);
+                              } else {
+                                _favoriteCourts.add(venueId);
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isFav ? Icons.favorite : Icons.favorite_border,
+                              color: isFav ? Colors.red : AppColors.softWhite,
+                              size: 14,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          if (isFav) {
-                            _favoriteCourts.remove(venueId);
-                          } else {
-                            _favoriteCourts.add(venueId);
-                          }
-                        });
-                      },
-                      child: Icon(
-                        isFav ? Icons.favorite : Icons.favorite_border,
-                        color: isFav ? Colors.red : AppColors.softWhite,
-                        size: 14,
+                  ),
+                  // Court Logo Badge overlay on bottom-left of photo card
+                  Positioned(
+                    bottom: 8,
+                    left: 10,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                        ],
                       ),
-                    )
-                  ],
-                ),
+                      child: ClipOval(
+                        child: logoUrl.isNotEmpty
+                            ? Image.network(
+                                logoUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(Icons.sports_tennis, size: 18, color: AppColors.primaryGreen),
+                              )
+                            : Icon(Icons.sports_tennis, size: 18, color: AppColors.primaryGreen),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             
