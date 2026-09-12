@@ -197,6 +197,8 @@ class _BookingScreenState extends State<BookingScreen> {
           aboutVenue: c['about_venue'] ?? c['aboutVenue'] ?? widget.venue!['aboutVenue'],
           bookingPolicy: c['booking_policy'] ?? c['bookingPolicy'] ?? widget.venue!['bookingPolicy'],
           faq: c['faq'] ?? widget.venue!['faq'],
+          dayStartHour: c['day_start_hour'] ?? c['dayStartHour'] ?? widget.venue!['day_start_hour'] ?? widget.venue!['dayStartHour'],
+          nightStartHour: c['night_start_hour'] ?? c['nightStartHour'] ?? widget.venue!['night_start_hour'] ?? widget.venue!['nightStartHour'],
         );
       }).toList();
 
@@ -641,7 +643,9 @@ class _BookingScreenState extends State<BookingScreen> {
     // Automatically apply member discount for registered members
     if (_customerLoyalty?.isMember == true && _loyaltySettings != null) {
       double memberPrice = _loyaltySettings!.calculateMemberPrice(basePrice);
-      return 'PHP ${memberPrice.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}';
+      if (memberPrice > 0 && memberPrice < basePrice) {
+        return 'PHP ${memberPrice.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}';
+      }
     }
 
     return basePrice > 0 ? 'PHP ${basePrice.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}' : s.price;

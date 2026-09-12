@@ -22,6 +22,8 @@ class ServiceModel {
   final String? aboutVenue;
   final String? bookingPolicy;
   final String? faq;
+  final int? dayStartHour;
+  final int? nightStartHour;
 
   ServiceModel({
     required this.id,
@@ -45,6 +47,8 @@ class ServiceModel {
     this.aboutVenue,
     this.bookingPolicy,
     this.faq,
+    this.dayStartHour,
+    this.nightStartHour,
   });
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
@@ -62,6 +66,14 @@ class ServiceModel {
         } catch (_) {}
       }
     }
+
+    final int parsedDayStart = json['day_start_hour'] != null 
+        ? (int.tryParse(json['day_start_hour'].toString()) ?? 6)
+        : (json['dayStartHour'] != null ? (int.tryParse(json['dayStartHour'].toString()) ?? 6) : 6);
+
+    final int parsedNightStart = json['night_start_hour'] != null 
+        ? (int.tryParse(json['night_start_hour'].toString()) ?? 18)
+        : (json['nightStartHour'] != null ? (int.tryParse(json['nightStartHour'].toString()) ?? 18) : 18);
 
     return ServiceModel(
       id: json['id'] as int? ?? 0,
@@ -85,6 +97,8 @@ class ServiceModel {
       aboutVenue: json['about_venue']?.toString(),
       bookingPolicy: json['booking_policy']?.toString(),
       faq: json['faq']?.toString(),
+      dayStartHour: parsedDayStart,
+      nightStartHour: parsedNightStart,
     );
   }
 }
