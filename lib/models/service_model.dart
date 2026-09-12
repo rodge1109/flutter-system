@@ -154,7 +154,7 @@ class ServiceModel {
         json['imageUrl']?.toString() ?? 
         json['image']?.toString() ?? 
         (json['owner_payment'] != null 
-            ? json['owner_payment']['logo_url']?.toString() ?? json['owner_payment']['logo']?.toString() ?? json['owner_payment']['qr_code_url']?.toString() ?? json['owner_payment']['payment_qr_url']?.toString() ?? '' 
+            ? json['owner_payment']['logo_url']?.toString() ?? json['owner_payment']['logo']?.toString() ?? '' 
             : '') ?? '';
 
     if (parsedIcon.isEmpty && json['images'] != null && json['images'] is List && (json['images'] as List).isNotEmpty) {

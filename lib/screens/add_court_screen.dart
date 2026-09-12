@@ -471,6 +471,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'close_time': _closeTimeCtrl.text,
       'logoUrl': _logoUrlCtrl.text.trim(),
       'logo_url': _logoUrlCtrl.text.trim(),
+      'icon': _logoUrlCtrl.text.trim(),
       'images': _courtPhotos,
       'photos': _courtPhotos,
       'dayRate': dayStandard,

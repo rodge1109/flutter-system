@@ -71,23 +71,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       candidates = [
         c['logo_url'], c['logoUrl'], c['logo'], c['court_logo'], c['icon'], c['image'], c['photo'], c['photo_url'],
         c['owner_payment']?['logo_url'], c['owner_payment']?['logoUrl'], c['owner_payment']?['logo'],
-        c['owner_payment']?['qr_code_url'], c['owner_payment']?['payment_qr_url'], c['owner_payment']?['qr_code'],
         c['ownerPayment']?['logo_url'], c['ownerPayment']?['logoUrl'], c['ownerPayment']?['logo'],
-        c['ownerPayment']?['qr_code_url'], c['ownerPayment']?['payment_qr_url'], c['ownerPayment']?['qr_code'],
       ];
+      if (c['images'] != null && c['images'] is List && (c['images'] as List).isNotEmpty) {
+        candidates.add(c['images'][0]);
+      }
+      if (c['photos'] != null && c['photos'] is List && (c['photos'] as List).isNotEmpty) {
+        candidates.add(c['photos'][0]);
+      }
       if (c['serviceObj'] != null && c['serviceObj'] is ServiceModel) {
         final sObj = c['serviceObj'] as ServiceModel;
         candidates.addAll([
           sObj.icon,
           sObj.ownerPayment?['logo_url'], sObj.ownerPayment?['logoUrl'], sObj.ownerPayment?['logo'],
-          sObj.ownerPayment?['qr_code_url'], sObj.ownerPayment?['payment_qr_url'], sObj.ownerPayment?['qr_code'],
         ]);
       }
     } else if (c is ServiceModel) {
       candidates = [
         c.icon,
         c.ownerPayment?['logo_url'], c.ownerPayment?['logoUrl'], c.ownerPayment?['logo'],
-        c.ownerPayment?['qr_code_url'], c.ownerPayment?['payment_qr_url'], c.ownerPayment?['qr_code'],
       ];
     }
 
