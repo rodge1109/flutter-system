@@ -1055,6 +1055,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                                 }
                               } else {
                                 _selectedFacilities.remove(facility);
+                                _availableFacilities.remove(facility);
                               }
                             });
                           },
