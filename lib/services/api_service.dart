@@ -1212,4 +1212,24 @@ class ApiService {
       return null;
     }
   }
+
+  Future<List<CustomerModel>> fetchAllCustomerLoyalty(String customerEmail) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/customer/all-loyalty?email=${Uri.encodeComponent(customerEmail)}'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['loyalty_records'] != null) {
+          return (data['loyalty_records'] as List)
+              .map((item) => CustomerModel.fromJson(item))
+              .toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching all customer loyalty: $e');
+      return [];
+    }
+  }
 }

@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
 import '../services/api_service.dart';
 
+import '../models/customer_model.dart';
+import '../widgets/loyalty_stamp_card_widget.dart';
+
 class ProfileScreen extends StatefulWidget {
   @override
   _ProfileScreenState createState() => _ProfileScreenState();
@@ -23,6 +26,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isOwner = false;
   int? _userId;
   bool _isLoading = true;
+  List<CustomerModel> _loyaltyRecords = [];
+  bool _isLoadingLoyalty = false;
 
   @override
   void initState() {
@@ -47,6 +52,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _bankNameController.text = userObj['bank_account_name'] ?? '';
     }
     setState(() => _isLoading = false);
+    if (_emailController.text.trim().isNotEmpty) {
+      _fetchLoyaltyRecords();
+    }
+  }
+
+  Future<void> _fetchLoyaltyRecords() async {
+    if (_emailController.text.trim().isEmpty) return;
+    setState(() => _isLoadingLoyalty = true);
+    final records = await ApiService().fetchAllCustomerLoyalty(_emailController.text.trim());
+    if (mounted) {
+      setState(() {
+        _loyaltyRecords = records;
+        _isLoadingLoyalty = false;
+      });
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -111,7 +131,93 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Icon(Icons.person, size: 40, color: AppColors.richBlack),
                     ),
                   ),
-                  SizedBox(height: 32),
+                  SizedBox(height: 24),
+
+                  // --- MY REWARDS & LOYALTY STAMPS SECTION ---
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: Offset(0, 2)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.stars_rounded, color: Colors.amber, size: 22),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'My Rewards & Loyalty Stamps',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack),
+                                  ),
+                                  Text(
+                                    'Earn 1 stamp per booking. 10th session is FREE!',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.refresh, size: 18, color: Colors.grey.shade600),
+                              onPressed: _fetchLoyaltyRecords,
+                              tooltip: 'Refresh Stamps',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (_isLoadingLoyalty)
+                          const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                        else if (_loyaltyRecords.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.card_giftcard_rounded, color: AppColors.primaryGreen, size: 24),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'No stamps yet. Book your first court session to start earning loyalty stamps toward your FREE 10th session!',
+                                    style: TextStyle(fontSize: 12, color: AppColors.richBlack.withOpacity(0.8)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Column(
+                            children: _loyaltyRecords.map((rec) {
+                              return LoyaltyStampCardWidget(
+                                stampCount: rec.stampCount,
+                                courtOwnerName: rec.ownerEmail.isNotEmpty ? 'Venue (${rec.ownerEmail})' : 'Court Loyalty',
+                                isMember: rec.isMember,
+                              );
+                            }).toList(),
+                          ),
+                      ],
+                    ),
+                  ),
+
                   TextFormField(
                     controller: _nameController,
                     decoration: InputDecoration(
