@@ -143,7 +143,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainStateAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           existingCustomer == null ? 'Register New Customer' : 'Edit Customer',
@@ -356,7 +356,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
                   title: 'VIP Members',
                   value: '$totalMembers',
                   icon: Icons.verified_user_outlined,
-                  color: Colors.blueHex ?? const Color(0xFF1E88E5),
+                  color: const Color(0xFF1E88E5),
                 ),
               ),
               const SizedBox(width: 10),
@@ -427,7 +427,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainStateAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   children: [
@@ -483,7 +483,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
 
                             // Stamp counter row
                             Row(
-                              mainAxisAlignment: MainStateAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   children: [
@@ -522,7 +522,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
                             const SizedBox(height: 10),
 
                             Row(
-                              mainAxisAlignment: MainState.end,
+                              mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 TextButton.icon(
                                   icon: const Icon(Icons.edit, size: 16),
@@ -626,11 +626,11 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
                     ),
                     DropdownMenuItem(
                       value: 'FIXED_PRICE',
-                      child: Text('Fixed Hourly Rate (e.g. $15.00 / hr)'),
+                      child: Text('Fixed Hourly Rate (e.g. \$15.00 / hr)'),
                     ),
                     DropdownMenuItem(
                       value: 'DISCOUNT_AMOUNT',
-                      child: Text('Fixed Discount Amount (e.g. $5.00 OFF)'),
+                      child: Text('Fixed Discount Amount (e.g. \$5.00 OFF)'),
                     ),
                   ],
                   onChanged: (val) {
@@ -733,8 +733,4 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
       ),
     );
   }
-}
-
-extension ColorExtension on Colors {
-  static Color? get blueHex => const Color(0xFF1E88E5);
 }
