@@ -177,10 +177,17 @@ class _BookingScreenState extends State<BookingScreen> {
           selected = matched;
         }
 
+        // Reorder list so selected court (Aminova) is at index 0 at the top
+        if (venueCourts.contains(selected)) {
+          venueCourts.remove(selected);
+          venueCourts.insert(0, selected);
+        }
+
         setState(() {
           _services = venueCourts;
           _selectedService = selected;
-          _selectedServiceIds = venueCourts.map((s) => s.id).toSet();
+          _selectedServiceIds = {selected.id};
+          _expandedCourtIds = {selected.id};
           _isLoading = false;
         });
         _fetchSlots();
@@ -197,6 +204,7 @@ class _BookingScreenState extends State<BookingScreen> {
         if (widget.initialService != null) {
           _selectedService = widget.initialService;
           _selectedServiceIds = {_selectedService!.id};
+          _expandedCourtIds = {_selectedService!.id};
         } else if (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
           final matchName = widget.initialServiceName!.toLowerCase();
           final match = _services.firstWhere(
@@ -214,9 +222,16 @@ class _BookingScreenState extends State<BookingScreen> {
           );
           _selectedService = match;
           _selectedServiceIds = {match.id};
+          _expandedCourtIds = {match.id};
+
+          if (_services.contains(match)) {
+            _services.remove(match);
+            _services.insert(0, match);
+          }
         } else if (_services.isNotEmpty) {
           _selectedService = _services.first;
           _selectedServiceIds = {_services.first.id};
+          _expandedCourtIds = {_services.first.id};
         }
       });
       _fetchSlots();
