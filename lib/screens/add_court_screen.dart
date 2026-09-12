@@ -45,6 +45,19 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   int _dayStartHour = 6;
   int _nightStartHour = 18;
   
+  final List<String> _presetFacilities = [
+    'Covered Court',
+    'Outdoor Court',
+    'Restrooms',
+    'Water Station',
+    'Parking',
+    'Equipment Rental',
+    'Seating',
+    'Lighting / Night Play',
+    'Air Conditioning',
+    'Pro Shop',
+    'Showers',
+  ];
   List<String> _availableFacilities = [];
   List<String> _selectedFacilities = [];
   List<String> _courtPhotos = [];
@@ -171,7 +184,9 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
         parsedFac = rawFac;
       }
       _selectedFacilities = parsedFac.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
-      _availableFacilities = List<String>.from(_selectedFacilities);
+      Set<String> combined = Set.from(_presetFacilities);
+      combined.addAll(_selectedFacilities);
+      _availableFacilities = combined.toList();
 
       const String defaultPolicy = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
       const String defaultAbout = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
@@ -191,7 +206,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _aboutVenueCtrl.text = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
       _faqCtrl.text = 'Q: Are paddles and balls available for rent or purchase?\nA: Yes! High-quality rental paddles and pickleballs are available at the front desk.\n\nQ: Is on-site parking available for players?\nA: Yes, we provide free dedicated parking directly adjacent to the venue.\n\nQ: What footwear is allowed on the courts?\nA: Only non-marking court or athletic shoes are permitted.\n\nQ: Can I host Open Plays or Pasalo transfers here?\nA: Absolutely! You can post Open Plays or offer Pasalo slots directly through the app.';
       _selectedFacilities = ['Covered Court', 'Restrooms', 'Water Station', 'Parking', 'Equipment Rental', 'Seating'];
-      _availableFacilities = List<String>.from(_selectedFacilities);
+      _availableFacilities = Set<String>.from(_presetFacilities).toList();
     }
   }
 
@@ -1002,7 +1017,6 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                                 }
                               } else {
                                 _selectedFacilities.remove(facility);
-                                _availableFacilities.remove(facility);
                               }
                             });
                           },
