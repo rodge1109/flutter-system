@@ -13,6 +13,7 @@ import '../models/loyalty_settings_model.dart';
 import '../widgets/loyalty_stamp_card_widget.dart';
 import '../services/api_service.dart';
 import 'booking_confirmation_screen.dart';
+import 'login_screen.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../utils/download_helper_stub.dart' if (dart.library.html) '../utils/download_helper_web.dart';
@@ -100,6 +101,11 @@ class _BookingScreenState extends State<BookingScreen> {
     if (widget.initialTime != null) {
       _selectedTimes = [widget.initialTime!];
     }
+    _emailController.addListener(() {
+      if (_emailController.text.contains('@') && _emailController.text.contains('.')) {
+        _checkLoyaltyStatus();
+      }
+    });
     _loadServices();
     _loadUserData();
   }
@@ -1564,10 +1570,42 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildUserDetails() {
+    bool isGuest = _emailController.text.isEmpty;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isGuest) ...[
+            Container(
+              margin: EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Already a member? Log in to auto-fill details & unlock VIP rates.',
+                      style: GoogleFonts.outfit(fontSize: 12, color: AppColors.primaryGreen, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+                      _loadUserData();
+                    },
+                    child: Text('Log In', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                  ),
+                ],
+              ),
+            ),
+          ],
           _buildTextField(_nameController, 'Full Name', Icons.person_outline),
           SizedBox(height: 16),
           _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined, isPhone: true),
