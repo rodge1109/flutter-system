@@ -69,17 +69,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     List<dynamic> candidates = [];
     if (c is Map) {
       candidates = [
-        c['logo_url'], c['logoUrl'], c['logo'], c['court_logo'], c['icon'], c['image'],
+        c['logo_url'], c['logoUrl'], c['logo'], c['court_logo'], c['icon'], c['image'], c['photo'], c['photo_url'],
         c['owner_payment']?['logo_url'], c['owner_payment']?['logoUrl'], c['owner_payment']?['logo'],
+        c['owner_payment']?['qr_code_url'], c['owner_payment']?['payment_qr_url'], c['owner_payment']?['qr_code'],
         c['ownerPayment']?['logo_url'], c['ownerPayment']?['logoUrl'], c['ownerPayment']?['logo'],
+        c['ownerPayment']?['qr_code_url'], c['ownerPayment']?['payment_qr_url'], c['ownerPayment']?['qr_code'],
       ];
       if (c['serviceObj'] != null && c['serviceObj'] is ServiceModel) {
-        candidates.add((c['serviceObj'] as ServiceModel).icon);
+        final sObj = c['serviceObj'] as ServiceModel;
+        candidates.addAll([
+          sObj.icon,
+          sObj.ownerPayment?['logo_url'], sObj.ownerPayment?['logoUrl'], sObj.ownerPayment?['logo'],
+          sObj.ownerPayment?['qr_code_url'], sObj.ownerPayment?['payment_qr_url'], sObj.ownerPayment?['qr_code'],
+        ]);
       }
     } else if (c is ServiceModel) {
       candidates = [
         c.icon,
         c.ownerPayment?['logo_url'], c.ownerPayment?['logoUrl'], c.ownerPayment?['logo'],
+        c.ownerPayment?['qr_code_url'], c.ownerPayment?['payment_qr_url'], c.ownerPayment?['qr_code'],
       ];
     }
 
@@ -555,17 +563,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? s.address 
                 : (s.description.isNotEmpty ? s.description : 'Cayang, Bogo');
 
-            // Extract owner uploaded logo URL if present (from Cloudinary icon, logo_url, ownerPayment)
-            String ownerLogo = s.icon.trim();
-            if ((ownerLogo.isEmpty || (!ownerLogo.startsWith('http') && !ownerLogo.startsWith('/uploads'))) && s.ownerPayment != null) {
-              ownerLogo = (s.ownerPayment?['logo_url'] ?? s.ownerPayment?['logoUrl'] ?? s.ownerPayment?['logo'] ?? '').toString().trim();
-            }
-
-            // Use real Cloudinary logo image uploaded by owner, otherwise fallback
-            String imageUrl = fallbackImages[idx % fallbackImages.length];
-            if (ownerLogo.startsWith('http') || ownerLogo.startsWith('/uploads')) {
-              imageUrl = ownerLogo.startsWith('/uploads') ? 'https://pickle-system.onrender.com$ownerLogo' : ownerLogo;
-            }
+            // Extract owner uploaded photo/logo URL if present (from Cloudinary icon, logo_url, ownerPayment)
+            String ownerLogo = _extractCourtLogo(s);
+            String imageUrl = ownerLogo.isNotEmpty ? ownerLogo : fallbackImages[idx % fallbackImages.length];
 
             // Extract real available slot times
             List<String> backendAvailable = [];
