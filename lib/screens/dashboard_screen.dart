@@ -3355,32 +3355,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildBookingsTabView() {
     return DefaultTabController(
       length: 2,
-      child: Container(
-        color: AppColors.primaryGreen.withOpacity(0.08),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              SizedBox(height: 6),
-              TabBar(
-                indicatorColor: AppColors.primaryGreen,
-                labelColor: AppColors.primaryGreen,
-                unselectedLabelColor: Colors.grey.shade600,
-                tabs: [
-                  Tab(text: 'Upcoming (${_upcomingBookings.length})'),
-                  Tab(text: 'Past (${_pastBookings.length})'),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            SizedBox(height: 6),
+            TabBar(
+              indicatorColor: AppColors.primaryGreen,
+              labelColor: AppColors.primaryGreen,
+              unselectedLabelColor: Colors.grey.shade600,
+              tabs: [
+                Tab(text: 'Upcoming (${_upcomingBookings.length})'),
+                Tab(text: 'Past (${_pastBookings.length})'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildBookingList(_upcomingBookings, isUpcoming: true),
+                  _buildBookingList(_pastBookings, isUpcoming: false),
                 ],
               ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildBookingList(_upcomingBookings, isUpcoming: true),
-                    _buildBookingList(_pastBookings, isUpcoming: false),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -3412,11 +3409,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           margin: EdgeInsets.only(bottom: 12),
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.softWhite,
+            color: AppColors.primaryGreen.withOpacity(0.08), // Soft Sage Light Green (#EDF1EF)
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
             boxShadow: [
-              BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 6, offset: Offset(0, 2)),
+              BoxShadow(color: AppColors.richBlack.withOpacity(0.03), blurRadius: 6, offset: Offset(0, 2)),
             ],
           ),
           child: Row(
@@ -3424,10 +3421,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.08),
+                  color: AppColors.primaryGreen,
                   shape: BoxShape.circle,
                 ),
-                child: CustomPaddleIcon(color: AppColors.deepTeal, size: 22),
+                child: CustomPaddleIcon(color: AppColors.softWhite, size: 20),
               ),
               SizedBox(width: 16),
               Expanded(
