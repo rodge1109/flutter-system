@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class ServiceModel {
   final int id;
   final String name;
@@ -53,7 +55,7 @@ class ServiceModel {
         parsedVariablePrices = rawVar;
       } else if (rawVar is String) {
         try {
-          final decoded = json.decode(rawVar);
+          final decoded = jsonDecode(rawVar);
           if (decoded is List) {
             parsedVariablePrices = decoded;
           }
