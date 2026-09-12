@@ -872,6 +872,10 @@ class ApiService {
       return false;
     }
   }
+  Future<String> fetchOwnerEmailByCourtName(String courtName) async {
+    return getOwnerEmailByCourt(courtName);
+  }
+
   Future<String> getOwnerEmailByCourt(String courtName) async {
     const String fallbackOwner = 'rodge1109@yahoo.com';
     try {

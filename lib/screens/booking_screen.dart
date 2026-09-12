@@ -139,10 +139,10 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     if (ownerEmail.isEmpty && _selectedService != null) {
-      ownerEmail = await _apiService.fetchOwnerEmailByCourtName(_selectedService!.name);
+      ownerEmail = await _apiService.getOwnerEmailByCourt(_selectedService!.name);
     }
     if (ownerEmail.isEmpty && widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
-      ownerEmail = await _apiService.fetchOwnerEmailByCourtName(widget.initialServiceName!);
+      ownerEmail = await _apiService.getOwnerEmailByCourt(widget.initialServiceName!);
     }
 
     if (ownerEmail.isNotEmpty) {
