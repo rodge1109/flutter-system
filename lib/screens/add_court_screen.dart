@@ -485,6 +485,11 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
 
     final Map<String, dynamic> res;
     if (widget.court != null) {
+      if (widget.court is Map) {
+        (widget.court as Map)['facilities'] = List<String>.from(_selectedFacilities);
+        (widget.court as Map)['court_facilities'] = List<String>.from(_selectedFacilities);
+        (widget.court as Map)['amenities'] = List<String>.from(_selectedFacilities);
+      }
       res = await _apiService.updateCourt(widget.court!['id'], courtData);
     } else {
       res = await _apiService.addCourt(courtData);
