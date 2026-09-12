@@ -4,7 +4,6 @@ import '../services/api_service.dart';
 import 'booking_screen.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
-import 'splash_screen.dart';
 
 class DeepLinkHandlerScreen extends StatefulWidget {
   final String slug;
