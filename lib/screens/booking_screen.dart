@@ -2245,9 +2245,19 @@ class _BookingScreenState extends State<BookingScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Payment QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack)),
-                  IconButton(
-                    icon: Icon(Icons.close, color: AppColors.richBlack),
-                    onPressed: () => Navigator.pop(ctx),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.download_rounded, color: AppColors.primaryGreen),
+                        tooltip: 'Download QR Code',
+                        onPressed: () => downloadImage(qrUrl),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: AppColors.richBlack),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -2433,6 +2443,14 @@ class _BookingScreenState extends State<BookingScreen> {
                       Text(
                         'Official Owner Payment QR Code',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
+                      ),
+                      SizedBox(width: 4),
+                      IconButton(
+                        constraints: BoxConstraints(),
+                        padding: EdgeInsets.all(4),
+                        icon: Icon(Icons.file_download_outlined, color: AppColors.primaryGreen, size: 22),
+                        tooltip: 'Download QR Code',
+                        onPressed: () => downloadImage(qrUrl),
                       ),
                     ],
                   ),
