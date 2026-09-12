@@ -164,15 +164,39 @@ class _BookingScreenState extends State<BookingScreen> {
         final idx = entry.key;
         final c = entry.value;
         int courtId = c['id'] is int ? c['id'] : (int.tryParse(c['id'].toString()) ?? (1000 + idx));
+
+        List<dynamic>? parsedVar;
+        final rawVar = c['variable_prices'] ?? c['variablePrices'] ?? c['hourly_prices'] ?? c['hourlyPrices'] ?? c['serviceObj']?.variablePrices ?? c['serviceObj']?.hourlyPrices;
+        if (rawVar != null) {
+          if (rawVar is List) {
+            parsedVar = rawVar;
+          } else if (rawVar is String) {
+            try {
+              final decoded = json.decode(rawVar);
+              if (decoded is List) parsedVar = decoded;
+            } catch (_) {}
+          }
+        }
+
         return ServiceModel(
           id: courtId,
           name: c['name'] ?? 'Court ${idx + 1}',
-          description: 'Court at ${widget.venue!['venueName'] ?? 'Venue'}',
+          description: c['description'] ?? 'Court at ${widget.venue!['venueName'] ?? 'Venue'}',
           price: 'PHP ${c['price'] ?? widget.venue!['basePrice'] ?? '300'}',
-          icon: '🎾',
-          duration: '1H',
+          icon: c['icon'] ?? '🎾',
+          duration: c['duration'] ?? '1H',
           category: 'pickle',
           isActive: true,
+          variablePrices: parsedVar,
+          hourlyPrices: parsedVar,
+          ownerPayment: widget.venue!['owner_payment'] ?? widget.venue!['ownerPayment'] ?? c['owner_payment'],
+          openTime: c['open_time'] ?? c['openTime'],
+          closeTime: c['close_time'] ?? c['closeTime'],
+          latitude: c['latitude'] != null ? double.tryParse(c['latitude'].toString()) : null,
+          longitude: c['longitude'] != null ? double.tryParse(c['longitude'].toString()) : null,
+          aboutVenue: c['about_venue'] ?? c['aboutVenue'] ?? widget.venue!['aboutVenue'],
+          bookingPolicy: c['booking_policy'] ?? c['bookingPolicy'] ?? widget.venue!['bookingPolicy'],
+          faq: c['faq'] ?? widget.venue!['faq'],
         );
       }).toList();
 
@@ -640,13 +664,21 @@ class _BookingScreenState extends State<BookingScreen> {
         return '$displayH:$min $ampm';
       }
     }
+    int? plainH = int.tryParse(clean);
+    if (plainH != null) {
+      String ampm = plainH < 12 ? 'AM' : 'PM';
+      int displayH = plainH % 12;
+      if (displayH == 0) displayH = 12;
+      return '$displayH:00 $ampm';
+    }
     return clean.toUpperCase();
   }
 
-  List<String> _getDisplayTimeSlots() {
-    if (_selectedService != null && _selectedService!.variablePrices != null && _selectedService!.variablePrices!.isNotEmpty) {
+  List<String> _getDisplayTimeSlots({ServiceModel? service}) {
+    final s = service ?? _selectedService;
+    if (s != null && s.variablePrices != null && s.variablePrices!.isNotEmpty) {
       List<String> definedSlots = [];
-      for (var vp in _selectedService!.variablePrices!) {
+      for (var vp in s.variablePrices!) {
         if (vp is Map && vp['time'] != null && vp['time'].toString().isNotEmpty) {
           definedSlots.add(_normalizeTime(vp['time'].toString()));
         } else if (vp is Map && vp['hour'] != null && vp['hour'].toString().isNotEmpty) {
@@ -1214,9 +1246,9 @@ class _BookingScreenState extends State<BookingScreen> {
                             mainAxisSpacing: 8,
                             childAspectRatio: 2.0,
                           ),
-                          itemCount: _getDisplayTimeSlots().length,
+                          itemCount: _getDisplayTimeSlots(service: court).length,
                           itemBuilder: (context, idx) {
-                            final time = _getDisplayTimeSlots()[idx];
+                            final time = _getDisplayTimeSlots(service: court)[idx];
                             final slotKey = '${court.name}: $time';
                             final isSelected = _selectedTimes.contains(slotKey) || (_selectedServiceIds.length == 1 && _selectedTimes.contains(time));
                             final isBooked = _courtBookedSlots[court.name]?.contains(time) ?? false;
