@@ -138,6 +138,13 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
+    if (ownerEmail.isEmpty && _selectedService != null) {
+      ownerEmail = await _apiService.fetchOwnerEmailByCourtName(_selectedService!.name);
+    }
+    if (ownerEmail.isEmpty && widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
+      ownerEmail = await _apiService.fetchOwnerEmailByCourtName(widget.initialServiceName!);
+    }
+
     if (ownerEmail.isNotEmpty) {
       final loyalty = await _apiService.fetchCustomerLoyaltyStatus(email, ownerEmail);
       final settings = await _apiService.fetchLoyaltySettings(ownerEmail);
