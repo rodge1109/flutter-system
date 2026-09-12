@@ -63,6 +63,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int get _activeFilterCount => (_filterMaxPrice < 1000 ? 1 : 0) + (_filterMinRating > 0 ? 1 : 0);
   Position? _currentPosition;
 
+  String _extractCourtLogo(dynamic c) {
+    if (c == null) return '';
+    List<dynamic> candidates = [];
+    if (c is Map) {
+      candidates = [
+        c['logo_url'], c['logoUrl'], c['logo'], c['court_logo'], c['icon'], c['image'],
+        c['owner_payment']?['logo_url'], c['owner_payment']?['logoUrl'], c['owner_payment']?['logo'],
+        c['ownerPayment']?['logo_url'], c['ownerPayment']?['logoUrl'], c['ownerPayment']?['logo'],
+      ];
+      if (c['serviceObj'] != null && c['serviceObj'] is ServiceModel) {
+        candidates.add((c['serviceObj'] as ServiceModel).icon);
+      }
+    } else if (c is ServiceModel) {
+      candidates = [
+        c.icon,
+        c.ownerPayment?['logo_url'], c.ownerPayment?['logoUrl'], c.ownerPayment?['logo'],
+      ];
+    }
+
+    for (var cand in candidates) {
+      if (cand != null) {
+        String str = cand.toString().trim();
+        if (str.startsWith('http') || str.startsWith('/uploads')) {
+          return str.startsWith('/uploads') ? 'https://pickle-system.onrender.com$str' : str;
+        }
+      }
+    }
+    return '';
+  }
+
   List<Map<String, dynamic>> _getGroupedVenues(List<dynamic> rawCourts) {
     Map<String, List<Map<String, dynamic>>> venueGroups = {};
 
@@ -130,9 +160,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       String venueUploadedLogo = '';
       for (var c in courtList) {
-        String candidate = (c['logo_url'] ?? c['logoUrl'] ?? c['logo'] ?? c['court_logo'] ?? c['icon'] ?? '').toString().trim();
-        if (candidate.startsWith('http') || candidate.startsWith('/uploads')) {
-          venueUploadedLogo = candidate.startsWith('/uploads') ? 'https://pickle-system.onrender.com$candidate' : candidate;
+        String found = _extractCourtLogo(c);
+        if (found.isNotEmpty) {
+          venueUploadedLogo = found;
           break;
         }
       }
@@ -3997,15 +4027,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<dynamic> courts = venue['courts'] ?? [];
     final List<dynamic> sports = venue['sports'] ?? ['Pickleball'];
 
-    String logoUrl = (venue['logo_url'] ?? venue['logoUrl'] ?? venue['logo'] ?? venue['court_logo'] ?? '').toString().trim();
+    String logoUrl = _extractCourtLogo(venue);
     if (logoUrl.isEmpty && courts.isNotEmpty) {
       for (var c in courts) {
-        if (c is Map) {
-          String cand = (c['logo_url'] ?? c['logoUrl'] ?? c['logo'] ?? c['court_logo'] ?? c['icon'] ?? '').toString().trim();
-          if (cand.startsWith('http') || cand.startsWith('/uploads')) {
-            logoUrl = cand.startsWith('/uploads') ? 'https://pickle-system.onrender.com$cand' : cand;
-            break;
-          }
+        String found = _extractCourtLogo(c);
+        if (found.isNotEmpty) {
+          logoUrl = found;
+          break;
         }
       }
     }

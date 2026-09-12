@@ -145,12 +145,22 @@ class ServiceModel {
       parsedOwnerPayment['payment_instructions'] = json['payment_instructions'];
     }
 
-    final String parsedIcon = json['logo_url']?.toString() ?? 
+    String parsedIcon = json['logo_url']?.toString() ?? 
         json['logoUrl']?.toString() ?? 
         json['logo']?.toString() ?? 
         json['court_logo']?.toString() ?? 
         json['icon']?.toString() ?? 
-        (json['owner_payment'] != null ? json['owner_payment']['logo_url']?.toString() ?? json['owner_payment']['logo']?.toString() ?? '' : '');
+        json['image_url']?.toString() ?? 
+        json['imageUrl']?.toString() ?? 
+        json['image']?.toString() ?? 
+        (json['owner_payment'] != null ? json['owner_payment']['logo_url']?.toString() ?? json['owner_payment']['logo']?.toString() ?? '' : '') ?? '';
+
+    if (parsedIcon.isEmpty && json['images'] != null && json['images'] is List && (json['images'] as List).isNotEmpty) {
+      parsedIcon = json['images'][0].toString();
+    }
+    if (parsedIcon.isEmpty && json['photos'] != null && json['photos'] is List && (json['photos'] as List).isNotEmpty) {
+      parsedIcon = json['photos'][0].toString();
+    }
 
     return ServiceModel(
       id: json['id'] as int? ?? 0,
