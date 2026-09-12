@@ -626,11 +626,11 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
                     ),
                     DropdownMenuItem(
                       value: 'FIXED_PRICE',
-                      child: Text('Fixed Hourly Rate (e.g. \$15.00 / hr)'),
+                      child: Text('Fixed Hourly Rate (e.g. 300 / hr)'),
                     ),
                     DropdownMenuItem(
                       value: 'DISCOUNT_AMOUNT',
-                      child: Text('Fixed Discount Amount (e.g. \$5.00 OFF)'),
+                      child: Text('Fixed Discount Amount (e.g. 50 OFF)'),
                     ),
                   ],
                   onChanged: (val) {
@@ -646,7 +646,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
                   decoration: InputDecoration(
                     labelText: _discountType == 'PERCENTAGE'
                         ? 'Discount Percentage (%)'
-                        : (_discountType == 'FIXED_PRICE' ? 'Member Hourly Rate (\$' : 'Discount Amount (\$'),
+                        : (_discountType == 'FIXED_PRICE' ? 'Member Hourly Rate' : 'Discount Amount'),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
@@ -678,7 +678,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'When enabled, members accumulate 1 stamp per completed booking. On their 10th booking, the session fee drops to \$0.00 and stamps automatically reset to 0.',
+                  'When enabled, members accumulate 1 stamp per completed booking. On their 10th booking, the session fee drops to FREE and stamps automatically reset to 0.',
                   style: GoogleFonts.outfit(fontSize: 12, color: Colors.black54),
                 ),
                 const SizedBox(height: 12),
