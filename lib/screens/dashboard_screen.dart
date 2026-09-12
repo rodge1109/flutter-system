@@ -3355,30 +3355,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildBookingsTabView() {
     return DefaultTabController(
       length: 2,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            SizedBox(height: 6),
-            TabBar(
-            indicatorColor: AppColors.accentLime,
-            labelColor: AppColors.accentLime,
-            unselectedLabelColor: Colors.grey,
-            tabs: [
-              Tab(text: 'Upcoming (${_upcomingBookings.length})'),
-              Tab(text: 'Past (${_pastBookings.length})'),
+      child: Container(
+        color: AppColors.primaryGreen.withOpacity(0.08),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              SizedBox(height: 6),
+              TabBar(
+                indicatorColor: AppColors.primaryGreen,
+                labelColor: AppColors.primaryGreen,
+                unselectedLabelColor: Colors.grey.shade600,
+                tabs: [
+                  Tab(text: 'Upcoming (${_upcomingBookings.length})'),
+                  Tab(text: 'Past (${_pastBookings.length})'),
+                ],
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildBookingList(_upcomingBookings, isUpcoming: true),
+                    _buildBookingList(_pastBookings, isUpcoming: false),
+                  ],
+                ),
+              ),
             ],
           ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildBookingList(_upcomingBookings, isUpcoming: true),
-                _buildBookingList(_pastBookings, isUpcoming: false),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -3389,31 +3392,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.calendar_today, size: 48, color: Colors.grey.shade300),
+            Icon(Icons.calendar_today, size: 48, color: Colors.grey.shade400),
             SizedBox(height: 16),
             Text(
               isUpcoming ? 'No upcoming bookings' : 'No past bookings',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 15, fontWeight: FontWeight.w500),
             ),
           ],
         ),
       );
     }
 
-    return ListView.separated(
-      padding: EdgeInsets.symmetric(vertical: 16),
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       itemCount: bookings.length,
-      separatorBuilder: (context, index) => Divider(
-        indent: 46,
-        height: 1,
-        thickness: 0.5,
-        color: Colors.grey.shade300,
-      ),
       itemBuilder: (context, index) {
         final b = bookings[index];
         return Container(
-          color: Colors.grey.shade50,
-          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          margin: EdgeInsets.only(bottom: 12),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.softWhite,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 6, offset: Offset(0, 2)),
+            ],
+          ),
           child: Row(
             children: [
               Container(
