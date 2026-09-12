@@ -915,7 +915,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 80),
+            SizedBox(height: 60),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -929,21 +929,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     "Let's book your court.",
                     style: TextStyle(fontFamily: 'Poppins', fontSize: 14, color: AppColors.stoneGray),
                   ),
+                  SizedBox(height: 14),
+
+                  // Search Bar
+                  Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: AppColors.softWhite,
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.richBlack.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Search venues, courts or locations',
+                        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                        prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
+                        suffixIcon: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.tune, color: _activeFilterCount > 0 ? Color(0xFF8E24AA) : AppColors.richBlack),
+                              onPressed: () => _showFilterSheet(),
+                            ),
+                            if (_activeFilterCount > 0)
+                              Positioned(
+                                top: 8, right: 8,
+                                child: Container(
+                                  width: 16, height: 16,
+                                  decoration: const BoxDecoration(color: Color(0xFFD81B60), shape: BoxShape.circle),
+                                  child: Center(
+                                    child: Text('$_activeFilterCount', style: const TextStyle(color: AppColors.softWhite, fontSize: 9, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
             SizedBox(height: 16),
 
             // My Next Booking Card
-          _buildNextBookingCard(),
+            _buildNextBookingCard(),
 
-          SizedBox(height: 24),
-        ],
-      ),
-      Expanded(
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
+            SizedBox(height: 16),
+          ],
+        ),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(32),
@@ -956,79 +1014,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   offset: Offset(0, -4),
                 ),
               ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 19),
-
-              // Search Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                  color: AppColors.softWhite,
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.richBlack.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  controller: _searchCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'Search venues, courts or locations',
-                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                    prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
-                    suffixIcon: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.tune, color: _activeFilterCount > 0 ? Color(0xFF8E24AA) : AppColors.richBlack),
-                          onPressed: () => _showFilterSheet(),
-                        ),
-                        if (_activeFilterCount > 0)
-                          Positioned(
-                            top: 8, right: 8,
-                            child: Container(
-                              width: 16, height: 16,
-                              decoration: const BoxDecoration(color: Color(0xFFD81B60), shape: BoxShape.circle),
-                              child: Center(
-                                child: Text('$_activeFilterCount', style: const TextStyle(color: AppColors.softWhite, fontSize: 9, fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  ),
-                ),
-              ),
-              ),
-
-
-              Expanded(
-                child: SingleChildScrollView(
-            padding: EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            ),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(top: 20, bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 SizedBox(height: 2),
                   // Nearby Venues Header
                 Padding(
@@ -1127,18 +1118,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          SizedBox(height: 48),
               ],
             ),
           ),
         ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildOpenPlaysSection() {
     return ExpansionTile(
