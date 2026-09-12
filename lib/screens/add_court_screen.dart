@@ -149,7 +149,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
         }
       }
 
-      if (dayRateStr.isEmpty) dayRateStr = widget.court!['base_price']?.toString() ?? '200';
+      if (dayRateStr.isEmpty) dayRateStr = widget.court!['base_price']?.toString() ?? '300';
       if (nightRateStr.isEmpty) nightRateStr = (widget.court!['base_price']?.toString() ?? '300');
 
       _dayRateCtrl.text = dayRateStr.replaceAll(RegExp(r'\.0+$'), '').replaceAll(RegExp(r'\.00$'), '');
