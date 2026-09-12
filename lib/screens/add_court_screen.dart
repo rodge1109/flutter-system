@@ -1,6 +1,7 @@
 import 'package:flutter_project/theme/app_colors.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/api_service.dart';
@@ -83,25 +84,6 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _closeTimeCtrl.text = widget.court!['close_time'] ?? '23:59';
       _logoUrlCtrl.text = widget.court!['logo_url'] ?? widget.court!['logo'] ?? '';
 
-      _dayStartHour = widget.court!['day_start_hour'] != null 
-          ? (int.tryParse(widget.court!['day_start_hour'].toString()) ?? 6)
-          : (widget.court!['dayStartHour'] != null 
-              ? (int.tryParse(widget.court!['dayStartHour'].toString()) ?? 6)
-              : (widget.court!['day_start'] != null 
-                  ? (int.tryParse(widget.court!['day_start'].toString()) ?? 6)
-                  : (widget.court!['dayStart'] != null ? (int.tryParse(widget.court!['dayStart'].toString()) ?? 6) : 6)));
-
-      _nightStartHour = widget.court!['night_start_hour'] != null 
-          ? (int.tryParse(widget.court!['night_start_hour'].toString()) ?? 18)
-          : (widget.court!['nightStartHour'] != null 
-              ? (int.tryParse(widget.court!['nightStartHour'].toString()) ?? 18)
-              : (widget.court!['night_start'] != null 
-                  ? (int.tryParse(widget.court!['night_start'].toString()) ?? 18)
-                  : (widget.court!['nightStart'] != null ? (int.tryParse(widget.court!['nightStart'].toString()) ?? 18) : 18)));
-
-      String dayRateStr = (widget.court!['day_rate'] ?? widget.court!['dayRate'] ?? widget.court!['base_price'] ?? '').toString();
-      String nightRateStr = (widget.court!['night_rate'] ?? widget.court!['nightRate'] ?? widget.court!['night_price'] ?? '').toString();
-
       final rawPrices = widget.court!['hourly_prices'] ?? widget.court!['hourlyPrices'] ?? widget.court!['variable_prices'] ?? widget.court!['variablePrices'];
       List<dynamic> pricesList = [];
       if (rawPrices is List) {
@@ -110,23 +92,47 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
         try { pricesList = json.decode(rawPrices); } catch (_) {}
       }
 
+      int? foundDayStart;
+      int? foundNightStart;
+
+      final dynamic rawDay = widget.court!['day_start_hour'] ??
+          widget.court!['dayStartHour'] ??
+          widget.court!['day_start'] ??
+          widget.court!['dayStart'] ??
+          widget.court!['owner_payment']?['day_start_hour'] ??
+          widget.court!['owner_payment']?['dayStartHour'];
+
+      if (rawDay != null) foundDayStart = int.tryParse(rawDay.toString());
+
+      final dynamic rawNight = widget.court!['night_start_hour'] ??
+          widget.court!['nightStartHour'] ??
+          widget.court!['night_start'] ??
+          widget.court!['nightStart'] ??
+          widget.court!['owner_payment']?['night_start_hour'] ??
+          widget.court!['owner_payment']?['nightStartHour'];
+
+      if (rawNight != null) foundNightStart = int.tryParse(rawNight.toString());
+
       if (pricesList.isNotEmpty) {
-        if (widget.court!['night_start_hour'] == null && widget.court!['nightStartHour'] == null && widget.court!['night_start'] == null && widget.court!['nightStart'] == null) {
-          double? dayPriceVal;
-          for (var p in pricesList) {
-            if (p is Map && p['time'] != null) {
-              final int h = int.tryParse(p['time'].toString().split(':')[0]) ?? -1;
-              final double price = double.tryParse((p['standardPrice'] ?? p['price'] ?? '0').toString()) ?? 0;
-              if (h == _dayStartHour && price > 0) {
-                dayPriceVal = price;
-              } else if (dayPriceVal != null && price != dayPriceVal && h > _dayStartHour && price > 0) {
-                _nightStartHour = h;
-                break;
-              }
+        for (var p in pricesList) {
+          if (p is Map) {
+            if (foundDayStart == null && (p['day_start_hour'] != null || p['dayStartHour'] != null)) {
+              foundDayStart = int.tryParse((p['day_start_hour'] ?? p['dayStartHour']).toString());
+            }
+            if (foundNightStart == null && (p['night_start_hour'] != null || p['nightStartHour'] != null)) {
+              foundNightStart = int.tryParse((p['night_start_hour'] ?? p['nightStartHour']).toString());
             }
           }
         }
+      }
 
+      _dayStartHour = foundDayStart ?? 6;
+      _nightStartHour = foundNightStart ?? 18;
+
+      String dayRateStr = (widget.court!['day_rate'] ?? widget.court!['dayRate'] ?? widget.court!['base_price'] ?? '').toString();
+      String nightRateStr = (widget.court!['night_rate'] ?? widget.court!['nightRate'] ?? widget.court!['night_price'] ?? '').toString();
+
+      if (pricesList.isNotEmpty) {
         String nightStartStr = '${_nightStartHour.toString().padLeft(2, '0')}:00';
         String dayStartStr = '${_dayStartHour.toString().padLeft(2, '0')}:00';
         for (var p in pricesList) {
@@ -386,6 +392,10 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
         'standardPrice': standard,
         'discountPrice': discount,
         'isDiscountActive': isActive,
+        'dayStartHour': _dayStartHour,
+        'day_start_hour': _dayStartHour,
+        'nightStartHour': _nightStartHour,
+        'night_start_hour': _nightStartHour,
       });
     }
 
@@ -406,6 +416,10 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
         };
       } catch (_) {}
     }
+    ownerPaymentMap['day_start_hour'] = _dayStartHour;
+    ownerPaymentMap['dayStartHour'] = _dayStartHour;
+    ownerPaymentMap['night_start_hour'] = _nightStartHour;
+    ownerPaymentMap['nightStartHour'] = _nightStartHour;
 
     final courtData = {
       'ownerEmail': widget.userEmail,
