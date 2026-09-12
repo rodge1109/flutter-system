@@ -145,15 +145,37 @@ class _BookingScreenState extends State<BookingScreen> {
       ownerEmail = await _apiService.getOwnerEmailByCourt(widget.initialServiceName!);
     }
 
+    CustomerModel? loyalty;
     if (ownerEmail.isNotEmpty) {
-      final loyalty = await _apiService.fetchCustomerLoyaltyStatus(email, ownerEmail);
-      final settings = await _apiService.fetchLoyaltySettings(ownerEmail);
-      if (mounted) {
-        setState(() {
-          _customerLoyalty = loyalty;
-          _loyaltySettings = settings;
-        });
+      loyalty = await _apiService.fetchCustomerLoyaltyStatus(email, ownerEmail);
+    }
+
+    if (loyalty == null || ownerEmail.isEmpty) {
+      final allLoyalty = await _apiService.fetchAllCustomerLoyalty(email);
+      if (allLoyalty.isNotEmpty) {
+        if (ownerEmail.isNotEmpty) {
+          try {
+            loyalty = allLoyalty.firstWhere((l) => l.ownerEmail.toLowerCase() == ownerEmail.toLowerCase());
+          } catch (_) {
+            loyalty = allLoyalty.first;
+          }
+        } else {
+          loyalty = allLoyalty.first;
+          ownerEmail = loyalty.ownerEmail;
+        }
       }
+    }
+
+    LoyaltySettingsModel? settings;
+    if (ownerEmail.isNotEmpty) {
+      settings = await _apiService.fetchLoyaltySettings(ownerEmail);
+    }
+
+    if (mounted) {
+      setState(() {
+        _customerLoyalty = loyalty;
+        _loyaltySettings = settings;
+      });
     }
   }
 
@@ -1255,6 +1277,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       // Auto-select this court if expanding
                       _selectedServiceIds.add(court.id);
                       _selectedService = court;
+                      _checkLoyaltyStatus();
                       if (_selectedTimes.isEmpty) _fetchSlots();
                     } else {
                       _expandedCourtIds.remove(court.id);
@@ -1387,6 +1410,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                     _selectedTimes.add(slotKey);
                                   }
                                 });
+                                _checkLoyaltyStatus();
                               },
                               borderRadius: BorderRadius.circular(8),
                               child: Stack(
