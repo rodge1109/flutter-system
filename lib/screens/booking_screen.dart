@@ -112,21 +112,34 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Future<void> _checkLoyaltyStatus() async {
-    if (_emailController.text.trim().isEmpty) return;
-    String ownerEmail = _selectedService?.ownerPayment?['owner_email'] ?? '';
+    final email = _emailController.text.trim();
+    if (email.isEmpty) return;
+
+    String ownerEmail = _selectedService?.ownerEmail ?? '';
+    if (ownerEmail.isEmpty && _selectedService?.ownerPayment != null) {
+      ownerEmail = _selectedService!.ownerPayment!['owner_email']?.toString() ??
+                   _selectedService!.ownerPayment!['ownerEmail']?.toString() ?? '';
+    }
     if (ownerEmail.isEmpty && widget.venue != null) {
-      ownerEmail = widget.venue!['owner_email'] ?? widget.venue!['email'] ?? '';
+      ownerEmail = widget.venue!['owner_email']?.toString() ??
+                   widget.venue!['ownerEmail']?.toString() ??
+                   widget.venue!['email']?.toString() ?? '';
     }
     if (ownerEmail.isEmpty && _services.isNotEmpty) {
       for (var s in _services) {
+        if (s.ownerEmail.isNotEmpty) {
+          ownerEmail = s.ownerEmail;
+          break;
+        }
         if (s.ownerPayment?['owner_email']?.toString().isNotEmpty == true) {
           ownerEmail = s.ownerPayment!['owner_email'].toString();
           break;
         }
       }
     }
+
     if (ownerEmail.isNotEmpty) {
-      final loyalty = await _apiService.fetchCustomerLoyaltyStatus(_emailController.text.trim(), ownerEmail);
+      final loyalty = await _apiService.fetchCustomerLoyaltyStatus(email, ownerEmail);
       final settings = await _apiService.fetchLoyaltySettings(ownerEmail);
       if (mounted) {
         setState(() {
@@ -178,11 +191,13 @@ class _BookingScreenState extends State<BookingScreen> {
           }
         }
 
+        String cOwner = (c['owner_email'] ?? c['ownerEmail'] ?? widget.venue!['owner_email'] ?? widget.venue!['ownerEmail'] ?? widget.venue!['email'] ?? '').toString();
         return ServiceModel(
           id: courtId,
           name: c['name'] ?? 'Court ${idx + 1}',
           description: c['description'] ?? 'Court at ${widget.venue!['venueName'] ?? 'Venue'}',
           price: 'PHP ${c['price'] ?? widget.venue!['basePrice'] ?? '300'}',
+          ownerEmail: cOwner,
           icon: c['icon'] ?? '🎾',
           duration: c['duration'] ?? '1H',
           category: 'pickle',
@@ -227,6 +242,7 @@ class _BookingScreenState extends State<BookingScreen> {
           _isLoading = false;
         });
         _fetchSlots();
+        _checkLoyaltyStatus();
         return;
       }
     }
@@ -1928,10 +1944,12 @@ class _BookingScreenState extends State<BookingScreen> {
                   Divider(height: 24, color: Colors.green.shade100),
                   _buildSummaryRow(
                     Icons.stars, 
-                    'Member Discount', 
+                    'VIP Member Discount', 
                     _loyaltySettings!.memberDiscountType == 'PERCENTAGE' 
                         ? '${_loyaltySettings!.memberDiscountValue.toInt()}% OFF (Applied)' 
-                        : 'Member Price Applied'
+                        : (_loyaltySettings!.memberDiscountType == 'DISCOUNT_AMOUNT'
+                            ? '-₱${_loyaltySettings!.memberDiscountValue.toStringAsFixed(0)} OFF / slot (Applied)'
+                            : '₱${_loyaltySettings!.memberDiscountValue.toStringAsFixed(0)} Member Rate (Applied)')
                   ),
                 ],
                 Divider(height: 24, color: Colors.green.shade100),
@@ -1985,9 +2003,6 @@ class _BookingScreenState extends State<BookingScreen> {
     for (var time in _selectedTimes) {
       String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
       double price = double.tryParse(priceStr) ?? 0.0;
-      if (_customerLoyalty?.isMember == true && _loyaltySettings != null) {
-        price = _loyaltySettings!.calculateMemberPrice(price);
-      }
       total += price;
     }
     
@@ -2009,9 +2024,6 @@ class _BookingScreenState extends State<BookingScreen> {
     for (var time in _selectedTimes) {
       String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
       double price = double.tryParse(priceStr) ?? 0.0;
-      if (_customerLoyalty?.isMember == true && _loyaltySettings != null) {
-        price = _loyaltySettings!.calculateMemberPrice(price);
-      }
       total += price;
     }
     return 'PHP ${(total + _getServiceFee()).toStringAsFixed(2)}';

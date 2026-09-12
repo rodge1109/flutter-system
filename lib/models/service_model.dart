@@ -22,6 +22,7 @@ class ServiceModel {
   final String? aboutVenue;
   final String? bookingPolicy;
   final String? faq;
+  final String ownerEmail;
   final int? dayStartHour;
   final int? nightStartHour;
 
@@ -30,6 +31,7 @@ class ServiceModel {
     required this.name,
     required this.description,
     required this.price,
+    this.ownerEmail = '',
     this.address = '',
     this.facilities = const [],
     required this.icon,
@@ -75,11 +77,17 @@ class ServiceModel {
         ? (int.tryParse(json['night_start_hour'].toString()) ?? 18)
         : (json['nightStartHour'] != null ? (int.tryParse(json['nightStartHour'].toString()) ?? 18) : 18);
 
+    final String parsedOwnerEmail = json['owner_email']?.toString() ?? 
+        json['ownerEmail']?.toString() ?? 
+        json['owner']?.toString() ?? 
+        (json['owner_payment'] != null ? json['owner_payment']['owner_email']?.toString() ?? '' : '');
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? 'Enjoy a fun and active game on our well-maintained pickleball court, perfect for players of all skill levels.',
       price: json['price']?.toString() ?? '',
+      ownerEmail: parsedOwnerEmail,
       address: json['address'] as String? ?? '',
       facilities: (json['facilities'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       icon: json['icon'] as String? ?? '',
