@@ -40,6 +40,9 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   
   bool _enableDayDiscount = false;
   bool _enableNightDiscount = false;
+
+  int _dayStartHour = 6;
+  int _nightStartHour = 18;
   
   final List<String> _availableFacilities = [
     'Covered Court',
@@ -55,6 +58,13 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   bool _isSaving = false;
   bool _isUploadingLogo = false;
   bool _isUploadingPhoto = false;
+
+  String _formatHourLabel(int hour) {
+    if (hour == 0) return '12:00 AM (Midnight)';
+    if (hour == 12) return '12:00 PM (Noon)';
+    if (hour < 12) return '$hour:00 AM';
+    return '${hour - 12}:00 PM';
+  }
 
   @override
   void initState() {
@@ -72,6 +82,14 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _openTimeCtrl.text = widget.court!['open_time'] ?? '00:00';
       _closeTimeCtrl.text = widget.court!['close_time'] ?? '23:59';
       _logoUrlCtrl.text = widget.court!['logo_url'] ?? widget.court!['logo'] ?? '';
+
+      _dayStartHour = widget.court!['day_start_hour'] != null 
+          ? (int.tryParse(widget.court!['day_start_hour'].toString()) ?? 6)
+          : (widget.court!['dayStartHour'] != null ? (int.tryParse(widget.court!['dayStartHour'].toString()) ?? 6) : 6);
+
+      _nightStartHour = widget.court!['night_start_hour'] != null 
+          ? (int.tryParse(widget.court!['night_start_hour'].toString()) ?? 18)
+          : (widget.court!['nightStartHour'] != null ? (int.tryParse(widget.court!['nightStartHour'].toString()) ?? 18) : 18);
       
       _enableDayDiscount = widget.court!['is_day_discount_active'] == true || widget.court!['is_day_discount_active'] == 'true' || widget.court!['is_day_discount_active'] == 1;
       _dayDiscountCtrl.text = widget.court!['day_discount_rate']?.toString() ?? '';
@@ -276,8 +294,10 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     final effectiveNightRate = isNightDiscountActive ? nightDiscount : nightStandard;
 
     for (int i = 0; i < 24; i++) {
-      // Day Rate from 6 AM (inclusive) to 6 PM (exclusive)
-      final isDay = (i >= 6 && i < 18);
+      final isDay = _dayStartHour < _nightStartHour
+          ? (i >= _dayStartHour && i < _nightStartHour)
+          : (i >= _dayStartHour || i < _nightStartHour);
+
       final standard = isDay ? dayStandard : nightStandard;
       final discount = isDay ? dayDiscount : nightDiscount;
       final isActive = isDay ? isDayDiscountActive : isNightDiscountActive;
@@ -318,6 +338,10 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'nightRate': nightStandard,
       'nightDiscountRate': nightDiscount,
       'isNightDiscountActive': isNightDiscountActive,
+      'dayStartHour': _dayStartHour,
+      'nightStartHour': _nightStartHour,
+      'day_start_hour': _dayStartHour,
+      'night_start_hour': _nightStartHour,
       'bookingPolicy': _bookingPolicyCtrl.text.trim(),
       'aboutVenue': _aboutVenueCtrl.text.trim(),
       'faq': _faqCtrl.text.trim(),
@@ -535,8 +559,90 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                     ],
 
                     SizedBox(height: 24),
-                    _buildSectionTitle('Pricing Setup'),
-                    Text('Set standard rates and optionally enable promotional discounted rates for Day and Night hours.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    _buildSectionTitle('Pricing & Time Schedule Setup'),
+                    Text('Set standard rates and customize when Day and Night hours start for rate calculations.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    SizedBox(height: 16),
+
+                    // DAY & NIGHT TIME BOUNDARIES CONFIG CARD
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.softWhite,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.schedule, color: AppColors.primaryGreen, size: 20),
+                              SizedBox(width: 8),
+                              Text('Day & Night Rate Boundaries', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
+                            ],
+                          ),
+                          SizedBox(height: 4),
+                          Text('Select the exact hours when Day Rate and Night Rate apply for your court.', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                          SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Day Starts At', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                                    SizedBox(height: 4),
+                                    DropdownButtonFormField<int>(
+                                      value: _dayStartHour,
+                                      decoration: InputDecoration(
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      items: [5, 6, 7, 8, 9].map((h) {
+                                        return DropdownMenuItem<int>(
+                                          value: h,
+                                          child: Text(_formatHourLabel(h), style: TextStyle(fontSize: 13)),
+                                        );
+                                      }).toList(),
+                                      onChanged: (val) {
+                                        if (val != null) setState(() => _dayStartHour = val);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Night Starts At', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                                    SizedBox(height: 4),
+                                    DropdownButtonFormField<int>(
+                                      value: _nightStartHour,
+                                      decoration: InputDecoration(
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      items: [16, 17, 18, 19, 20, 21, 22].map((h) {
+                                        return DropdownMenuItem<int>(
+                                          value: h,
+                                          child: Text(_formatHourLabel(h), style: TextStyle(fontSize: 13)),
+                                        );
+                                      }).toList(),
+                                      onChanged: (val) {
+                                        if (val != null) setState(() => _nightStartHour = val);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
                     SizedBox(height: 16),
 
                     // DAY RATE CARD
@@ -557,7 +663,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                                 children: [
                                   Icon(Icons.wb_sunny, color: Colors.orange.shade700, size: 20),
                                   SizedBox(width: 8),
-                                  Text('Day Rate (6AM - 6PM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
+                                  Text('Day Rate (${_formatHourLabel(_dayStartHour)} - ${_formatHourLabel(_nightStartHour)})', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
                                 ],
                               ),
                               Row(
@@ -611,7 +717,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                                 children: [
                                   Icon(Icons.nights_stay, color: Colors.indigo.shade700, size: 20),
                                   SizedBox(width: 8),
-                                  Text('Night Rate (6PM - 6AM)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
+                                  Text('Night Rate (${_formatHourLabel(_nightStartHour)} - ${_formatHourLabel(_dayStartHour)})', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
                                 ],
                               ),
                               Row(
