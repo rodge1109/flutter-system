@@ -46,6 +46,21 @@ class ServiceModel {
   });
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
+    List<dynamic>? parsedVariablePrices;
+    final rawVar = json['variable_prices'] ?? json['hourly_prices'] ?? json['hourlyPrices'];
+    if (rawVar != null) {
+      if (rawVar is List) {
+        parsedVariablePrices = rawVar;
+      } else if (rawVar is String) {
+        try {
+          final decoded = json.decode(rawVar);
+          if (decoded is List) {
+            parsedVariablePrices = decoded;
+          }
+        } catch (_) {}
+      }
+    }
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
@@ -57,12 +72,12 @@ class ServiceModel {
       duration: json['duration']?.toString() ?? '30M',
       category: json['category'] as String? ?? 'General',
       isActive: json['is_active'] as bool? ?? true,
-      variablePrices: json['variable_prices'] as List<dynamic>?,
+      variablePrices: parsedVariablePrices,
       ownerPayment: json['owner_payment'] as Map<String, dynamic>?,
       latitude: json['latitude'] != null ? double.tryParse(json['latitude'].toString()) : null,
       longitude: json['longitude'] != null ? double.tryParse(json['longitude'].toString()) : null,
       basePrice: json['base_price']?.toString(),
-      hourlyPrices: json['variable_prices'] ?? json['hourly_prices'],
+      hourlyPrices: parsedVariablePrices,
       openTime: json['open_time']?.toString(),
       closeTime: json['close_time']?.toString(),
       aboutVenue: json['about_venue']?.toString(),

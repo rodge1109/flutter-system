@@ -129,7 +129,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _dayStartHour = foundDayStart ?? 6;
       _nightStartHour = foundNightStart ?? 18;
 
-      String dayRateStr = (widget.court!['day_rate'] ?? widget.court!['dayRate'] ?? widget.court!['base_price'] ?? '').toString();
+      String dayRateStr = (widget.court!['day_rate'] ?? widget.court!['dayRate'] ?? '').toString();
       String nightRateStr = (widget.court!['night_rate'] ?? widget.court!['nightRate'] ?? widget.court!['night_price'] ?? '').toString();
 
       if (pricesList.isNotEmpty) {
@@ -140,24 +140,20 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
             final tStr = p['time'].toString();
             final priceVal = (p['standardPrice'] ?? p['price'] ?? p['standard_price'] ?? '').toString();
             if (tStr == nightStartStr && priceVal.isNotEmpty) {
-              if (nightRateStr.isEmpty || nightRateStr == widget.court!['base_price']?.toString()) {
-                nightRateStr = priceVal;
-              }
+              nightRateStr = priceVal;
             }
             if (tStr == dayStartStr && priceVal.isNotEmpty) {
-              if (dayRateStr.isEmpty) {
-                dayRateStr = priceVal;
-              }
+              dayRateStr = priceVal;
             }
           }
         }
       }
 
-      if (dayRateStr.isEmpty) dayRateStr = widget.court!['base_price']?.toString() ?? '';
-      if (nightRateStr.isEmpty) nightRateStr = dayRateStr;
+      if (dayRateStr.isEmpty) dayRateStr = widget.court!['base_price']?.toString() ?? '200';
+      if (nightRateStr.isEmpty) nightRateStr = (widget.court!['base_price']?.toString() ?? '300');
 
-      _dayRateCtrl.text = dayRateStr;
-      _nightRateCtrl.text = nightRateStr;
+      _dayRateCtrl.text = dayRateStr.replaceAll(RegExp(r'\.0+$'), '').replaceAll(RegExp(r'\.00$'), '');
+      _nightRateCtrl.text = nightRateStr.replaceAll(RegExp(r'\.0+$'), '').replaceAll(RegExp(r'\.00$'), '');
       
       _enableDayDiscount = widget.court!['is_day_discount_active'] == true || widget.court!['is_day_discount_active'] == 'true' || widget.court!['is_day_discount_active'] == 1;
       _dayDiscountCtrl.text = widget.court!['day_discount_rate']?.toString() ?? '';

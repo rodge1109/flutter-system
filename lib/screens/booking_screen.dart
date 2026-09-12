@@ -568,23 +568,50 @@ class _BookingScreenState extends State<BookingScreen> {
   String _getPriceForTime(String time, {ServiceModel? service}) {
     final s = service ?? _selectedService;
     if (s == null) return '';
-    double basePrice = 350.0;
+    double basePrice = 300.0;
     
-    if (s.variablePrices != null && s.variablePrices!.isNotEmpty) {
-      for (var vp in s.variablePrices!) {
+    List<dynamic>? vPrices = s.variablePrices;
+    if (vPrices == null && s.hourlyPrices != null) {
+      if (s.hourlyPrices is List) {
+        vPrices = s.hourlyPrices as List;
+      } else if (s.hourlyPrices is String) {
+        try {
+          final decoded = json.decode(s.hourlyPrices);
+          if (decoded is List) vPrices = decoded;
+        } catch (_) {}
+      }
+    }
+
+    final targetNormalized = _normalizeTime(time);
+
+    if (vPrices != null && vPrices.isNotEmpty) {
+      bool found = false;
+      for (var vp in vPrices) {
+        if (vp is! Map) continue;
         String? vpTime = vp['time']?.toString();
         String? vpHour = vp['hour']?.toString();
         
-        if ((vpTime != null && _normalizeTime(vpTime) == time) || (vpHour != null && _normalizeTime(vpHour) == time)) {
-          final price = vp['price'];
-          String priceStr = price.toString().replaceAll(RegExp(r'[^0-9.]'), '');
-          basePrice = double.tryParse(priceStr) ?? 350.0;
-          break;
+        if ((vpTime != null && _normalizeTime(vpTime) == targetNormalized) ||
+            (vpHour != null && _normalizeTime(vpHour) == targetNormalized)) {
+          final price = vp['price'] ?? vp['standardPrice'] ?? vp['standard_price'];
+          if (price != null) {
+            String priceStr = price.toString().replaceAll(RegExp(r'[^0-9.]'), '');
+            double? parsed = double.tryParse(priceStr);
+            if (parsed != null && parsed > 0) {
+              basePrice = parsed;
+              found = true;
+              break;
+            }
+          }
         }
+      }
+      if (!found) {
+        String priceStr = s.price.replaceAll(RegExp(r'[^0-9.]'), '');
+        basePrice = double.tryParse(priceStr) ?? 300.0;
       }
     } else {
       String priceStr = s.price.replaceAll(RegExp(r'[^0-9.]'), '');
-      basePrice = double.tryParse(priceStr) ?? 350.0;
+      basePrice = double.tryParse(priceStr) ?? 300.0;
     }
 
     // Automatically apply member discount for registered members
@@ -597,12 +624,13 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   String _normalizeTime(String t) {
-    if (t.toUpperCase().contains('AM') || t.toUpperCase().contains('PM')) {
-      if (t.startsWith('0')) return t.substring(1);
-      return t;
+    String clean = t.trim();
+    if (clean.toUpperCase().contains('AM') || clean.toUpperCase().contains('PM')) {
+      if (clean.startsWith('0')) clean = clean.substring(1);
+      return clean.toUpperCase();
     }
-    if (t.contains(':')) {
-      final parts = t.split(':');
+    if (clean.contains(':')) {
+      final parts = clean.split(':');
       if (parts.length >= 2) {
         int h = int.tryParse(parts[0]) ?? 0;
         String min = parts[1];
@@ -612,7 +640,7 @@ class _BookingScreenState extends State<BookingScreen> {
         return '$displayH:$min $ampm';
       }
     }
-    return t;
+    return clean.toUpperCase();
   }
 
   List<String> _getDisplayTimeSlots() {
