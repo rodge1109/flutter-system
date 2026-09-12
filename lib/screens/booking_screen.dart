@@ -8,6 +8,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/service_model.dart';
+import '../models/customer_model.dart';
+import '../models/loyalty_settings_model.dart';
+import '../widgets/loyalty_stamp_card_widget.dart';
 import '../services/api_service.dart';
 import 'booking_confirmation_screen.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -83,6 +86,9 @@ class _BookingScreenState extends State<BookingScreen> {
   Timer? _holdTimer;
   int _holdSecondsRemaining = 0;
 
+  CustomerModel? _customerLoyalty;
+  LoyaltySettingsModel? _loyaltySettings;
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +104,24 @@ class _BookingScreenState extends State<BookingScreen> {
     _loadUserData();
   }
 
+  Future<void> _checkLoyaltyStatus() async {
+    if (_emailController.text.trim().isEmpty) return;
+    String ownerEmail = _selectedService?.ownerPayment?['owner_email'] ?? '';
+    if (ownerEmail.isEmpty && widget.venue != null) {
+      ownerEmail = widget.venue!['owner_email'] ?? widget.venue!['email'] ?? '';
+    }
+    if (ownerEmail.isNotEmpty) {
+      final loyalty = await _apiService.fetchCustomerLoyaltyStatus(_emailController.text.trim(), ownerEmail);
+      final settings = await _apiService.fetchLoyaltySettings(ownerEmail);
+      if (mounted) {
+        setState(() {
+          _customerLoyalty = loyalty;
+          _loyaltySettings = settings;
+        });
+      }
+    }
+  }
+
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
@@ -108,6 +132,7 @@ class _BookingScreenState extends State<BookingScreen> {
         _emailController.text = userObj['email'] ?? '';
         _phoneController.text = userObj['phone_number'] ?? '';
       });
+      _checkLoyaltyStatus();
     }
     
     // Load Open Play defaults
@@ -1616,6 +1641,15 @@ class _BookingScreenState extends State<BookingScreen> {
             padding: EdgeInsets.all(24),
             child: Column(
               children: [
+                if (_customerLoyalty != null) ...[
+                  LoyaltyStampCardWidget(
+                    stampCount: _customerLoyalty!.stampCount,
+                    milestoneTarget: _loyaltySettings?.milestoneTarget ?? 10,
+                    courtOwnerName: _selectedService?.name ?? 'Court Loyalty Program',
+                    isMember: _customerLoyalty!.isMember,
+                  ),
+                  SizedBox(height: 16),
+                ],
                 _buildSummaryRow(Icons.calendar_today, 'Date', _selectedDate != null ? '${_selectedDate!.toLocal()}'.split(' ')[0] : '-'),
                 Divider(height: 24, color: Colors.green.shade100),
                 _buildSummaryRow(Icons.access_time, 'Times', _selectedTimes.isNotEmpty ? _selectedTimes.join(', ') : '-'),
@@ -1664,16 +1698,35 @@ class _BookingScreenState extends State<BookingScreen> {
     double total = 0.0;
     for (var time in _selectedTimes) {
       String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
-      total += double.tryParse(priceStr) ?? 0.0;
+      double price = double.tryParse(priceStr) ?? 0.0;
+      if (_customerLoyalty?.isMember == true && _loyaltySettings != null) {
+        price = _loyaltySettings!.calculateMemberPrice(price);
+      }
+      total += price;
     }
+    
+    // Check if 10th transaction free milestone reached
+    if (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true)) {
+      return 'PHP 0.00 (Free 10th Reward!)';
+    }
+
     return total > 0 ? 'PHP ${total.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}' : '-';
   }
 
   String _getTotalDue() {
+    // If 10th transaction is free, total due is $0.00
+    if (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true)) {
+      return 'PHP 0.00 (FREE 10th Transaction 🎉)';
+    }
+
     double total = 0.0;
     for (var time in _selectedTimes) {
       String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
-      total += double.tryParse(priceStr) ?? 0.0;
+      double price = double.tryParse(priceStr) ?? 0.0;
+      if (_customerLoyalty?.isMember == true && _loyaltySettings != null) {
+        price = _loyaltySettings!.calculateMemberPrice(price);
+      }
+      total += price;
     }
     return 'PHP ${(total + 15.00).toStringAsFixed(2)}';
   }

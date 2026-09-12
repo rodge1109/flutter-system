@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/service_model.dart';
+import '../models/customer_model.dart';
+import '../models/loyalty_settings_model.dart';
 
 class ApiService {
   static String get baseUrl {
@@ -1086,6 +1088,127 @@ class ApiService {
       return null;
     } catch (e) {
       print('Cloudinary upload error: $e');
+      return null;
+    }
+  }
+
+  // --- MEMBER LOYALTY & CUSTOMER MANAGEMENT ---
+
+  Future<List<CustomerModel>> fetchOwnerCustomers(String ownerEmail) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/owner/customers?owner_email=${Uri.encodeComponent(ownerEmail)}'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['customers'] != null) {
+          final List list = data['customers'];
+          return list.map((item) => CustomerModel.fromJson(item)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching customers: $e');
+      return [];
+    }
+  }
+
+  Future<bool> addOrUpdateCustomer({
+    required String ownerEmail,
+    required String fullName,
+    required String email,
+    String? phone,
+    bool isMember = true,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/owner/customers'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'owner_email': ownerEmail,
+          'full_name': fullName,
+          'email': email,
+          'phone': phone,
+          'is_member': isMember,
+        }),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('Error saving customer: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteCustomer(dynamic customerId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/owner/customers/$customerId'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('Error deleting customer: $e');
+      return false;
+    }
+  }
+
+  Future<LoyaltySettingsModel> fetchLoyaltySettings(String ownerEmail) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/owner/loyalty-settings?owner_email=${Uri.encodeComponent(ownerEmail)}'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['settings'] != null) {
+          return LoyaltySettingsModel.fromJson(data['settings']);
+        }
+      }
+      return LoyaltySettingsModel(ownerEmail: ownerEmail);
+    } catch (e) {
+      print('Error fetching loyalty settings: $e');
+      return LoyaltySettingsModel(ownerEmail: ownerEmail);
+    }
+  }
+
+  Future<bool> saveLoyaltySettings(LoyaltySettingsModel settings) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/owner/loyalty-settings'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(settings.toJson()),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('Error saving loyalty settings: $e');
+      return false;
+    }
+  }
+
+  Future<CustomerModel?> fetchCustomerLoyaltyStatus(String customerEmail, String ownerEmail) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/customer/loyalty-status?email=${Uri.encodeComponent(customerEmail)}&owner_email=${Uri.encodeComponent(ownerEmail)}'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['customer'] != null) {
+          return CustomerModel.fromJson(data['customer']);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching customer loyalty status: $e');
       return null;
     }
   }

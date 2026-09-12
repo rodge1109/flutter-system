@@ -14,6 +14,7 @@ import 'inbox_screen.dart';
 import 'manage_court_schedule_screen.dart';
 import 'add_court_screen.dart';
 import 'earnings_screen.dart';
+import 'manage_customers_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   @override
@@ -388,7 +389,72 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(height: 32),
+                    SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ManageCustomersScreen(ownerEmail: _userEmail),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        margin: EdgeInsets.symmetric(horizontal: 24),
+                        padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryGreen.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentLime.withOpacity(0.25),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.badge_outlined, color: AppColors.accentLime, size: 20),
+                                ),
+                                SizedBox(width: 14),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Customers & Member Loyalty',
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Manage members, rates & 10th free rewards',
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Icon(Icons.arrow_forward_ios, color: AppColors.accentLime, size: 14),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.start,
