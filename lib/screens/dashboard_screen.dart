@@ -3411,7 +3411,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           decoration: BoxDecoration(
             color: AppColors.primaryGreen.withOpacity(0.08), // Soft Sage Light Green (#EDF1EF)
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
             boxShadow: [
               BoxShadow(color: AppColors.richBlack.withOpacity(0.03), blurRadius: 6, offset: Offset(0, 2)),
             ],
@@ -4305,7 +4304,6 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
                     decoration: BoxDecoration(
                       color: AppColors.primaryGreen.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
                     ),
                     child: Row(
                       children: [
