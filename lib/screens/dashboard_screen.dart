@@ -4103,32 +4103,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
-                  // Court Logo Badge overlay on bottom-left of photo card
-                  Positioned(
-                    bottom: 8,
-                    left: 10,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: logoUrl.isNotEmpty
-                            ? Image.network(
-                                logoUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(Icons.sports_tennis, size: 18, color: AppColors.primaryGreen),
-                              )
-                            : Icon(Icons.sports_tennis, size: 18, color: AppColors.primaryGreen),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -4140,35 +4114,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        if (venue['logo_url'] != null && venue['logo_url'].toString().trim().isNotEmpty) ...[
-                          Container(
-                            width: 22,
-                            height: 22,
-                            margin: const EdgeInsets.only(right: 6),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              border: Border.all(color: Colors.grey.shade300, width: 1),
-                            ),
-                            child: ClipOval(
-                              child: Image.network(
-                                venue['logo_url'].toString().trim(),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(Icons.business, size: 12, color: AppColors.primaryGreen),
-                              ),
-                            ),
-                          ),
-                        ],
-                        Expanded(
-                          child: Text(
-                            venue['venueName'] ?? 'Venue',
-                            style: TextStyle(color: AppColors.richBlack, fontSize: 14, fontWeight: FontWeight.bold),
-                            maxLines: 2, overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      venue['venueName'] ?? 'Venue',
+                      style: TextStyle(color: AppColors.richBlack, fontSize: 14, fontWeight: FontWeight.bold),
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 4),
                     Row(
