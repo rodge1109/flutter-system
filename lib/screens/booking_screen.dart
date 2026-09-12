@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/custom_paddle_icon.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1950,6 +1951,17 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
+  void _copyToClipboard(String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Copied $label ($text) to clipboard!'),
+        backgroundColor: AppColors.primaryGreen,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   String _getPaymentDetail(String key, String fallback) {
     if (_selectedService?.ownerPayment != null) {
       final val = _selectedService!.ownerPayment![key];
@@ -1957,80 +1969,95 @@ class _BookingScreenState extends State<BookingScreen> {
         return val.toString();
       }
     }
+    if (widget.venue != null) {
+      if (widget.venue!['owner_payment'] != null && widget.venue!['owner_payment'][key] != null) {
+        final val = widget.venue!['owner_payment'][key];
+        if (val != null && val.toString().isNotEmpty) return val.toString();
+      }
+      if (widget.venue![key] != null && widget.venue![key].toString().isNotEmpty) {
+        return widget.venue![key].toString();
+      }
+    }
     return fallback;
   }
 
+  void _showFullQrCodeModal(String qrUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Payment QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack)),
+                  IconButton(
+                    icon: Icon(Icons.close, color: AppColors.richBlack),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              InteractiveViewer(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    qrUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                  ),
+                ),
+              ),
+              SizedBox(height: 12),
+              Text('Pinch or drag to zoom QR Code', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPaymentSelection() {
+    final String qrUrl = _getPaymentDetail('qr_code_url', _getPaymentDetail('payment_qr_url', _getPaymentDetail('qr_code', '')));
+    final String gcashNum = _getPaymentDetail('gcash_number', _getPaymentDetail('gcash', ''));
+    final String mayaNum = _getPaymentDetail('paymaya_number', _getPaymentDetail('maya_number', _getPaymentDetail('paymaya', '')));
+    final String bankName = _getPaymentDetail('bank_name', _getPaymentDetail('bankName', ''));
+    final String bankAccountName = _getPaymentDetail('bank_account_name', _getPaymentDetail('bankAccountName', ''));
+    final String bankAccount = _getPaymentDetail('bank_account', _getPaymentDetail('bank_account_number', _getPaymentDetail('bankAccount', '')));
+    final String customInstructions = _getPaymentDetail('payment_instructions', _getPaymentDetail('instructions', ''));
+
+    final bool hasCloudinaryQr = qrUrl.trim().isNotEmpty && qrUrl.startsWith('http');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: SizedBox.shrink(),
-        ),
-        SizedBox(height: 16),
-        Center(
-          child: Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.softWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300),
-              boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    'assets/qr-code.jpg',
-                    height: 200,
-                    width: 200,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: InkWell(
-                    onTap: () {
-                      downloadImage('assets/qr-code.jpg');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Downloading QR Code...'), duration: Duration(seconds: 2))
-                      );
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.softWhite,
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.1), blurRadius: 4, offset: Offset(0, 2))],
-                      ),
-                      child: Icon(Icons.download, color: AppColors.primaryGreen, size: 20),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(height: 16),
+        SizedBox(height: 12),
+
+        // Total Summary Card
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFFDDF7E8),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline, color: AppColors.primaryGreen, size: 20),
+                  Icon(Icons.payment_outlined, color: AppColors.primaryGreen, size: 20),
                   SizedBox(width: 8),
-                  Text('Payment Instructions', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 14)),
+                  Text('Payment Summary', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 15)),
                 ],
               ),
               SizedBox(height: 8),
@@ -2041,18 +2068,281 @@ class _BookingScreenState extends State<BookingScreen> {
                     TextSpan(text: 'Court Fee: ${_getTotalAmount()}\n'),
                     TextSpan(text: 'Service Charge: PHP ${_getServiceFee().toStringAsFixed(2)}\n'),
                     TextSpan(text: 'Total Amount to Pay: '),
-                    TextSpan(text: '${_getTotalDue()}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    TextSpan(text: '${_getTotalDue()}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.richBlack)),
                   ],
                 ),
               ),
             ],
           ),
         ),
-        SizedBox(height: 16),
+
+        SizedBox(height: 20),
+
+        // QR Code Display Card
+        Center(
+          child: Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.softWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade300),
+              boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.qr_code_2, color: AppColors.primaryGreen, size: 20),
+                    SizedBox(width: 6),
+                    Text(
+                      hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Scan QR Code to Pay',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () {
+                    if (hasCloudinaryQr) {
+                      _showFullQrCodeModal(qrUrl);
+                    }
+                  },
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: hasCloudinaryQr
+                            ? Image.network(
+                                qrUrl,
+                                height: 220,
+                                width: 220,
+                                fit: BoxFit.contain,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    height: 220,
+                                    width: 220,
+                                    color: Colors.grey.shade100,
+                                    child: Center(child: CircularProgressIndicator(color: AppColors.primaryGreen)),
+                                  );
+                                },
+                                errorBuilder: (_, __, ___) => Image.asset(
+                                  'assets/qr-code.jpg',
+                                  height: 200,
+                                  width: 200,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.asset(
+                                'assets/qr-code.jpg',
+                                height: 200,
+                                width: 200,
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                      if (hasCloudinaryQr)
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                                SizedBox(width: 4),
+                                Text('Tap to expand', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        SizedBox(height: 20),
+
+        // Available Payment Options (GCash, Maya, Bank)
+        Text('Owner Payment Details & Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
+        SizedBox(height: 10),
+
+        if (gcashNum.isNotEmpty || mayaNum.isNotEmpty || bankAccount.isNotEmpty || bankName.isNotEmpty) ...[
+          if (gcashNum.isNotEmpty) ...[
+            Container(
+              margin: EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.account_balance_wallet, color: Colors.blue.shade700, size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('GCash', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue.shade900)),
+                        Text(gcashNum, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    icon: Icon(Icons.copy, size: 14, color: Colors.blue.shade800),
+                    label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.blue.shade800)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.blue.shade400),
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onPressed: () => _copyToClipboard(gcashNum, 'GCash Number'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (mayaNum.isNotEmpty) ...[
+            Container(
+              margin: EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.account_balance_wallet, color: Colors.green.shade700, size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('PayMaya / Maya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900)),
+                        Text(mayaNum, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green.shade900)),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    icon: Icon(Icons.copy, size: 14, color: Colors.green.shade800),
+                    label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.green.shade800)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.green.shade400),
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onPressed: () => _copyToClipboard(mayaNum, 'PayMaya Number'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (bankAccount.isNotEmpty || bankName.isNotEmpty) ...[
+            Container(
+              margin: EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.purple.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.account_balance, color: Colors.purple.shade700, size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(bankName.isNotEmpty ? 'Bank Transfer ($bankName)' : 'Bank Transfer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.purple.shade900)),
+                        if (bankAccountName.isNotEmpty)
+                          Text('Account Name: $bankAccountName', style: TextStyle(fontSize: 12, color: Colors.purple.shade900)),
+                        if (bankAccount.isNotEmpty)
+                          Text('Account No: $bankAccount', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purple.shade900)),
+                      ],
+                    ),
+                  ),
+                  if (bankAccount.isNotEmpty)
+                    OutlinedButton.icon(
+                      icon: Icon(Icons.copy, size: 14, color: Colors.purple.shade800),
+                      label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.purple.shade800)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.purple.shade400),
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                      onPressed: () => _copyToClipboard(bankAccount, 'Bank Account Number'),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ] else ...[
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.grey.shade700, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('Scan the QR code above to pay via GCash, Maya, or Bank Transfer.', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        if (customInstructions.isNotEmpty) ...[
+          SizedBox(height: 12),
+          Container(
+            padding: EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.shade300),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.note_alt, color: Colors.amber.shade900, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Owner Payment Instructions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900)),
+                      SizedBox(height: 4),
+                      Text(customInstructions, style: TextStyle(fontSize: 12, color: Colors.amber.shade900, height: 1.3)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        SizedBox(height: 20),
+
         TextFormField(
           controller: _referenceNumberController,
           decoration: InputDecoration(
-            labelText: 'Reference Number',
+            labelText: 'Payment Reference Number',
+            hintText: 'Enter your GCash / Maya / Bank Ref No. after payment',
             prefixIcon: Icon(Icons.numbers, color: Colors.grey.shade600),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),

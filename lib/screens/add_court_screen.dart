@@ -389,6 +389,24 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       });
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    Map<String, dynamic> ownerPaymentMap = {};
+    if (userStr != null) {
+      try {
+        final uObj = json.decode(userStr);
+        ownerPaymentMap = {
+          'qr_code_url': uObj['qr_code_url'] ?? uObj['payment_qr_url'] ?? '',
+          'payment_qr_url': uObj['qr_code_url'] ?? uObj['payment_qr_url'] ?? '',
+          'gcash_number': uObj['gcash_number'] ?? '',
+          'paymaya_number': uObj['paymaya_number'] ?? uObj['maya_number'] ?? '',
+          'bank_account': uObj['bank_account'] ?? '',
+          'bank_account_name': uObj['bank_account_name'] ?? uObj['bank_name'] ?? '',
+          'payment_instructions': uObj['payment_instructions'] ?? uObj['instructions'] ?? '',
+        };
+      } catch (_) {}
+    }
+
     final courtData = {
       'ownerEmail': widget.userEmail,
       'venue_name': _venueNameCtrl.text.trim(),
@@ -439,6 +457,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'aboutVenue': _aboutVenueCtrl.text.trim(),
       'about_venue': _aboutVenueCtrl.text.trim(),
       'faq': _faqCtrl.text.trim(),
+      'owner_payment': ownerPaymentMap,
+      'ownerPayment': ownerPaymentMap,
     };
 
     final Map<String, dynamic> res;

@@ -2,6 +2,7 @@ import 'package:flutter_project/theme/app_colors.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 import 'login_screen.dart';
 import '../services/api_service.dart';
 
@@ -23,6 +24,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _paymayaController = TextEditingController();
   final _bankAccountController = TextEditingController();
   final _bankNameController = TextEditingController();
+  final _paymentInstructionsController = TextEditingController();
+  String? _paymentQrUrl;
+  bool _isUploadingQr = false;
   bool _isOwner = false;
   int? _userId;
   bool _isLoading = true;
@@ -47,14 +51,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _phoneController.text = userObj['phone'] ?? '';
       _addressController.text = userObj['address'] ?? '';
       _gcashController.text = userObj['gcash_number'] ?? '';
-      _paymayaController.text = userObj['paymaya_number'] ?? '';
-      _bankAccountController.text = userObj['bank_account'] ?? '';
-      _bankNameController.text = userObj['bank_account_name'] ?? '';
+      _paymayaController.text = userObj['paymaya_number'] ?? userObj['maya_number'] ?? '';
+      _bankAccountController.text = userObj['bank_account'] ?? userObj['bank_account_number'] ?? '';
+      _bankNameController.text = userObj['bank_account_name'] ?? userObj['bank_name'] ?? '';
+      _paymentInstructionsController.text = userObj['payment_instructions'] ?? userObj['instructions'] ?? '';
+      _paymentQrUrl = userObj['qr_code_url'] ?? userObj['payment_qr_url'] ?? userObj['qr_code'];
     }
     setState(() => _isLoading = false);
     if (_emailController.text.trim().isNotEmpty) {
       _fetchLoyaltyRecords();
     }
+  }
+
+  Future<void> _pickAndUploadQrCode(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 90,
+      );
+
+      if (pickedFile != null) {
+        setState(() => _isUploadingQr = true);
+        final String? uploadedUrl = await ApiService().uploadImageToCloudinary(pickedFile);
+        setState(() => _isUploadingQr = false);
+
+        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+          setState(() {
+            _paymentQrUrl = uploadedUrl;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Payment QR Code uploaded to Cloudinary successfully!'),
+              backgroundColor: AppColors.primaryGreen,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to upload QR Code image to Cloudinary.'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isUploadingQr = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error selecting QR Code: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showQrSourcePicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Upload Payment QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              SizedBox(height: 16),
+              ListTile(
+                leading: Icon(Icons.camera_alt, color: AppColors.primaryGreen),
+                title: Text('Take Photo with Camera'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadQrCode(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_library, color: AppColors.primaryGreen),
+                title: Text('Choose from Photo Gallery'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAndUploadQrCode(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _fetchLoyaltyRecords() async {
@@ -85,6 +165,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userObj['paymaya_number'] = _paymayaController.text;
         userObj['bank_account'] = _bankAccountController.text;
         userObj['bank_account_name'] = _bankNameController.text;
+        userObj['payment_instructions'] = _paymentInstructionsController.text;
+        userObj['qr_code_url'] = _paymentQrUrl;
+        userObj['payment_qr_url'] = _paymentQrUrl;
       }
       await prefs.setString('user', json.encode(userObj));
     }
@@ -98,10 +181,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'paymaya_number': _paymayaController.text,
         'bank_account': _bankAccountController.text,
         'bank_account_name': _bankNameController.text,
+        'bank_name': _bankNameController.text,
+        'payment_instructions': _paymentInstructionsController.text,
+        'qr_code_url': _paymentQrUrl,
+        'payment_qr_url': _paymentQrUrl,
       };
       await ApiService().updateUserProfile(_userId!, profileData);
     }
     
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Profile and payment details saved!'), backgroundColor: AppColors.primaryGreen),
+    );
     Navigator.pop(context, true);
   }
 
@@ -258,41 +348,166 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   if (_isOwner) ...[
                     SizedBox(height: 24),
-                    Text('Payment Details (For Court Owners)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('Court Owner Payment Settings & QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack)),
+                    SizedBox(height: 4),
+                    Text('Upload your payment QR code (hosted on Cloudinary) and enter payment details shown to players during checkout.', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    SizedBox(height: 16),
+                    
+                    // Payment QR Code Card Container
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade300),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: Offset(0, 3)),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.qr_code_2, color: AppColors.primaryGreen, size: 22),
+                              SizedBox(width: 8),
+                              Text('Official Payment QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            ],
+                          ),
+                          SizedBox(height: 12),
+                          if (_isUploadingQr) ...[
+                            Padding(
+                              padding: const EdgeInsets.all(20.0),
+                              child: Column(
+                                children: [
+                                  CircularProgressIndicator(color: AppColors.primaryGreen),
+                                  SizedBox(height: 10),
+                                  Text('Uploading QR Code to Cloudinary...', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                                ],
+                              ),
+                            ),
+                          ] else if (_paymentQrUrl != null && _paymentQrUrl!.trim().isNotEmpty) ...[
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                _paymentQrUrl!,
+                                height: 180,
+                                width: 180,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => Container(
+                                  height: 150,
+                                  width: 150,
+                                  color: Colors.grey.shade200,
+                                  child: Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                OutlinedButton.icon(
+                                  icon: Icon(Icons.edit, size: 16, color: AppColors.primaryGreen),
+                                  label: Text('Change QR Code', style: TextStyle(fontSize: 12, color: AppColors.primaryGreen)),
+                                  onPressed: _showQrSourcePicker,
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: AppColors.primaryGreen),
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                OutlinedButton.icon(
+                                  icon: Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                  label: Text('Remove', style: TextStyle(fontSize: 12, color: Colors.red)),
+                                  onPressed: () {
+                                    setState(() {
+                                      _paymentQrUrl = '';
+                                    });
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: Colors.red.shade300),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            InkWell(
+                              onTap: _showQrSourcePicker,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                height: 130,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryGreen.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3), style: BorderStyle.solid),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.cloud_upload_outlined, color: AppColors.primaryGreen, size: 36),
+                                    SizedBox(height: 8),
+                                    Text('Upload Payment QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primaryGreen)),
+                                    SizedBox(height: 4),
+                                    Text('Tap to select image (Cloudinary hosted)', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                     SizedBox(height: 16),
                     TextFormField(
                       controller: _gcashController,
+                      keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
                         labelText: 'GCash Number',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                        prefixIcon: Icon(Icons.account_balance_wallet_outlined, color: Colors.blue.shade700),
+                        hintText: 'e.g. 09171234567',
                       ),
                     ),
                     SizedBox(height: 16),
                     TextFormField(
                       controller: _paymayaController,
+                      keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
-                        labelText: 'PayMaya Number',
+                        labelText: 'PayMaya / Maya Number',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: Icon(Icons.account_balance_wallet_outlined),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _bankAccountController,
-                      decoration: InputDecoration(
-                        labelText: 'Bank Account Number',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: Icon(Icons.account_balance_outlined),
+                        prefixIcon: Icon(Icons.account_balance_wallet_outlined, color: Colors.green.shade700),
+                        hintText: 'e.g. 09181234567',
                       ),
                     ),
                     SizedBox(height: 16),
                     TextFormField(
                       controller: _bankNameController,
                       decoration: InputDecoration(
-                        labelText: 'Bank Account Name',
+                        labelText: 'Bank Name (Optional)',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: Icon(Icons.badge_outlined),
+                        prefixIcon: Icon(Icons.account_balance_outlined, color: AppColors.richBlack),
+                        hintText: 'e.g. BDO, BPI, UnionBank, Metrobank',
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _bankAccountController,
+                      decoration: InputDecoration(
+                        labelText: 'Bank Account Number / Holder',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: Icon(Icons.badge_outlined, color: AppColors.richBlack),
+                        hintText: 'e.g. 1234-5678-90 (Juan Dela Cruz)',
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _paymentInstructionsController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Payment Instructions / Notes for Players',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: Icon(Icons.note_alt_outlined, color: AppColors.richBlack),
+                        hintText: 'e.g. Please send payment reference screenshot via Viber/WhatsApp after paying.',
                       ),
                     ),
                   ],
