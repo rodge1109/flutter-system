@@ -13,6 +13,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late AnimationController _controller;
   late Animation<double> _animation;
 
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
@@ -24,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     
     _controller.forward();
 
-    Timer(Duration(seconds: 3), _checkAuthStatus);
+    _timer = Timer(const Duration(seconds: 3), _checkAuthStatus);
   }
 
   PageRouteBuilder _createCornerTransition(Widget page) {
@@ -48,6 +50,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _checkAuthStatus() async {
+    if (!mounted) return;
+
     final prefs = await SharedPreferences.getInstance();
     
     // Capture Deep Link
@@ -56,6 +60,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       await prefs.setString('pending_openplay', openplayId);
     }
     
+    // If browser URL has a deep link slug (e.g. /aminova), let DeepLinkHandlerScreen handle navigation
+    final pathSegments = Uri.base.pathSegments;
+    if (pathSegments.isNotEmpty && 
+        pathSegments.first.isNotEmpty && 
+        pathSegments.first != 'index.html' && 
+        pathSegments.first != 'splash') {
+      return;
+    }
+
     final user = prefs.getString('user');
     
     if (user != null) {
@@ -71,6 +84,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   void dispose() {
+    _timer?.cancel();
     _controller.dispose();
     super.dispose();
   }

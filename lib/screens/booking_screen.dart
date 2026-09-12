@@ -154,8 +154,9 @@ class _BookingScreenState extends State<BookingScreen> {
       final List<ServiceModel> venueCourts = rawCourts.asMap().entries.map((entry) {
         final idx = entry.key;
         final c = entry.value;
+        int courtId = c['id'] is int ? c['id'] : (int.tryParse(c['id'].toString()) ?? (1000 + idx));
         return ServiceModel(
-          id: c['id'] ?? (1000 + idx),
+          id: courtId,
           name: c['name'] ?? 'Court ${idx + 1}',
           description: 'Court at ${widget.venue!['venueName'] ?? 'Venue'}',
           price: 'PHP ${c['price'] ?? widget.venue!['basePrice'] ?? '300'}',

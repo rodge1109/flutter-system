@@ -750,19 +750,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       centerTitle: false,
-      title: isMain ? Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Hello, ${_userName.split(' ').first}!',
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.richBlack),
-          ),
-          Text(
-            "Let's book your court.",
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: AppColors.richBlack.withOpacity(0.8)),
-          ),
-        ],
-      ) : null,
+      title: isMain ? Text('PICKLEBOOK', style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.deepTeal, letterSpacing: -0.5)) : null,
       actions: [
         Stack(
           alignment: Alignment.center,
@@ -859,9 +847,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 90),
+            SizedBox(height: 80),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hello, ${_userName.split(' ').first}!',
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.deepTeal),
+                  ),
+                  Text(
+                    "Let's book your court.",
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 14, color: AppColors.stoneGray),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16),
 
-          // My Next Booking Card
+            // My Next Booking Card
           _buildNextBookingCard(),
 
           SizedBox(height: 24),
@@ -1081,9 +1086,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
+          Row(
+            children: [
+              Icon(Icons.sports_tennis, size: 22, color: AppColors.primaryGreen),
+              SizedBox(width: 8),
+              Text(
             'Active Open Plays',
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+            style: TextStyle(fontFamily: 'Poppins', fontSize:  18 , fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+          ),
+            ],
           ),
           if (_openPlays.isNotEmpty)
             GestureDetector(
@@ -1789,9 +1800,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
+          Row(
+            children: [
+              Icon(Icons.emoji_events, size: 22, color: AppColors.primaryGreen),
+              SizedBox(width: 8),
+              Text(
             'Active Open Challenges',
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+            style: TextStyle(fontFamily: 'Poppins', fontSize:  18 , fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+          ),
+            ],
           ),
           if (_openChallenges.isNotEmpty)
             GestureDetector(
@@ -3621,9 +3638,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
+          Row(
+            children: [
+              Icon(Icons.swap_horiz, size: 22, color: AppColors.primaryGreen),
+              SizedBox(width: 8),
+              Text(
             'Pasalo Courts',
-            style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+            style: TextStyle(fontFamily: 'Poppins', fontSize:  18 , fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
+          ),
+            ],
           ),
           if (_pasaloCourts.isNotEmpty)
             GestureDetector(

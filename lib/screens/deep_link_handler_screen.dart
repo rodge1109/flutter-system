@@ -67,7 +67,7 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
             };
         }).toList();
 
-        // Group logic identical to dashboard_screen.dart
+        // Group logic: clean names removing colors, court/ct/#, parentheses
         Map<String, List<Map<String, dynamic>>> venueGroups = {};
         for (var court in courts) {
           String? explicitVenue = court['venue_name'] ?? court['venueName'] ?? court['venue'];
@@ -78,11 +78,11 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
             cleanVenueName = explicitVenue.toString().trim();
           } else {
             String rawName = court['name'] ?? 'Court';
-            String addr = court['address'] ?? 'Cayang, Bogo';
             cleanVenueName = rawName
-                .replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '')
+                .replaceAll(RegExp(r'[\(\s\-\#]+(red|green|blue|court|ct|\d+).*$', caseSensitive: false), '')
                 .trim();
             if (cleanVenueName.isEmpty || cleanVenueName.toLowerCase() == 'court') {
+              String addr = court['address'] ?? 'Cayang, Bogo';
               cleanVenueName = addr.isNotEmpty ? addr : 'Pickleball & Tennis Venue';
             }
           }
@@ -100,22 +100,22 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
         List<Map<String, dynamic>> venueList = [];
         venueGroups.forEach((key, courtList) {
           final first = courtList.first;
-          String vTitle = first['venue_name'] ?? first['venueName'] ?? first['venue'] ?? first['name'] ?? 'Venue';
-          if (first['venue_name'] == null && first['venueName'] == null && first['venue'] == null && courtList.length > 1) {
-            vTitle = first['name'].replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '').trim();
+          String vTitle = first['venue_name'] ?? first['venueName'] ?? first['venue'] ?? '';
+          if (vTitle.isEmpty) {
+            vTitle = first['name'].replaceAll(RegExp(r'[\(\s\-\#]+(red|green|blue|court|ct|\d+).*$', caseSensitive: false), '').trim();
             if (vTitle.isEmpty) vTitle = first['address'] ?? 'Sports Venue';
           }
 
           venueList.add({
             'venueKey': key,
-            'venueName': vTitle,
+            'venueName': vTitle.toUpperCase(),
             'address': first['address'] ?? 'Cayang, Bogo',
             'image': first['image'],
             'logo_url': first['logo_url'] ?? first['logo'],
             'rating': first['rating'] ?? '4.8',
             'distance': first['distance'] ?? '2.0 km away',
-            'basePrice': '300', // simplified
-            'sports': ['Pickleball'], // simplified
+            'basePrice': '300',
+            'sports': ['Pickleball'],
             'courts': courtList,
             'latitude': first['latitude'],
             'longitude': first['longitude'],
@@ -125,53 +125,64 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
           });
         });
 
-        // Find match with enhanced slug & court name searching
+        // Find match with slug matching
         Map<String, dynamic>? matchedVenue;
         String? matchedCourtName;
         final rawSlug = widget.slug.trim().toLowerCase();
         final searchSlug = rawSlug.replaceAll(RegExp(r'[^a-z0-9]'), '');
-        
+
+        // 1. Search venue list
         for (var venue in venueList) {
           final vName = venue['venueName'].toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
           final vKey = venue['venueKey'].toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-          final vAddr = (venue['address'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-
-          // Check venue name, key, or address
-          if (vName.contains(searchSlug) || vKey.contains(searchSlug) || (searchSlug.length >= 4 && searchSlug.contains(vName)) || (vAddr.isNotEmpty && vAddr.contains(searchSlug))) {
+          
+          if (vName.contains(searchSlug) || searchSlug.contains(vName) || vKey.contains(searchSlug) || searchSlug.contains(vKey)) {
             matchedVenue = venue;
-            matchedCourtName = venue['venueName'];
             break;
           }
 
-          // Check individual court names inside this venue
           final List courtsInVenue = venue['courts'] ?? [];
           for (var c in courtsInVenue) {
             final cName = (c['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
             if (cName.contains(searchSlug) || searchSlug.contains(cName)) {
               matchedVenue = venue;
-              matchedCourtName = c['name'];
               break;
             }
           }
           if (matchedVenue != null) break;
         }
 
-        // Exact court search across all courts directly
+        // 2. Search direct courts if not found
         if (matchedVenue == null) {
           for (var court in courts) {
             final cName = (court['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
             if (cName.contains(searchSlug) || searchSlug.contains(cName)) {
-              // Find parent venue
               for (var venue in venueList) {
                 final List cList = venue['courts'] ?? [];
                 if (cList.any((item) => item['id'].toString() == court['id'].toString())) {
                   matchedVenue = venue;
-                  matchedCourtName = court['name'];
                   break;
                 }
               }
             }
             if (matchedVenue != null) break;
+          }
+        }
+
+        // Select court inside matched venue: prioritize specific requested color or AMINOVA (Red Court)
+        if (matchedVenue != null) {
+          final List courtsInVenue = matchedVenue['courts'] ?? [];
+          if (courtsInVenue.isNotEmpty) {
+            Map<String, dynamic>? courtMatch;
+            if (searchSlug.contains('green')) {
+              courtMatch = courtsInVenue.firstWhere((c) => c['name'].toString().toLowerCase().contains('green'), orElse: () => null);
+            } else if (searchSlug.contains('blue')) {
+              courtMatch = courtsInVenue.firstWhere((c) => c['name'].toString().toLowerCase().contains('blue'), orElse: () => null);
+            }
+            
+            // Default or fallback to Red Court
+            courtMatch ??= courtsInVenue.firstWhere((c) => c['name'].toString().toLowerCase().contains('red'), orElse: () => courtsInVenue.first);
+            matchedCourtName = courtMatch?['name'];
           }
         }
 
