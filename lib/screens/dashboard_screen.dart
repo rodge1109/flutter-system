@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../models/service_model.dart';
 import 'booking_screen.dart';
 import 'package:flutter/services.dart';
 import 'all_open_plays_screen.dart';
