@@ -159,6 +159,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return venueList;
   }
 
+  Map<String, dynamic>? _findVenueForCourt(Map<String, dynamic> court) {
+    final allCourts = _courtsList.isNotEmpty ? _courtsList : _sampleCourts;
+    final groupedVenues = _getGroupedVenues(allCourts);
+    
+    final courtName = (court['name'] ?? '').toString().toLowerCase().trim();
+    final courtOwner = (court['owner_email'] ?? court['ownerEmail'] ?? court['email'] ?? '').toString().toLowerCase().trim();
+    final courtVenue = (court['venue_name'] ?? court['venueName'] ?? court['venue'] ?? '').toString().toLowerCase().trim();
+
+    for (var venue in groupedVenues) {
+      final vName = (venue['venueName'] ?? '').toString().toLowerCase().trim();
+      final vOwner = (venue['owner_email'] ?? venue['ownerEmail'] ?? '').toString().toLowerCase().trim();
+      
+      if (courtVenue.isNotEmpty && (vName == courtVenue || vName.contains(courtVenue) || courtVenue.contains(vName))) {
+        return venue;
+      }
+
+      final List<dynamic> venueCourts = venue['courts'] ?? [];
+      for (var c in venueCourts) {
+        if (c is Map) {
+          final cName = (c['name'] ?? '').toString().toLowerCase().trim();
+          final cOwner = (c['owner_email'] ?? c['ownerEmail'] ?? c['email'] ?? '').toString().toLowerCase().trim();
+          if (cName == courtName || (courtOwner.isNotEmpty && cOwner.isNotEmpty && cOwner == courtOwner)) {
+            return venue;
+          }
+        }
+      }
+
+      if (courtOwner.isNotEmpty && vOwner.isNotEmpty && vOwner == courtOwner) {
+        return venue;
+      }
+    }
+    return null;
+  }
+
   // Initial fallback nearby courts matching actual database records
   final List<Map<String, dynamic>> _sampleCourts = [
     {
@@ -2196,7 +2230,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       clipBehavior: Clip.hardEdge,
       child: InkWell(
         onTap: () {
-          _navigateToBookingScreen(initialServiceName: court['name'], skipServiceSelection: true);
+          final matchingVenue = _findVenueForCourt(court);
+          _navigateToBookingScreen(
+            venue: matchingVenue,
+            initialServiceName: court['name'],
+            skipServiceSelection: true,
+          );
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2380,7 +2419,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          _navigateToBookingScreen(initialServiceName: court['name'], skipServiceSelection: true);
+                          final matchingVenue = _findVenueForCourt(court);
+                          _navigateToBookingScreen(
+                            venue: matchingVenue,
+                            initialServiceName: court['name'],
+                            skipServiceSelection: true,
+                          );
                         },
                         child: const Text('Book'),
                       ),
@@ -3257,7 +3301,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   trailing: trailingWidget,
                   onTap: () {
-                    _navigateToBookingScreen(initialServiceName: court['name'], skipServiceSelection: true);
+                    final matchingVenue = _findVenueForCourt(court);
+                    _navigateToBookingScreen(
+                      venue: matchingVenue,
+                      initialServiceName: court['name'],
+                      skipServiceSelection: true,
+                    );
                   },
                 );
               },

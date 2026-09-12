@@ -294,7 +294,9 @@ class _BookingScreenState extends State<BookingScreen> {
         if (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
           final target = widget.initialServiceName!.trim().toLowerCase();
           final matched = venueCourts.firstWhere(
-            (s) => s.name.toLowerCase().contains(target) || target.contains(s.name.toLowerCase()),
+            (s) => s.name.toLowerCase().trim() == target ||
+                   s.name.toLowerCase().contains(target) ||
+                   target.contains(s.name.toLowerCase()),
             orElse: () => venueCourts.first,
           );
           selected = matched;
