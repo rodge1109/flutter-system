@@ -1746,10 +1746,6 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
-    if (facilities.isEmpty) {
-      facilities = ['Covered Court', 'Outdoor Court', 'Restrooms', 'Seating Area', 'Lighting'];
-    }
-
     return Container(
       margin: const EdgeInsets.only(top: 24),
       decoration: BoxDecoration(
@@ -1842,33 +1838,35 @@ class _BookingScreenState extends State<BookingScreen> {
                         ],
                       ),
                       SizedBox(height: 10),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final itemWidth = (constraints.maxWidth - 16) / 2;
-                          return Wrap(
-                            spacing: 16,
-                            runSpacing: 12,
-                            children: facilities.map((f) {
-                              return SizedBox(
-                                width: itemWidth,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(Icons.check_circle_outline, color: AppColors.primaryGreen, size: 18),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        f,
-                                        style: TextStyle(fontSize: 13, color: Colors.grey.shade800, height: 1.3),
-                                      ),
+                      facilities.isEmpty
+                        ? Text('No specific amenities listed for this venue.', style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontStyle: FontStyle.italic))
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final itemWidth = (constraints.maxWidth - 16) / 2;
+                              return Wrap(
+                                spacing: 16,
+                                runSpacing: 12,
+                                children: facilities.map((f) {
+                                  return SizedBox(
+                                    width: itemWidth,
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(Icons.check_circle_outline, color: AppColors.primaryGreen, size: 18),
+                                        SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            f,
+                                            style: TextStyle(fontSize: 13, color: Colors.grey.shade800, height: 1.3),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  );
+                                }).toList(),
                               );
-                            }).toList(),
-                          );
-                        }
-                      ),
+                            },
+                          ),
                     ],
                   ),
                 ),
