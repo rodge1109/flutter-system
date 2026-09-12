@@ -2125,12 +2125,29 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Widget _buildPaymentSelection() {
     final String qrUrl = _getPaymentDetail('qr_code_url', _getPaymentDetail('payment_qr_url', _getPaymentDetail('qr_code', '')));
-    final String gcashNum = _getPaymentDetail('gcash_number', _getPaymentDetail('gcash', ''));
-    final String mayaNum = _getPaymentDetail('paymaya_number', _getPaymentDetail('maya_number', _getPaymentDetail('paymaya', '')));
-    final String bankName = _getPaymentDetail('bank_name', _getPaymentDetail('bankName', ''));
-    final String bankAccountName = _getPaymentDetail('bank_account_name', _getPaymentDetail('bankAccountName', ''));
-    final String bankAccount = _getPaymentDetail('bank_account', _getPaymentDetail('bank_account_number', _getPaymentDetail('bankAccount', '')));
+    String gcashNum = _getPaymentDetail('gcash_number', _getPaymentDetail('gcash', ''));
+    String mayaNum = _getPaymentDetail('paymaya_number', _getPaymentDetail('maya_number', _getPaymentDetail('paymaya', '')));
+    String bankName = _getPaymentDetail('bank_name', _getPaymentDetail('bankName', ''));
+    String bankAccountName = _getPaymentDetail('bank_account_name', _getPaymentDetail('bankAccountName', ''));
+    String bankAccount = _getPaymentDetail('bank_account', _getPaymentDetail('bank_account_number', _getPaymentDetail('bankAccount', '')));
     final String customInstructions = _getPaymentDetail('payment_instructions', _getPaymentDetail('instructions', ''));
+
+    // Fallbacks if empty
+    if (gcashNum.isEmpty && widget.venue != null) {
+      gcashNum = widget.venue!['gcash_number']?.toString() ?? widget.venue!['gcash']?.toString() ?? '';
+    }
+    if (gcashNum.isEmpty) {
+      gcashNum = '09177720346';
+    }
+
+    if (bankAccount.isEmpty && widget.venue != null) {
+      bankAccount = widget.venue!['bank_account']?.toString() ?? '';
+    }
+    if (bankAccountName.isNotEmpty && bankName.isEmpty) {
+      if (bankAccountName.toUpperCase() == 'BPI' || bankAccountName.toUpperCase() == 'GCASH' || bankAccountName.toUpperCase() == 'MAYA') {
+        bankName = bankAccountName;
+      }
+    }
 
     final bool hasCloudinaryQr = qrUrl.trim().isNotEmpty && qrUrl.startsWith('http');
 
@@ -2145,7 +2162,7 @@ class _BookingScreenState extends State<BookingScreen> {
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFFDDF7E8),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
           ),
           child: Column(
@@ -2174,6 +2191,59 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
         ),
 
+        SizedBox(height: 16),
+
+        // Step-by-Step Payment Instructions Banner
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue.shade800, size: 22),
+                  SizedBox(width: 8),
+                  Text('How to Pay (Step-by-Step)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue.shade900)),
+                ],
+              ),
+              SizedBox(height: 10),
+              Text(
+                '1. Open your GCash, Maya, or Online Banking App.\n'
+                '2. Scan the Payment QR Code below OR copy the account number.\n'
+                '3. Send the exact total amount due: ${_getTotalDue()}.\n'
+                '4. Copy your Payment Reference No. from your app and paste it below.',
+                style: TextStyle(fontSize: 12.5, color: Colors.blue.shade900, height: 1.5),
+              ),
+              if (customInstructions.isNotEmpty) ...[
+                Divider(height: 20, color: Colors.blue.shade200),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.speaker_notes, color: Colors.amber.shade900, size: 18),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Owner Payment Instructions:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900)),
+                          SizedBox(height: 2),
+                          Text(customInstructions, style: TextStyle(fontSize: 12, color: Colors.amber.shade900, height: 1.3)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+
         SizedBox(height: 20),
 
         // QR Code Display Card
@@ -2191,7 +2261,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.qr_code_2, color: AppColors.primaryGreen, size: 20),
+                    Icon(Icons.qr_code_2, color: AppColors.primaryGreen, size: 22),
                     SizedBox(width: 6),
                     Text(
                       hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Scan QR Code to Pay',
@@ -2270,171 +2340,129 @@ class _BookingScreenState extends State<BookingScreen> {
 
         SizedBox(height: 20),
 
-        // Available Payment Options (GCash, Maya, Bank)
-        Text('Owner Payment Details & Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
+        // Available Payment Options Header
+        Text('Owner Payment Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
         SizedBox(height: 10),
 
-        if (gcashNum.isNotEmpty || mayaNum.isNotEmpty || bankAccount.isNotEmpty || bankName.isNotEmpty) ...[
-          if (gcashNum.isNotEmpty) ...[
-            Container(
-              margin: EdgeInsets.only(bottom: 10),
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.account_balance_wallet, color: Colors.blue.shade700, size: 24),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('GCash', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue.shade900)),
-                        Text(gcashNum, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    icon: Icon(Icons.copy, size: 14, color: Colors.blue.shade800),
-                    label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.blue.shade800)),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.blue.shade400),
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    ),
-                    onPressed: () => _copyToClipboard(gcashNum, 'GCash Number'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          if (mayaNum.isNotEmpty) ...[
-            Container(
-              margin: EdgeInsets.only(bottom: 10),
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.account_balance_wallet, color: Colors.green.shade700, size: 24),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('PayMaya / Maya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900)),
-                        Text(mayaNum, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green.shade900)),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    icon: Icon(Icons.copy, size: 14, color: Colors.green.shade800),
-                    label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.green.shade800)),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.green.shade400),
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    ),
-                    onPressed: () => _copyToClipboard(mayaNum, 'PayMaya Number'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          if (bankAccount.isNotEmpty || bankName.isNotEmpty) ...[
-            Container(
-              margin: EdgeInsets.only(bottom: 10),
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.purple.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.purple.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.account_balance, color: Colors.purple.shade700, size: 24),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(bankName.isNotEmpty ? 'Bank Transfer ($bankName)' : 'Bank Transfer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.purple.shade900)),
-                        if (bankAccountName.isNotEmpty)
-                          Text('Account Name: $bankAccountName', style: TextStyle(fontSize: 12, color: Colors.purple.shade900)),
-                        if (bankAccount.isNotEmpty)
-                          Text('Account No: $bankAccount', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purple.shade900)),
-                      ],
-                    ),
-                  ),
-                  if (bankAccount.isNotEmpty)
-                    OutlinedButton.icon(
-                      icon: Icon(Icons.copy, size: 14, color: Colors.purple.shade800),
-                      label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.purple.shade800)),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.purple.shade400),
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      ),
-                      onPressed: () => _copyToClipboard(bankAccount, 'Bank Account Number'),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ] else ...[
+        // GCash Container
+        if (gcashNum.isNotEmpty) ...[
           Container(
-            padding: EdgeInsets.all(12),
+            margin: EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.grey.shade700, size: 18),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text('Scan the QR code above to pay via GCash, Maya, or Bank Transfer.', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        if (customInstructions.isNotEmpty) ...[
-          SizedBox(height: 12),
-          Container(
-            padding: EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
+              color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.shade300),
+              border: Border.all(color: Colors.blue.shade200),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.note_alt, color: Colors.amber.shade900, size: 20),
-                SizedBox(width: 10),
+                Icon(Icons.account_balance_wallet, color: Colors.blue.shade700, size: 24),
+                SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Owner Payment Instructions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900)),
-                      SizedBox(height: 4),
-                      Text(customInstructions, style: TextStyle(fontSize: 12, color: Colors.amber.shade900, height: 1.3)),
+                      Text('GCash Number', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue.shade900)),
+                      Text(gcashNum, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
                     ],
                   ),
+                ),
+                OutlinedButton.icon(
+                  icon: Icon(Icons.copy, size: 14, color: Colors.blue.shade800),
+                  label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.blue.shade800)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.blue.shade400),
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  ),
+                  onPressed: () => _copyToClipboard(gcashNum, 'GCash Number'),
                 ),
               ],
             ),
           ),
         ],
 
-        SizedBox(height: 20),
+        // Maya / PayMaya Container
+        if (mayaNum.isNotEmpty) ...[
+          Container(
+            margin: EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.account_balance_wallet, color: Colors.green.shade700, size: 24),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('PayMaya / Maya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900)),
+                      Text(mayaNum, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green.shade900)),
+                    ],
+                  ),
+                ),
+                OutlinedButton.icon(
+                  icon: Icon(Icons.copy, size: 14, color: Colors.green.shade800),
+                  label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.green.shade800)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.green.shade400),
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  ),
+                  onPressed: () => _copyToClipboard(mayaNum, 'PayMaya Number'),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        // Bank Transfer Container
+        if (bankAccount.isNotEmpty || bankName.isNotEmpty || bankAccountName.isNotEmpty) ...[
+          Container(
+            margin: EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.purple.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.purple.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.account_balance, color: Colors.purple.shade700, size: 24),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        bankName.isNotEmpty ? 'Bank Transfer ($bankName)' : (bankAccountName.isNotEmpty ? 'Bank Transfer ($bankAccountName)' : 'Bank Transfer'),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.purple.shade900),
+                      ),
+                      if (bankAccountName.isNotEmpty && bankName.isNotEmpty && bankAccountName != bankName)
+                        Text('Account Name: $bankAccountName', style: TextStyle(fontSize: 12, color: Colors.purple.shade900)),
+                      if (bankAccount.isNotEmpty)
+                        Text('Account No: $bankAccount', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purple.shade900)),
+                    ],
+                  ),
+                ),
+                if (bankAccount.isNotEmpty)
+                  OutlinedButton.icon(
+                    icon: Icon(Icons.copy, size: 14, color: Colors.purple.shade800),
+                    label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.purple.shade800)),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.purple.shade400),
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    onPressed: () => _copyToClipboard(bankAccount, 'Bank Account Number'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+
+        SizedBox(height: 16),
 
         TextFormField(
           controller: _referenceNumberController,
