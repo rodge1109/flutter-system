@@ -127,6 +127,7 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
 
         // Find match with enhanced slug & court name searching
         Map<String, dynamic>? matchedVenue;
+        String? matchedCourtName;
         final rawSlug = widget.slug.trim().toLowerCase();
         final searchSlug = rawSlug.replaceAll(RegExp(r'[^a-z0-9]'), '');
         
@@ -136,32 +137,41 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
           final vAddr = (venue['address'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
           // Check venue name, key, or address
-          if (vName.contains(searchSlug) || vKey.contains(searchSlug) || searchSlug.contains(vName) || vAddr.contains(searchSlug)) {
+          if (vName.contains(searchSlug) || vKey.contains(searchSlug) || (searchSlug.length >= 4 && searchSlug.contains(vName)) || (vAddr.isNotEmpty && vAddr.contains(searchSlug))) {
             matchedVenue = venue;
+            matchedCourtName = venue['venueName'];
             break;
           }
 
-          // Also check individual court names inside this venue
+          // Check individual court names inside this venue
           final List courtsInVenue = venue['courts'] ?? [];
           for (var c in courtsInVenue) {
             final cName = (c['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
             if (cName.contains(searchSlug) || searchSlug.contains(cName)) {
               matchedVenue = venue;
+              matchedCourtName = c['name'];
               break;
             }
           }
           if (matchedVenue != null) break;
         }
 
-        // Fuzzy fallback for common typos (e.g., amoniva <-> aminova)
-        if (matchedVenue == null && searchSlug.length >= 4) {
-          String prefix = searchSlug.substring(0, 3); // e.g. "ami" or "amo"
-          for (var venue in venueList) {
-            final vName = venue['venueName'].toString().toLowerCase();
-            if (vName.contains(prefix)) {
-              matchedVenue = venue;
-              break;
+        // Exact court search across all courts directly
+        if (matchedVenue == null) {
+          for (var court in courts) {
+            final cName = (court['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+            if (cName.contains(searchSlug) || searchSlug.contains(cName)) {
+              // Find parent venue
+              for (var venue in venueList) {
+                final List cList = venue['courts'] ?? [];
+                if (cList.any((item) => item['id'].toString() == court['id'].toString())) {
+                  matchedVenue = venue;
+                  matchedCourtName = court['name'];
+                  break;
+                }
+              }
             }
+            if (matchedVenue != null) break;
           }
         }
 
@@ -182,7 +192,7 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
           Navigator.push(context, MaterialPageRoute(
             builder: (_) => BookingScreen(
               venue: matchedVenue,
-              initialServiceName: matchedVenue!['venueName'],
+              initialServiceName: matchedCourtName ?? matchedVenue!['venueName'],
               skipServiceSelection: false,
             )
           ));

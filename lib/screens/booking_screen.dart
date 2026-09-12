@@ -167,9 +167,19 @@ class _BookingScreenState extends State<BookingScreen> {
       }).toList();
 
       if (venueCourts.isNotEmpty) {
+        ServiceModel selected = venueCourts.first;
+        if (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
+          final target = widget.initialServiceName!.trim().toLowerCase();
+          final matched = venueCourts.firstWhere(
+            (s) => s.name.toLowerCase().contains(target) || target.contains(s.name.toLowerCase()),
+            orElse: () => venueCourts.first,
+          );
+          selected = matched;
+        }
+
         setState(() {
           _services = venueCourts;
-          _selectedService = venueCourts.first;
+          _selectedService = selected;
           _selectedServiceIds = venueCourts.map((s) => s.id).toSet();
           _isLoading = false;
         });
