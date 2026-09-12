@@ -39,7 +39,7 @@ class ApiService {
 
   Future<List<ServiceModel>> fetchServices() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/booking-services'));
+      final response = await http.get(Uri.parse('$baseUrl/booking-services?t=${DateTime.now().millisecondsSinceEpoch}'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -57,7 +57,7 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> fetchRawServices() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/booking-services'));
+      final response = await http.get(Uri.parse('$baseUrl/booking-services?t=${DateTime.now().millisecondsSinceEpoch}'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -755,7 +755,7 @@ class ApiService {
 
   Future<List<dynamic>> fetchOwnerCourts(String email) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/courts/${Uri.encodeComponent(email)}'));
+      final response = await http.get(Uri.parse('$baseUrl/courts/${Uri.encodeComponent(email)}?t=${DateTime.now().millisecondsSinceEpoch}'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {

@@ -368,7 +368,27 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   }
 
   Future<void> _saveCourt() async {
-    if (!_formKey.currentState!.validate()) return;
+    final pendingFacility = _customFacilityCtrl.text.trim();
+    if (pendingFacility.isNotEmpty) {
+      if (!_availableFacilities.contains(pendingFacility)) {
+        _availableFacilities.add(pendingFacility);
+      }
+      if (!_selectedFacilities.contains(pendingFacility)) {
+        _selectedFacilities.add(pendingFacility);
+      }
+      _customFacilityCtrl.clear();
+    }
+
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please fill in all required court fields correctly.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     
     setState(() => _isSaving = true);
 
