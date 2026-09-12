@@ -1642,11 +1642,10 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     // 4. Facilities
-    List<dynamic> rawFacilities = v?['facilities'] ?? _selectedService?.facilities ?? [];
-    List<String> facilities = rawFacilities.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
-    if (facilities.isEmpty) {
-      facilities = ['Covered Court', 'Restrooms', 'Water Station', 'Parking', 'Equipment Rental'];
-    }
+    List<dynamic>? rawFacilities = v?['facilities'] ?? _selectedService?.facilities;
+    List<String> facilities = rawFacilities != null 
+        ? rawFacilities.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList()
+        : [];
 
     return Container(
       margin: const EdgeInsets.only(top: 24),
