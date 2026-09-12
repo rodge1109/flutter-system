@@ -144,6 +144,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'aboutVenue': first['aboutVenue'] ?? first['about_venue'],
         'bookingPolicy': first['bookingPolicy'] ?? first['booking_policy'],
         'faq': first['faq'],
+        'owner_payment': first['owner_payment'] ?? first['ownerPayment'],
+        'owner_email': first['owner_email'] ?? first['ownerEmail'] ?? first['email'],
+        'ownerEmail': first['owner_email'] ?? first['ownerEmail'] ?? first['email'],
+        'gcash_number': first['gcash_number'] ?? first['gcash'],
+        'paymaya_number': first['paymaya_number'] ?? first['paymaya'],
+        'bank_account': first['bank_account'],
+        'bank_account_name': first['bank_account_name'],
+        'qr_code_url': first['qr_code_url'] ?? first['payment_qr_url'] ?? first['qr_code'],
+        'payment_qr_url': first['qr_code_url'] ?? first['payment_qr_url'] ?? first['qr_code'],
       });
     });
 

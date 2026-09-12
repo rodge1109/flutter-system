@@ -229,6 +229,30 @@ class _BookingScreenState extends State<BookingScreen> {
           }
         }
 
+        Map<String, dynamic> cPayment = {};
+        final rawOP = c['owner_payment'] ?? c['ownerPayment'] ?? widget.venue!['owner_payment'] ?? widget.venue!['ownerPayment'];
+        if (rawOP is Map) {
+          cPayment = Map<String, dynamic>.from(rawOP);
+        } else if (rawOP is String && rawOP.trim().isNotEmpty) {
+          try {
+            final dec = json.decode(rawOP);
+            if (dec is Map) cPayment = Map<String, dynamic>.from(dec);
+          } catch (_) {}
+        }
+        if (cPayment['gcash_number'] == null || cPayment['gcash_number'].toString().trim().isEmpty) {
+          final g = c['gcash_number'] ?? widget.venue!['gcash_number'] ?? widget.venue!['gcash'];
+          if (g != null) cPayment['gcash_number'] = g;
+        }
+        if (cPayment['paymaya_number'] == null || cPayment['paymaya_number'].toString().trim().isEmpty) {
+          final m = c['paymaya_number'] ?? widget.venue!['paymaya_number'] ?? widget.venue!['paymaya'];
+          if (m != null) cPayment['paymaya_number'] = m;
+        }
+        final q = c['qr_code_url'] ?? c['payment_qr_url'] ?? widget.venue!['qr_code_url'] ?? widget.venue!['payment_qr_url'];
+        if ((cPayment['qr_code_url'] == null || cPayment['qr_code_url'].toString().trim().isEmpty) && q != null) {
+          cPayment['qr_code_url'] = q;
+          cPayment['payment_qr_url'] = q;
+        }
+
         String cOwner = (c['owner_email'] ?? c['ownerEmail'] ?? widget.venue!['owner_email'] ?? widget.venue!['ownerEmail'] ?? widget.venue!['email'] ?? '').toString();
         return ServiceModel(
           id: courtId,
@@ -242,7 +266,7 @@ class _BookingScreenState extends State<BookingScreen> {
           isActive: true,
           variablePrices: parsedVar,
           hourlyPrices: parsedVar,
-          ownerPayment: widget.venue!['owner_payment'] ?? widget.venue!['ownerPayment'] ?? c['owner_payment'],
+          ownerPayment: cPayment.isNotEmpty ? cPayment : null,
           openTime: c['open_time'] ?? c['openTime'],
           closeTime: c['close_time'] ?? c['closeTime'],
           latitude: c['latitude'] != null ? double.tryParse(c['latitude'].toString()) : null,
