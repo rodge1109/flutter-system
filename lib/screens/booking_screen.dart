@@ -632,12 +632,22 @@ class _BookingScreenState extends State<BookingScreen> {
         }
       }
       if (!found) {
-        String priceStr = s.price.replaceAll(RegExp(r'[^0-9.]'), '');
-        basePrice = double.tryParse(priceStr) ?? 300.0;
+        int dayStart = s.dayStartHour ?? 6;
+        int nightStart = s.nightStartHour ?? 18;
+        int h = _parseHourFromTimeString(time);
+        bool isDay = dayStart < nightStart
+            ? (h >= dayStart && h < nightStart)
+            : (h >= dayStart || h < nightStart);
+        basePrice = isDay ? 200.0 : 300.0;
       }
     } else {
-      String priceStr = s.price.replaceAll(RegExp(r'[^0-9.]'), '');
-      basePrice = double.tryParse(priceStr) ?? 300.0;
+      int dayStart = s.dayStartHour ?? 6;
+      int nightStart = s.nightStartHour ?? 18;
+      int h = _parseHourFromTimeString(time);
+      bool isDay = dayStart < nightStart
+          ? (h >= dayStart && h < nightStart)
+          : (h >= dayStart || h < nightStart);
+      basePrice = isDay ? 200.0 : 300.0;
     }
 
     // Automatically apply member discount for registered members
@@ -649,6 +659,24 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     return basePrice > 0 ? 'PHP ${basePrice.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}' : s.price;
+  }
+
+  int _parseHourFromTimeString(String time) {
+    String clean = time.trim().toUpperCase();
+    bool isPm = clean.contains('PM');
+    bool isAm = clean.contains('AM');
+    clean = clean.replaceAll('AM', '').replaceAll('PM', '').trim();
+    if (clean.contains(':')) {
+      final parts = clean.split(':');
+      int h = int.tryParse(parts[0]) ?? 0;
+      if (isPm && h < 12) h += 12;
+      if (isAm && h == 12) h = 0;
+      return h;
+    }
+    int h = int.tryParse(clean) ?? 0;
+    if (isPm && h < 12) h += 12;
+    if (isAm && h == 12) h = 0;
+    return h;
   }
 
   String _normalizeTime(String t) {
