@@ -1759,8 +1759,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String dayRate = baseFallback;
     String nightRate = baseFallback;
 
+    int dayStart = court['day_start_hour'] != null 
+        ? (int.tryParse(court['day_start_hour'].toString()) ?? 6)
+        : (court['dayStartHour'] != null ? (int.tryParse(court['dayStartHour'].toString()) ?? 6) : 6);
+
+    int nightStart = court['night_start_hour'] != null 
+        ? (int.tryParse(court['night_start_hour'].toString()) ?? 18)
+        : (court['nightStartHour'] != null ? (int.tryParse(court['nightStartHour'].toString()) ?? 18) : 18);
+
+    if (court['day_rate'] != null) dayRate = court['day_rate'].toString();
+    else if (court['dayRate'] != null) dayRate = court['dayRate'].toString();
+
+    if (court['night_rate'] != null) nightRate = court['night_rate'].toString();
+    else if (court['nightRate'] != null) nightRate = court['nightRate'].toString();
+    else if (court['night_price'] != null) nightRate = court['night_price'].toString();
+
     // The backend maps c.hourly_prices to variable_prices
-    final rawHourly = court['serviceObj']?.variablePrices;
+    final rawHourly = court['serviceObj']?.variablePrices ?? court['variable_prices'] ?? court['hourly_prices'] ?? court['hourlyPrices'];
     if (rawHourly != null) {
       List<dynamic> hourlyList = [];
       if (rawHourly is List) {
@@ -1772,13 +1787,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       
       for (var item in hourlyList) {
-        if (item is Map && item['time'] != null && item['price'] != null) {
+        if (item is Map && item['time'] != null && (item['price'] != null || item['standardPrice'] != null)) {
           final String timeStr = item['time'].toString();
           final int hour = int.tryParse(timeStr.split(':')[0]) ?? -1;
-          if (hour == 6) {
-            dayRate = item['price'].toString();
-          } else if (hour == 18) {
-            nightRate = item['price'].toString();
+          final String priceVal = (item['standardPrice'] ?? item['price']).toString();
+          if (hour == dayStart) {
+            dayRate = priceVal;
+          } else if (hour == nightStart) {
+            nightRate = priceVal;
           }
         }
       }
@@ -3143,9 +3159,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 
                 if (court['variable_prices'] != null && court['variable_prices'] is List && (court['variable_prices'] as List).isNotEmpty) {
                   final vp = court['variable_prices'] as List;
-                  // Try finding 12:00 for day, 18:00 for night
-                  var dayPriceObj = vp.firstWhere((p) => p['time'] == '12:00', orElse: () => null);
-                  var nightPriceObj = vp.firstWhere((p) => p['time'] == '18:00', orElse: () => null);
+                  int dayStart = court['day_start_hour'] != null 
+                      ? (int.tryParse(court['day_start_hour'].toString()) ?? 6)
+                      : (court['dayStartHour'] != null ? (int.tryParse(court['dayStartHour'].toString()) ?? 6) : 6);
+                  int nightStart = court['night_start_hour'] != null 
+                      ? (int.tryParse(court['night_start_hour'].toString()) ?? 18)
+                      : (court['nightStartHour'] != null ? (int.tryParse(court['nightStartHour'].toString()) ?? 18) : 18);
+                  String dayTimeStr = '${dayStart.toString().padLeft(2, '0')}:00';
+                  String nightTimeStr = '${nightStart.toString().padLeft(2, '0')}:00';
+
+                  var dayPriceObj = vp.firstWhere((p) => p['time'] == dayTimeStr, orElse: () => vp.firstWhere((p) => p['time'] == '12:00', orElse: () => null));
+                  var nightPriceObj = vp.firstWhere((p) => p['time'] == nightTimeStr, orElse: () => vp.firstWhere((p) => p['time'] == '18:00', orElse: () => null));
                   if (dayPriceObj != null && nightPriceObj != null) {
                     final dayP = dayPriceObj['price'];
                     final nightP = nightPriceObj['price'];

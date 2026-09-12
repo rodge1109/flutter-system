@@ -90,6 +90,44 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _nightStartHour = widget.court!['night_start_hour'] != null 
           ? (int.tryParse(widget.court!['night_start_hour'].toString()) ?? 18)
           : (widget.court!['nightStartHour'] != null ? (int.tryParse(widget.court!['nightStartHour'].toString()) ?? 18) : 18);
+
+      String dayRateStr = (widget.court!['day_rate'] ?? widget.court!['dayRate'] ?? widget.court!['base_price'] ?? '').toString();
+      String nightRateStr = (widget.court!['night_rate'] ?? widget.court!['nightRate'] ?? widget.court!['night_price'] ?? '').toString();
+
+      final rawPrices = widget.court!['hourly_prices'] ?? widget.court!['hourlyPrices'] ?? widget.court!['variable_prices'] ?? widget.court!['variablePrices'];
+      List<dynamic> pricesList = [];
+      if (rawPrices is List) {
+        pricesList = rawPrices;
+      } else if (rawPrices is String) {
+        try { pricesList = json.decode(rawPrices); } catch (_) {}
+      }
+
+      if (pricesList.isNotEmpty) {
+        String nightStartStr = '${_nightStartHour.toString().padLeft(2, '0')}:00';
+        String dayStartStr = '${_dayStartHour.toString().padLeft(2, '0')}:00';
+        for (var p in pricesList) {
+          if (p is Map && p['time'] != null) {
+            final tStr = p['time'].toString();
+            final priceVal = (p['standardPrice'] ?? p['price'] ?? p['standard_price'] ?? '').toString();
+            if (tStr == nightStartStr && priceVal.isNotEmpty) {
+              if (nightRateStr.isEmpty || nightRateStr == widget.court!['base_price']?.toString()) {
+                nightRateStr = priceVal;
+              }
+            }
+            if (tStr == dayStartStr && priceVal.isNotEmpty) {
+              if (dayRateStr.isEmpty) {
+                dayRateStr = priceVal;
+              }
+            }
+          }
+        }
+      }
+
+      if (dayRateStr.isEmpty) dayRateStr = widget.court!['base_price']?.toString() ?? '';
+      if (nightRateStr.isEmpty) nightRateStr = dayRateStr;
+
+      _dayRateCtrl.text = dayRateStr;
+      _nightRateCtrl.text = nightRateStr;
       
       _enableDayDiscount = widget.court!['is_day_discount_active'] == true || widget.court!['is_day_discount_active'] == 'true' || widget.court!['is_day_discount_active'] == 1;
       _dayDiscountCtrl.text = widget.court!['day_discount_rate']?.toString() ?? '';
@@ -339,25 +377,39 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'longitude': double.tryParse(_lngCtrl.text),
       'description': _descCtrl.text,
       'basePrice': effectiveDayRate,
+      'base_price': effectiveDayRate,
       'hourlyPrices': hourlyPrices,
+      'hourly_prices': hourlyPrices,
       'facilities': _selectedFacilities,
       'openTime': _openTimeCtrl.text,
+      'open_time': _openTimeCtrl.text,
       'closeTime': _closeTimeCtrl.text,
+      'close_time': _closeTimeCtrl.text,
       'logoUrl': _logoUrlCtrl.text.trim(),
+      'logo_url': _logoUrlCtrl.text.trim(),
       'images': _courtPhotos,
       'photos': _courtPhotos,
       'dayRate': dayStandard,
+      'day_rate': dayStandard,
       'dayDiscountRate': dayDiscount,
+      'day_discount_rate': dayDiscount,
       'isDayDiscountActive': isDayDiscountActive,
+      'is_day_discount_active': isDayDiscountActive,
       'nightRate': nightStandard,
+      'night_rate': nightStandard,
+      'night_price': nightStandard,
       'nightDiscountRate': nightDiscount,
+      'night_discount_rate': nightDiscount,
       'isNightDiscountActive': isNightDiscountActive,
+      'is_night_discount_active': isNightDiscountActive,
       'dayStartHour': _dayStartHour,
-      'nightStartHour': _nightStartHour,
       'day_start_hour': _dayStartHour,
+      'nightStartHour': _nightStartHour,
       'night_start_hour': _nightStartHour,
       'bookingPolicy': _bookingPolicyCtrl.text.trim(),
+      'booking_policy': _bookingPolicyCtrl.text.trim(),
       'aboutVenue': _aboutVenueCtrl.text.trim(),
+      'about_venue': _aboutVenueCtrl.text.trim(),
       'faq': _faqCtrl.text.trim(),
     };
 
