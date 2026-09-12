@@ -699,8 +699,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppColors.creamWhite,
-            Colors.white,
+            Color(0xFFDCE9D5),
+            Color(0xFFF7F9F1),
+            Color(0xFFECF3E9),
           ],
         ),
       ),
@@ -1002,7 +1003,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Colors.white.withOpacity(0.65),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(32),
                 topRight: Radius.circular(32),
