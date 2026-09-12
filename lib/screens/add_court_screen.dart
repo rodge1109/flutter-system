@@ -106,6 +106,20 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       }
       _courtPhotos = parsedImages.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
 
+      final rawFac = widget.court!['facilities'] ?? [];
+      List<dynamic> parsedFac = [];
+      if (rawFac is String) {
+        try { parsedFac = json.decode(rawFac); } catch (_) {}
+      } else if (rawFac is List) {
+        parsedFac = rawFac;
+      }
+      _selectedFacilities = parsedFac.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      for (var f in _selectedFacilities) {
+        if (!_availableFacilities.contains(f)) {
+          _availableFacilities.add(f);
+        }
+      }
+
       const String defaultPolicy = '• Reservation & Payment: All bookings must be completed and confirmed prior to court entry.\n• Cancellation Policy: Free cancellation up to 24 hours before your reserved start time. Cancellations within 24 hours are non-refundable.\n• Arrival & Check-In: Please arrive 10-15 minutes before your scheduled slot. Late arrivals will not extend your reserved time.\n• Court Etiquette: Non-marking athletic shoes are strictly required to maintain court surface quality.';
       const String defaultAbout = 'Welcome to our premier pickleball facility! Designed for players of all skill levels, our venue features professional-grade court surfaces, high-intensity LED lighting for evening games, spacious spectator seating, clean restrooms, and a welcoming community atmosphere.';
       const String defaultFaq = 'Q: Are paddles and balls available for rent or purchase?\nA: Yes! High-quality rental paddles and pickleballs are available at the front desk.\n\nQ: Is on-site parking available for players?\nA: Yes, we provide free dedicated parking directly adjacent to the venue.\n\nQ: What footwear is allowed on the courts?\nA: Only non-marking court or athletic shoes are permitted.\n\nQ: Can I host Open Plays or Pasalo transfers here?\nA: Absolutely! You can post Open Plays or offer Pasalo slots directly through the app.';
@@ -853,13 +867,16 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 12),
+                    Text('Court Facilities & Features', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+                    Text('Tap a feature chip to toggle selection. Tap the (x) on any feature chip to delete it.', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                    SizedBox(height: 8),
                     Wrap(
                       spacing: 8.0,
-                      runSpacing: 4.0,
+                      runSpacing: 6.0,
                       children: _availableFacilities.map((facility) {
                         final isSelected = _selectedFacilities.contains(facility);
-                        return FilterChip(
+                        return InputChip(
                           label: Text(facility),
                           selected: isSelected,
                           onSelected: (selected) {
@@ -871,6 +888,21 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                               }
                             });
                           },
+                          onDeleted: () {
+                            setState(() {
+                              _selectedFacilities.remove(facility);
+                              _availableFacilities.remove(facility);
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Deleted facility feature: "$facility"'),
+                                duration: Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          deleteIcon: Icon(Icons.cancel, size: 16),
+                          deleteIconColor: isSelected ? AppColors.primaryGreen : Colors.red.shade400,
                           selectedColor: Color(0xFFE2F999),
                           checkmarkColor: AppColors.primaryGreen,
                           labelStyle: TextStyle(
