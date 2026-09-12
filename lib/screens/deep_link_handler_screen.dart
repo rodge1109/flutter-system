@@ -126,16 +126,43 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
           });
         });
 
-        // Find match
+        // Find match with enhanced slug & court name searching
         Map<String, dynamic>? matchedVenue;
-        final searchSlug = widget.slug.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+        final rawSlug = widget.slug.trim().toLowerCase();
+        final searchSlug = rawSlug.replaceAll(RegExp(r'[^a-z0-9]'), '');
         
         for (var venue in venueList) {
           final vName = venue['venueName'].toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
           final vKey = venue['venueKey'].toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-          if (vName.contains(searchSlug) || vKey.contains(searchSlug) || searchSlug.contains(vName)) {
+          final vAddr = (venue['address'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+          // Check venue name, key, or address
+          if (vName.contains(searchSlug) || vKey.contains(searchSlug) || searchSlug.contains(vName) || vAddr.contains(searchSlug)) {
             matchedVenue = venue;
             break;
+          }
+
+          // Also check individual court names inside this venue
+          final List courtsInVenue = venue['courts'] ?? [];
+          for (var c in courtsInVenue) {
+            final cName = (c['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+            if (cName.contains(searchSlug) || searchSlug.contains(cName)) {
+              matchedVenue = venue;
+              break;
+            }
+          }
+          if (matchedVenue != null) break;
+        }
+
+        // Fuzzy fallback for common typos (e.g., amoniva <-> aminova)
+        if (matchedVenue == null && searchSlug.length >= 4) {
+          String prefix = searchSlug.substring(0, 3); // e.g. "ami" or "amo"
+          for (var venue in venueList) {
+            final vName = venue['venueName'].toString().toLowerCase();
+            if (vName.contains(prefix)) {
+              matchedVenue = venue;
+              break;
+            }
           }
         }
 
@@ -168,8 +195,11 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
     }
 
     if (mounted) {
-      // Fallback
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => SplashScreen()));
+      // If slug wasn't matched, navigate smoothly to Dashboard/Login rather than infinite splash
+      final prefs = await SharedPreferences.getInstance();
+      final userStr = prefs.getString('user');
+      Widget targetScreen = userStr != null ? DashboardScreen() : LoginScreen();
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => targetScreen));
     }
   }
 
