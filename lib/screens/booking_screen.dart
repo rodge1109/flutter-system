@@ -1307,6 +1307,34 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                       ],
                     ),
+                    if (court.facilities.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: court.facilities.map((f) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_outline, size: 12, color: AppColors.primaryGreen),
+                                const SizedBox(width: 4),
+                                Text(
+                                  f,
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.deepTeal),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ],
                 ),
                 children: [
@@ -1689,10 +1717,38 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     // 4. Facilities
-    List<dynamic>? rawFacilities = v?['facilities'] ?? _selectedService?.facilities;
-    List<String> facilities = rawFacilities != null 
-        ? rawFacilities.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList()
-        : [];
+    List<String> facilities = [];
+    if (_selectedService != null && _selectedService!.facilities.isNotEmpty) {
+      facilities = List<String>.from(_selectedService!.facilities);
+    } else {
+      final rawFac = v?['facilities'];
+      if (rawFac != null) {
+        if (rawFac is List) {
+          facilities = rawFac.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+        } else if (rawFac is String && rawFac.trim().isNotEmpty) {
+          try {
+            final decoded = jsonDecode(rawFac);
+            if (decoded is List) {
+              facilities = decoded.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+            } else if (rawFac.contains(',')) {
+              facilities = rawFac.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+            } else {
+              facilities = [rawFac.trim()];
+            }
+          } catch (_) {
+            if (rawFac.contains(',')) {
+              facilities = rawFac.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+            } else {
+              facilities = [rawFac.trim()];
+            }
+          }
+        }
+      }
+    }
+
+    if (facilities.isEmpty) {
+      facilities = ['Covered Court', 'Outdoor Court', 'Restrooms', 'Seating Area', 'Lighting'];
+    }
 
     return Container(
       margin: const EdgeInsets.only(top: 24),

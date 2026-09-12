@@ -82,6 +82,31 @@ class ServiceModel {
         json['owner']?.toString() ?? 
         (json['owner_payment'] != null ? json['owner_payment']['owner_email']?.toString() ?? '' : '');
 
+    List<String> parsedFacilities = [];
+    final rawFac = json['facilities'];
+    if (rawFac != null) {
+      if (rawFac is List) {
+        parsedFacilities = rawFac.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      } else if (rawFac is String && rawFac.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rawFac);
+          if (decoded is List) {
+            parsedFacilities = decoded.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+          } else if (rawFac.contains(',')) {
+            parsedFacilities = rawFac.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          } else {
+            parsedFacilities = [rawFac.trim()];
+          }
+        } catch (_) {
+          if (rawFac.contains(',')) {
+            parsedFacilities = rawFac.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          } else {
+            parsedFacilities = [rawFac.trim()];
+          }
+        }
+      }
+    }
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
@@ -89,7 +114,7 @@ class ServiceModel {
       price: json['price']?.toString() ?? '',
       ownerEmail: parsedOwnerEmail,
       address: json['address'] as String? ?? '',
-      facilities: (json['facilities'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      facilities: parsedFacilities,
       icon: json['icon'] as String? ?? '',
       duration: json['duration']?.toString() ?? '30M',
       category: json['category'] as String? ?? 'General',
