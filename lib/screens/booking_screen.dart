@@ -116,6 +116,14 @@ class _BookingScreenState extends State<BookingScreen> {
     if (ownerEmail.isEmpty && widget.venue != null) {
       ownerEmail = widget.venue!['owner_email'] ?? widget.venue!['email'] ?? '';
     }
+    if (ownerEmail.isEmpty && _services.isNotEmpty) {
+      for (var s in _services) {
+        if (s.ownerPayment?['owner_email']?.toString().isNotEmpty == true) {
+          ownerEmail = s.ownerPayment!['owner_email'].toString();
+          break;
+        }
+      }
+    }
     if (ownerEmail.isNotEmpty) {
       final loyalty = await _apiService.fetchCustomerLoyaltyStatus(_emailController.text.trim(), ownerEmail);
       final settings = await _apiService.fetchLoyaltySettings(ownerEmail);
@@ -236,6 +244,7 @@ class _BookingScreenState extends State<BookingScreen> {
         }
       });
       _fetchSlots();
+      _checkLoyaltyStatus();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -558,21 +567,32 @@ class _BookingScreenState extends State<BookingScreen> {
   String _getPriceForTime(String time, {ServiceModel? service}) {
     final s = service ?? _selectedService;
     if (s == null) return '';
+    double basePrice = 350.0;
+    
     if (s.variablePrices != null && s.variablePrices!.isNotEmpty) {
       for (var vp in s.variablePrices!) {
         String? vpTime = vp['time']?.toString();
         String? vpHour = vp['hour']?.toString();
         
-        if (vpTime != null && _normalizeTime(vpTime) == time) {
+        if ((vpTime != null && _normalizeTime(vpTime) == time) || (vpHour != null && _normalizeTime(vpHour) == time)) {
           final price = vp['price'];
-          return price.toString().contains('PHP') ? price.toString() : 'PHP $price';
-        } else if (vpHour != null && _normalizeTime(vpHour) == time) {
-          final price = vp['price'];
-          return price.toString().contains('PHP') ? price.toString() : 'PHP $price';
+          String priceStr = price.toString().replaceAll(RegExp(r'[^0-9.]'), '');
+          basePrice = double.tryParse(priceStr) ?? 350.0;
+          break;
         }
       }
+    } else {
+      String priceStr = s.price.replaceAll(RegExp(r'[^0-9.]'), '');
+      basePrice = double.tryParse(priceStr) ?? 350.0;
     }
-    return s.price;
+
+    // Automatically apply member discount for registered members
+    if (_customerLoyalty?.isMember == true && _loyaltySettings != null) {
+      double memberPrice = _loyaltySettings!.calculateMemberPrice(basePrice);
+      return 'PHP ${memberPrice.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}';
+    }
+
+    return basePrice > 0 ? 'PHP ${basePrice.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}' : s.price;
   }
 
   String _normalizeTime(String t) {
@@ -961,6 +981,28 @@ class _BookingScreenState extends State<BookingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_customerLoyalty?.isMember == true)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.primaryGreen.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.verified, color: AppColors.primaryGreen, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '🌟 VIP Member Discount Active: Automatic member prices are applied!',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                  ),
+                ),
+              ],
+            ),
+          ),
         _buildVenueInformationSection(),
         SizedBox(height: 16),
         // Date Selector Header
@@ -1790,6 +1832,16 @@ class _BookingScreenState extends State<BookingScreen> {
                 _buildSummaryRow(Icons.access_time, 'Times', _selectedTimes.isNotEmpty ? _selectedTimes.join(', ') : '-'),
                 Divider(height: 24, color: Colors.green.shade100),
                 _buildSummaryRow(Icons.person, 'Customer', _nameController.text.isEmpty ? '-' : _nameController.text),
+                if (_customerLoyalty?.isMember == true && _loyaltySettings != null) ...[
+                  Divider(height: 24, color: Colors.green.shade100),
+                  _buildSummaryRow(
+                    Icons.stars, 
+                    'Member Discount', 
+                    _loyaltySettings!.memberDiscountType == 'PERCENTAGE' 
+                        ? '${_loyaltySettings!.memberDiscountValue.toInt()}% OFF (Applied)' 
+                        : 'Member Price Applied'
+                  ),
+                ],
                 Divider(height: 24, color: Colors.green.shade100),
                 _buildSummaryRow('P', 'Subtotal', _getTotalAmount()),
                 Divider(height: 24, color: Colors.green.shade100),
