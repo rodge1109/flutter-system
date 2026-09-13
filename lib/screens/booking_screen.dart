@@ -435,9 +435,9 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _holdSelectedSlots() async {
-    if (_selectedDate == null || _selectedTimes.isEmpty || _nameController.text.isEmpty) {
+    if (_selectedDate == null || _selectedTimes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select a date, time, and enter your name first'), backgroundColor: Colors.redAccent),
+        SnackBar(content: Text('Please select a date and time slot first'), backgroundColor: Colors.redAccent),
       );
       return;
     }
