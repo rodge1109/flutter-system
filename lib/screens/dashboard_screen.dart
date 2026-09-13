@@ -3242,7 +3242,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final allCourts = _courtsList.isNotEmpty ? _courtsList : _sampleCourts;
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(top: 16, bottom: 100),
+      padding: const EdgeInsets.only(top: 64, bottom: 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
