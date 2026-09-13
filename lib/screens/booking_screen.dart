@@ -87,9 +87,22 @@ class _BookingScreenState extends State<BookingScreen> {
   String? _holdToken;
   Timer? _holdTimer;
   int _holdSecondsRemaining = 0;
+  final ScrollController _stepScrollController = ScrollController();
 
   CustomerModel? _customerLoyalty;
   LoyaltySettingsModel? _loyaltySettings;
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_stepScrollController.hasClients) {
+        _stepScrollController.animateTo(
+          _stepScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -428,6 +441,7 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void dispose() {
     _holdTimer?.cancel();
+    _stepScrollController.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -489,6 +503,7 @@ class _BookingScreenState extends State<BookingScreen> {
         _holdToken = lastHoldToken;
         _holdSecondsRemaining = 300; // 5 minutes
       });
+      _scrollToBottom();
       _holdTimer?.cancel();
       _holdTimer = Timer.periodic(Duration(seconds: 1), (timer) {
         setState(() {
@@ -1065,6 +1080,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 // ── Step Content ──
                 Expanded(
                   child: SingleChildScrollView(
+                    controller: _stepScrollController,
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
