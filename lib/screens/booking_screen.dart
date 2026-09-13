@@ -2224,35 +2224,112 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  String _getPaymentDetail(String key, String fallback) {
-    if (_selectedService?.ownerPayment != null) {
-      final val = _selectedService!.ownerPayment![key];
-      if (val != null && val.toString().trim().isNotEmpty) {
-        return val.toString().trim();
+  String _getPaymentDetail(dynamic keysInput, String fallback) {
+    List<String> keys = [];
+    if (keysInput is String) {
+      keys = [keysInput];
+    } else if (keysInput is List) {
+      keys = keysInput.map((e) => e.toString()).toList();
+    }
+
+    // Expand common alias keys for maximum resilience
+    List<String> expandedKeys = List.from(keys);
+    for (var k in keys) {
+      final lk = k.toLowerCase();
+      if (lk.contains('gcash')) {
+        expandedKeys.addAll(['gcash_number', 'gcashNumber', 'gcash', 'gcash_no']);
+      }
+      if (lk.contains('maya')) {
+        expandedKeys.addAll(['paymaya_number', 'paymayaNumber', 'maya_number', 'mayaNumber', 'paymaya', 'maya']);
+      }
+      if (lk.contains('qr')) {
+        expandedKeys.addAll(['qr_code_url', 'qrCodeUrl', 'payment_qr_url', 'paymentQrUrl', 'qr_code', 'qrCode']);
+      }
+      if (lk.contains('bank_account_name') || lk.contains('accountname')) {
+        expandedKeys.addAll(['bank_account_name', 'bankAccountName', 'account_name', 'accountName']);
+      }
+      if (lk.contains('bank_account') || lk.contains('accountnumber')) {
+        expandedKeys.addAll(['bank_account', 'bank_account_number', 'bankAccountNumber', 'bankAccount', 'account_number', 'accountNumber']);
+      }
+      if (lk.contains('bank_name') || lk.contains('bankname')) {
+        expandedKeys.addAll(['bank_name', 'bankName', 'bank']);
+      }
+      if (lk.contains('instruction')) {
+        expandedKeys.addAll(['payment_instructions', 'paymentInstructions', 'instructions', 'notes']);
       }
     }
+    keys = expandedKeys.toSet().toList();
+
+    String? checkMap(Map? map) {
+      if (map == null) return null;
+      for (var k in keys) {
+        if (map[k] != null) {
+          final v = map[k].toString().trim();
+          if (v.isNotEmpty && v != 'null') return v;
+        }
+      }
+      final rawOp = map['owner_payment'] ?? map['ownerPayment'];
+      if (rawOp is Map) {
+        for (var k in keys) {
+          if (rawOp[k] != null) {
+            final v = rawOp[k].toString().trim();
+            if (v.isNotEmpty && v != 'null') return v;
+          }
+        }
+      } else if (rawOp is String && rawOp.trim().isNotEmpty) {
+        try {
+          final dec = json.decode(rawOp);
+          if (dec is Map) {
+            for (var k in keys) {
+              if (dec[k] != null) {
+                final v = dec[k].toString().trim();
+                if (v.isNotEmpty && v != 'null') return v;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    // 1. Check selected service
+    if (_selectedService != null) {
+      if (_selectedService!.ownerPayment != null) {
+        final found = checkMap(_selectedService!.ownerPayment);
+        if (found != null) return found;
+      }
+    }
+
+    // 2. Check widget.venue & venue courts
     if (widget.venue != null) {
-      if (widget.venue!['owner_payment'] != null && widget.venue!['owner_payment'] is Map) {
-        final val = widget.venue!['owner_payment'][key];
-        if (val != null && val.toString().trim().isNotEmpty) return val.toString().trim();
-      }
-      if (widget.venue![key] != null && widget.venue![key].toString().trim().isNotEmpty) {
-        return widget.venue![key].toString().trim();
+      final foundVenue = checkMap(widget.venue);
+      if (foundVenue != null) return foundVenue;
+
+      if (widget.venue!['courts'] != null && widget.venue!['courts'] is List) {
+        for (var c in widget.venue!['courts']) {
+          if (c is Map) {
+            final foundC = checkMap(c);
+            if (foundC != null) return foundC;
+          }
+        }
       }
     }
+
+    // 3. Check all services in _services
     final targetOwner = _selectedService?.ownerEmail.toLowerCase().trim() ?? '';
     final selectedName = _selectedService?.name.toLowerCase().trim() ?? '';
     for (var service in _services) {
       final matchesOwner = targetOwner.isNotEmpty && service.ownerEmail.toLowerCase().trim() == targetOwner;
       final matchesName = selectedName.isNotEmpty && (service.name.toLowerCase().trim() == selectedName || service.name.toLowerCase().contains(selectedName) || selectedName.contains(service.name.toLowerCase()));
-      if (!matchesOwner && !matchesName) {
-        continue; // Strictly match court owner or court name!
-      }
-      if (service.ownerPayment != null && service.ownerPayment![key] != null) {
-        final val = service.ownerPayment![key];
-        if (val != null && val.toString().trim().isNotEmpty) return val.toString().trim();
+      
+      if (matchesOwner || matchesName || _services.length == 1) {
+        if (service.ownerPayment != null) {
+          final found = checkMap(service.ownerPayment);
+          if (found != null) return found;
+        }
       }
     }
+
     return fallback;
   }
 
@@ -2311,13 +2388,16 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildPaymentSelection() {
-    final String qrUrl = _getPaymentDetail('qr_code_url', _getPaymentDetail('payment_qr_url', _getPaymentDetail('qr_code', '')));
-    String gcashNum = _getPaymentDetail('gcash_number', _getPaymentDetail('gcash', ''));
-    String mayaNum = _getPaymentDetail('paymaya_number', _getPaymentDetail('maya_number', _getPaymentDetail('paymaya', '')));
-    String bankName = _getPaymentDetail('bank_name', _getPaymentDetail('bankName', ''));
-    String bankAccountName = _getPaymentDetail('bank_account_name', _getPaymentDetail('bankAccountName', ''));
-    String bankAccount = _getPaymentDetail('bank_account', _getPaymentDetail('bank_account_number', _getPaymentDetail('bankAccount', '')));
-    final String customInstructions = _getPaymentDetail('payment_instructions', _getPaymentDetail('instructions', ''));
+    String qrUrl = _getPaymentDetail(['qr_code_url', 'payment_qr_url', 'qr_code'], '');
+    if (qrUrl.startsWith('/uploads')) {
+      qrUrl = 'https://pickle-system.onrender.com$qrUrl';
+    }
+    String gcashNum = _getPaymentDetail(['gcash_number', 'gcash'], '');
+    String mayaNum = _getPaymentDetail(['paymaya_number', 'maya_number', 'paymaya', 'maya'], '');
+    String bankName = _getPaymentDetail(['bank_name', 'bankName', 'bank'], '');
+    String bankAccountName = _getPaymentDetail(['bank_account_name', 'bankAccountName', 'account_name'], '');
+    String bankAccount = _getPaymentDetail(['bank_account', 'bank_account_number', 'bankAccount', 'account_number'], '');
+    final String customInstructions = _getPaymentDetail(['payment_instructions', 'instructions', 'notes'], '');
 
     // Fallbacks if empty
     if (gcashNum.isEmpty && widget.venue != null) {
@@ -2333,7 +2413,7 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
-    final bool hasCloudinaryQr = qrUrl.trim().isNotEmpty && qrUrl.startsWith('http');
+    final bool hasCloudinaryQr = qrUrl.trim().isNotEmpty && (qrUrl.startsWith('http') || qrUrl.startsWith('/uploads'));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
