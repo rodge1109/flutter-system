@@ -3240,116 +3240,272 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildCourtsTabView() {
     final allCourts = _courtsList.isNotEmpty ? _courtsList : _sampleCourts;
-    return Transform.translate(
-      offset: const Offset(0, -100),
-      child: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text('All Courts', style: TextStyle(fontFamily: 'Poppins', fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-            ),
-            SizedBox(height: 16),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: allCourts.length,
-              separatorBuilder: (context, index) => Divider(
-                indent: 72,
-                height: 1,
-                thickness: 0.5,
-                color: Colors.grey.shade300,
-              ),
-              itemBuilder: (context, index) {
-                final court = allCourts[index];
-                
-                Widget trailingWidget = Text('P${court['price']}/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack));
-                
-                if (court['variable_prices'] != null && court['variable_prices'] is List && (court['variable_prices'] as List).isNotEmpty) {
-                  final vp = court['variable_prices'] as List;
-                  int dayStart = court['day_start_hour'] != null 
-                      ? (int.tryParse(court['day_start_hour'].toString()) ?? 6)
-                      : (court['dayStartHour'] != null ? (int.tryParse(court['dayStartHour'].toString()) ?? 6) : 6);
-                  int nightStart = court['night_start_hour'] != null 
-                      ? (int.tryParse(court['night_start_hour'].toString()) ?? 18)
-                      : (court['nightStartHour'] != null ? (int.tryParse(court['nightStartHour'].toString()) ?? 18) : 18);
-                  String dayTimeStr = '${dayStart.toString().padLeft(2, '0')}:00';
-                  String nightTimeStr = '${nightStart.toString().padLeft(2, '0')}:00';
-
-                  var dayPriceObj = vp.firstWhere((p) => p['time'] == dayTimeStr, orElse: () => vp.firstWhere((p) => p['time'] == '12:00', orElse: () => null));
-                  var nightPriceObj = vp.firstWhere((p) => p['time'] == nightTimeStr, orElse: () => vp.firstWhere((p) => p['time'] == '18:00', orElse: () => null));
-                  if (dayPriceObj != null && nightPriceObj != null) {
-                    final dayP = dayPriceObj['price'];
-                    final nightP = nightPriceObj['price'];
-                    if (dayP != nightP) {
-                      trailingWidget = Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('Day: P$dayP/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack)),
-                          Text('Night: P$nightP/hr', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack)),
-                        ],
-                      );
-                    }
-                  }
-                }
-
-                return ListTile(
-                  tileColor: Colors.grey.shade50,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  leading: Container(
-                    padding: EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.08),
-                      shape: BoxShape.circle,
-                    ),
-                    child: CustomPaddleIcon(color: AppColors.deepTeal, size: 22),
-                  ),
-                  title: Text(court['name'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey.shade800)),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, size: 12, color: Colors.grey.shade600),
-                          SizedBox(width: 4),
-                          Expanded(child: Text(court['address'] ?? 'Cayang, Bogo, Cebu', style: TextStyle(color: Colors.grey.shade600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                        ],
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(top: 16, bottom: 100),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'All Courts',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        color: AppColors.deepTeal,
                       ),
-                      if (court['facilities'] != null && court['facilities'] is List && (court['facilities'] as List).isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: (court['facilities'] as List).map<Widget>((f) {
-                              return Container(
-                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryGreen.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(f.toString(), style: TextStyle(fontSize: 9, color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                    ],
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '${allCourts.length} Courts Available',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final int crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: allCourts.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                    childAspectRatio: 0.70,
                   ),
-                  trailing: trailingWidget,
-                  onTap: () {
-                    final matchingVenue = _findVenueForCourt(court);
-                    _navigateToBookingScreen(
-                      venue: matchingVenue,
-                      initialServiceName: court['name'],
-                      skipServiceSelection: true,
-                    );
+                  itemBuilder: (context, index) {
+                    final court = allCourts[index];
+                    return _buildCourtGridCard(court);
                   },
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCourtGridCard(Map<String, dynamic> court) {
+    String logoUrl = _extractCourtLogo(court);
+    if (logoUrl.isEmpty && court['venueKey'] != null) {
+      final matchingVenue = _findVenueForCourt(court);
+      if (matchingVenue != null) {
+        logoUrl = _extractCourtLogo(matchingVenue);
+      }
+    }
+
+    String displayPhoto = logoUrl.isNotEmpty 
+        ? logoUrl 
+        : ((court['image'] != null && court['image'].toString().isNotEmpty) 
+            ? court['image'].toString() 
+            : '');
+
+    String priceText = '₱${court['price'] ?? 350}/hr';
+    String? nightPriceText;
+    if (court['variable_prices'] != null && court['variable_prices'] is List && (court['variable_prices'] as List).isNotEmpty) {
+      final vp = court['variable_prices'] as List;
+      int dayStart = court['day_start_hour'] != null 
+          ? (int.tryParse(court['day_start_hour'].toString()) ?? 6)
+          : (court['dayStartHour'] != null ? (int.tryParse(court['dayStartHour'].toString()) ?? 6) : 6);
+      int nightStart = court['night_start_hour'] != null 
+          ? (int.tryParse(court['night_start_hour'].toString()) ?? 18)
+          : (court['nightStartHour'] != null ? (int.tryParse(court['nightStartHour'].toString()) ?? 18) : 18);
+      String dayTimeStr = '${dayStart.toString().padLeft(2, '0')}:00';
+      String nightTimeStr = '${nightStart.toString().padLeft(2, '0')}:00';
+
+      var dayPriceObj = vp.firstWhere((p) => p['time'] == dayTimeStr, orElse: () => vp.firstWhere((p) => p['time'] == '12:00', orElse: () => null));
+      var nightPriceObj = vp.firstWhere((p) => p['time'] == nightTimeStr, orElse: () => vp.firstWhere((p) => p['time'] == '18:00', orElse: () => null));
+      if (dayPriceObj != null && nightPriceObj != null) {
+        final dayP = dayPriceObj['price'];
+        final nightP = nightPriceObj['price'];
+        if (dayP != nightP) {
+          priceText = 'Day: ₱$dayP/hr';
+          nightPriceText = 'Night: ₱$nightP/hr';
+        }
+      }
+    }
+
+    List<dynamic> facilities = court['facilities'] is List ? court['facilities'] : [];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.softWhite,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 6, offset: Offset(0, 3)),
+        ],
+        border: Border.all(color: Colors.grey.shade200, width: 0.8),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          final matchingVenue = _findVenueForCourt(court);
+          _navigateToBookingScreen(
+            venue: matchingVenue,
+            initialServiceName: court['name'],
+            skipServiceSelection: true,
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 105,
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 105,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen,
+                      image: displayPhoto.isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(displayPhoto),
+                              fit: BoxFit.cover,
+                              colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
+                            )
+                          : null,
+                    ),
+                    child: displayPhoto.isEmpty
+                        ? Center(
+                            child: CustomPaddleIcon(color: AppColors.softWhite, size: 36),
+                          )
+                        : null,
+                  ),
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.star, color: Colors.amber, size: 10),
+                          SizedBox(width: 3),
+                          Text(
+                            court['rating']?.toString() ?? '4.8',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      court['name'] ?? 'Court',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.location_on, size: 11, color: Colors.grey.shade500),
+                        SizedBox(width: 2),
+                        Expanded(
+                          child: Text(
+                            court['address'] ?? 'Cayang, Bogo',
+                            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        nightPriceText != null ? '$priceText | $nightPriceText' : priceText,
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.deepTeal),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (facilities.isNotEmpty) ...[
+                      SizedBox(height: 4),
+                      Wrap(
+                        spacing: 3,
+                        runSpacing: 2,
+                        children: facilities.take(2).map<Widget>((f) {
+                          return Container(
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              f.toString(),
+                              style: TextStyle(fontSize: 8, color: Colors.grey.shade700),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    Spacer(),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 28,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final matchingVenue = _findVenueForCourt(court);
+                          _navigateToBookingScreen(
+                            venue: matchingVenue,
+                            initialServiceName: court['name'],
+                            skipServiceSelection: true,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryGreen,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: Text('Book Court', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
