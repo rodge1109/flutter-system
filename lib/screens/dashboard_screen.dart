@@ -112,25 +112,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       Map<String, dynamic> court = Map<String, dynamic>.from(rawItem);
       
       String? explicitVenue = court['venue_name'] ?? court['venueName'] ?? court['venue'];
-      String ownerEmail = court['email'] ?? court['owner_email'] ?? court['ownerEmail'] ?? '';
+      String ownerEmail = (court['email'] ?? court['owner_email'] ?? court['ownerEmail'] ?? '').toString().trim();
       
       String cleanVenueName = '';
       if (explicitVenue != null && explicitVenue.toString().trim().isNotEmpty) {
         cleanVenueName = explicitVenue.toString().trim();
       } else {
-        String rawName = court['name'] ?? 'Court';
-        String addr = court['address'] ?? 'Cayang, Bogo';
+        String rawName = (court['name'] ?? 'Court').toString();
+        String addr = (court['address'] ?? 'Cayang, Bogo').toString();
         cleanVenueName = rawName
+            .replaceAll(RegExp(r'\s*\([^)]*\)', caseSensitive: false), '')
             .replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '')
+            .replaceAll(RegExp(r'[-\s]*(Red|Green|Blue|Indoor|Outdoor|Covered)\s*(Court)?.*$', caseSensitive: false), '')
             .trim();
         if (cleanVenueName.isEmpty || cleanVenueName.toLowerCase() == 'court') {
           cleanVenueName = addr.isNotEmpty ? addr : 'Pickleball & Tennis Venue';
         }
       }
 
-      String venueKey = ownerEmail.isNotEmpty
-          ? '${cleanVenueName}_$ownerEmail'.toLowerCase()
-          : cleanVenueName.toLowerCase();
+      String venueKey = '';
+      if (ownerEmail.isNotEmpty) {
+        venueKey = 'owner_${ownerEmail.toLowerCase()}';
+      } else if (explicitVenue != null && explicitVenue.toString().trim().isNotEmpty) {
+        venueKey = 'venue_${explicitVenue.toString().trim().toLowerCase()}';
+      } else {
+        venueKey = 'name_${cleanVenueName.toLowerCase()}';
+      }
 
       if (!venueGroups.containsKey(venueKey)) {
         venueGroups[venueKey] = [];
@@ -163,9 +170,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       if (lowestPrice == 9999) lowestPrice = 300;
 
-      String vTitle = first['venue_name'] ?? first['venueName'] ?? first['venue'] ?? first['name'] ?? 'Venue';
-      if (first['venue_name'] == null && first['venueName'] == null && first['venue'] == null && courtList.length > 1) {
-        vTitle = first['name'].replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '').trim();
+      String vTitle = first['venue_name'] ?? first['venueName'] ?? first['venue'] ?? '';
+      if (vTitle.trim().isEmpty) {
+        String rawFirst = (first['name'] ?? 'Venue').toString();
+        vTitle = rawFirst
+            .replaceAll(RegExp(r'\s*\([^)]*\)', caseSensitive: false), '')
+            .replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '')
+            .replaceAll(RegExp(r'[-\s]*(Red|Green|Blue|Indoor|Outdoor|Covered)\s*(Court)?.*$', caseSensitive: false), '')
+            .trim();
         if (vTitle.isEmpty) vTitle = first['address'] ?? 'Sports Venue';
       }
 
