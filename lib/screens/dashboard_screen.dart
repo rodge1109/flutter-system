@@ -976,7 +976,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     'Hello, ${_userName.split(' ').first}!',
-                    style: TextStyle(fontFamily: 'Poppins', fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.deepTeal),
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: AppColors.deepTeal),
                   ),
                   Text(
                     "Let's book your court.",
