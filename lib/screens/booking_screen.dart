@@ -312,7 +312,7 @@ class _BookingScreenState extends State<BookingScreen> {
           _services = venueCourts;
           _selectedService = selected;
           _selectedServiceIds = {selected.id};
-          _expandedCourtIds = {selected.id};
+          _expandedCourtIds = venueCourts.length > 1 ? {} : {selected.id};
           _isLoading = false;
         });
         _fetchSlots();
@@ -330,7 +330,7 @@ class _BookingScreenState extends State<BookingScreen> {
         if (widget.initialService != null) {
           _selectedService = widget.initialService;
           _selectedServiceIds = {_selectedService!.id};
-          _expandedCourtIds = {_selectedService!.id};
+          _expandedCourtIds = _services.length > 1 ? {} : {_selectedService!.id};
         } else if (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
           final matchName = widget.initialServiceName!.toLowerCase().trim();
           final match = _services.firstWhere(
@@ -350,7 +350,7 @@ class _BookingScreenState extends State<BookingScreen> {
           );
           _selectedService = match;
           _selectedServiceIds = {match.id};
-          _expandedCourtIds = {match.id};
+          _expandedCourtIds = _services.length > 1 ? {} : {match.id};
 
           if (_services.contains(match)) {
             _services.remove(match);
@@ -359,7 +359,7 @@ class _BookingScreenState extends State<BookingScreen> {
         } else if (_services.isNotEmpty) {
           _selectedService = _services.first;
           _selectedServiceIds = {_services.first.id};
-          _expandedCourtIds = {_services.first.id};
+          _expandedCourtIds = _services.length > 1 ? {} : {_services.first.id};
         }
       });
       _fetchSlots();
@@ -1316,6 +1316,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 ],
               ),
               child: ExpansionTile(
+                key: Key('court_${court.id}_${isExpanded}'),
                 initiallyExpanded: isExpanded,
                 onExpansionChanged: (expanded) {
                   setState(() {
