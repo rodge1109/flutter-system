@@ -188,7 +188,7 @@ class LoyaltyStampCardWidget extends StatelessWidget {
                     const Icon(Icons.stars_rounded, color: AppColors.richBlack, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      '🎉 10th Transaction Unlocked: FREE Court Session!',
+                      '🎉 10th Transaction Unlocked: 1 HOUR FREE Court Session!',
                       style: GoogleFonts.outfit(
                         color: AppColors.richBlack,
                         fontSize: 13,
@@ -206,7 +206,7 @@ class LoyaltyStampCardWidget extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Complete ${milestoneTarget - safeStamps} more booking${(milestoneTarget - safeStamps) == 1 ? '' : 's'} to get your 10th transaction FREE!',
+                    'Complete ${milestoneTarget - safeStamps} more booking${(milestoneTarget - safeStamps) == 1 ? '' : 's'} to get your 10th transaction with ONE HOUR FREE!',
                     style: GoogleFonts.outfit(
                       color: Colors.white70,
                       fontSize: 11,

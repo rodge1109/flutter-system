@@ -631,6 +631,18 @@ class _BookingScreenState extends State<BookingScreen> {
         return sum + (double.tryParse(priceStr) ?? 0.0);
       });
 
+      double freeDiscount = 0.0;
+      if (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true)) {
+        if (_selectedTimes.isNotEmpty) {
+          String firstPriceStr = _getPriceForTime(_selectedTimes.first).replaceAll(RegExp(r'[^0-9.]'), '');
+          freeDiscount = double.tryParse(firstPriceStr) ?? 350.0;
+        } else {
+          freeDiscount = 350.0;
+        }
+      }
+
+      double finalPaid = (totalAmount - freeDiscount).clamp(0.0, double.infinity) + _getServiceFee();
+
       final String courtName = _selectedService?.name ?? 'Smash Zone Pickleball';
       final String courtAddress = _selectedService?.address.isNotEmpty == true 
           ? _selectedService!.address 
@@ -651,9 +663,7 @@ class _BookingScreenState extends State<BookingScreen> {
             bookingDate: date,
             timeSlots: times,
             courtNumber: courtNum,
-            totalPaid: (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true))
-                ? 0.0
-                : (totalAmount > 0 ? totalAmount : 350.0) + _getServiceFee(),
+            totalPaid: finalPaid,
           ),
         ),
       );
@@ -2133,32 +2143,48 @@ class _BookingScreenState extends State<BookingScreen> {
 
   String _getTotalAmount() {
     double total = 0.0;
+    List<double> slotPrices = [];
     for (var time in _selectedTimes) {
       String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
       double price = double.tryParse(priceStr) ?? 0.0;
       total += price;
+      slotPrices.add(price);
     }
     
-    // Check if 10th transaction free milestone reached
+    // Check if 10th transaction free milestone reached (1 HOUR FREE)
     if (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true)) {
-      return 'PHP 0.00 (Free 10th Reward!)';
+      double freeDiscount = slotPrices.isNotEmpty ? slotPrices.first : 0.0;
+      double finalTotal = (total - freeDiscount).clamp(0.0, double.infinity);
+      if (finalTotal == 0) {
+        return 'PHP 0.00 (1 Hour Free Reward!)';
+      } else {
+        return 'PHP ${finalTotal.toStringAsFixed(2)} (-PHP ${freeDiscount.toStringAsFixed(0)} Free 1 Hour)';
+      }
     }
 
     return total > 0 ? 'PHP ${total.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}' : '-';
   }
 
   String _getTotalDue() {
-    // If 10th transaction is free, total due is $0.00
-    if (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true)) {
-      return 'PHP 0.00 (FREE 10th Transaction 🎉)';
-    }
-
     double total = 0.0;
+    List<double> slotPrices = [];
     for (var time in _selectedTimes) {
       String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
       double price = double.tryParse(priceStr) ?? 0.0;
       total += price;
+      slotPrices.add(price);
     }
+
+    if (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true)) {
+      double freeDiscount = slotPrices.isNotEmpty ? slotPrices.first : 0.0;
+      double finalTotal = (total - freeDiscount).clamp(0.0, double.infinity) + _getServiceFee();
+      if (finalTotal == 0) {
+        return 'PHP 0.00 (FREE 1st Hour 🎉)';
+      } else {
+        return 'PHP ${finalTotal.toStringAsFixed(2)} (1 Hour Free Applied 🎉)';
+      }
+    }
+
     return 'PHP ${(total + _getServiceFee()).toStringAsFixed(2)}';
   }
 
