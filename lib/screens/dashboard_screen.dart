@@ -173,8 +173,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       if (lowestPrice == 9999) lowestPrice = 300;
 
-      String vTitle = first['venue_name'] ?? first['venueName'] ?? first['venue'] ?? first['court_venue'] ?? first['venue_title'] ?? first['club_name'] ?? first['business_name'] ?? '';
-      if (vTitle.trim().isEmpty) {
+      String vTitle = '';
+      for (var c in courtList) {
+        String cand = (c['venue_name'] ?? c['venueName'] ?? c['venue'] ?? c['court_venue'] ?? c['venue_title'] ?? c['club_name'] ?? c['business_name'] ?? '').toString().trim();
+        if (cand.isNotEmpty) {
+          vTitle = cand;
+          break;
+        }
+      }
+      if (vTitle.isEmpty) {
         String rawFirst = (first['name'] ?? '').toString().trim();
         String stripped = rawFirst
             .replaceAll(RegExp(r'\s*\([^)]*\)', caseSensitive: false), '')
