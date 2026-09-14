@@ -25,6 +25,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _bankAccountController = TextEditingController();
   final _bankNameController = TextEditingController();
   final _paymentInstructionsController = TextEditingController();
+  final _facebookController = TextEditingController();
+  final _instagramController = TextEditingController();
+  final _websiteController = TextEditingController();
   String? _paymentQrUrl;
   bool _isUploadingQr = false;
   bool _isOwner = false;
@@ -56,6 +59,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _bankNameController.text = userObj['bank_account_name'] ?? userObj['bank_name'] ?? '';
       _paymentInstructionsController.text = userObj['payment_instructions'] ?? userObj['instructions'] ?? '';
       _paymentQrUrl = userObj['qr_code_url'] ?? userObj['payment_qr_url'] ?? userObj['qr_code'];
+      _facebookController.text = userObj['facebook_url'] ?? userObj['facebook'] ?? '';
+      _instagramController.text = userObj['instagram_url'] ?? userObj['instagram'] ?? '';
+      _websiteController.text = userObj['website_url'] ?? userObj['website'] ?? '';
     }
     setState(() => _isLoading = false);
     if (_emailController.text.trim().isNotEmpty) {
@@ -168,6 +174,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userObj['payment_instructions'] = _paymentInstructionsController.text;
         userObj['qr_code_url'] = _paymentQrUrl;
         userObj['payment_qr_url'] = _paymentQrUrl;
+        userObj['facebook_url'] = _facebookController.text;
+        userObj['instagram_url'] = _instagramController.text;
+        userObj['website_url'] = _websiteController.text;
       }
       await prefs.setString('user', json.encode(userObj));
     }
@@ -185,6 +194,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'payment_instructions': _paymentInstructionsController.text,
         'qr_code_url': _paymentQrUrl,
         'payment_qr_url': _paymentQrUrl,
+        'facebook_url': _facebookController.text,
+        'instagram_url': _instagramController.text,
+        'website_url': _websiteController.text,
       };
       final res = await ApiService().updateUserProfile(_userId!, profileData);
       if (res['success'] == true && res['user'] != null) {
@@ -192,6 +204,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         updatedUser['qr_code_url'] = updatedUser['qr_code_url'] ?? _paymentQrUrl;
         updatedUser['payment_qr_url'] = updatedUser['payment_qr_url'] ?? _paymentQrUrl;
         updatedUser['payment_instructions'] = updatedUser['payment_instructions'] ?? _paymentInstructionsController.text;
+        updatedUser['facebook_url'] = updatedUser['facebook_url'] ?? _facebookController.text;
+        updatedUser['instagram_url'] = updatedUser['instagram_url'] ?? _instagramController.text;
+        updatedUser['website_url'] = updatedUser['website_url'] ?? _websiteController.text;
         await prefs.setString('user', json.encode(updatedUser));
       }
     }
@@ -265,7 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack),
                                   ),
                                   Text(
-                                    'Earn 1 stamp per booking. 10th session is FREE!',
+                                    'Earn 1 stamp per booking. 10th session is ONE HOUR FREE!',
                                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                                   ),
                                 ],
@@ -515,6 +530,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         prefixIcon: Icon(Icons.note_alt_outlined, color: AppColors.richBlack),
                         hintText: 'e.g. Please send payment reference screenshot via Viber/WhatsApp after paying.',
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    Text('Social Media & Website Links', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack)),
+                    SizedBox(height: 4),
+                    Text('Add your official social media pages and website for players to connect with.', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _facebookController,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: 'Facebook URL',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: Icon(Icons.facebook, color: Color(0xFF1877F2)),
+                        hintText: 'e.g. https://facebook.com/yourcourt',
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _instagramController,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: 'Instagram Link',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: Icon(Icons.camera_alt_outlined, color: Color(0xFFE4405F)),
+                        hintText: 'e.g. https://instagram.com/yourcourt',
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _websiteController,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: 'Website URL',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: Icon(Icons.language, color: AppColors.primaryGreen),
+                        hintText: 'e.g. https://yourcourtwebsite.com',
                       ),
                     ),
                   ],

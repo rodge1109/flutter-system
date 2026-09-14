@@ -1381,34 +1381,6 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                       ],
                     ),
-                    if (court.facilities.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: court.facilities.map((f) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryGreen.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.check_circle_outline, size: 12, color: AppColors.primaryGreen),
-                                const SizedBox(width: 4),
-                                Text(
-                                  f,
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.deepTeal),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
                   ],
                 ),
                 children: [
@@ -1820,6 +1792,10 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
+    final String fbUrl = (v?['facebook_url'] ?? v?['facebook'] ?? '').toString().trim();
+    final String igUrl = (v?['instagram_url'] ?? v?['instagram'] ?? '').toString().trim();
+    final String webUrl = (v?['website_url'] ?? v?['website'] ?? '').toString().trim();
+
     return Container(
       margin: const EdgeInsets.only(top: 24),
       decoration: BoxDecoration(
@@ -1864,7 +1840,42 @@ class _BookingScreenState extends State<BookingScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: Text(aboutText, style: TextStyle(color: Colors.grey.shade800, fontSize: 13, height: 1.4)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(aboutText, style: TextStyle(color: Colors.grey.shade800, fontSize: 13, height: 1.4)),
+                          if (fbUrl.isNotEmpty || igUrl.isNotEmpty || webUrl.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (fbUrl.isNotEmpty)
+                                  Chip(
+                                    avatar: Icon(Icons.facebook, size: 16, color: Color(0xFF1877F2)),
+                                    label: Text('Facebook', style: TextStyle(fontSize: 12)),
+                                    backgroundColor: Colors.white,
+                                    side: BorderSide(color: Colors.grey.shade300),
+                                  ),
+                                if (igUrl.isNotEmpty)
+                                  Chip(
+                                    avatar: Icon(Icons.camera_alt_outlined, size: 16, color: Color(0xFFE4405F)),
+                                    label: Text('Instagram', style: TextStyle(fontSize: 12)),
+                                    backgroundColor: Colors.white,
+                                    side: BorderSide(color: Colors.grey.shade300),
+                                  ),
+                                if (webUrl.isNotEmpty)
+                                  Chip(
+                                    avatar: Icon(Icons.language, size: 16, color: AppColors.primaryGreen),
+                                    label: Text('Website', style: TextStyle(fontSize: 12)),
+                                    backgroundColor: Colors.white,
+                                    side: BorderSide(color: Colors.grey.shade300),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
