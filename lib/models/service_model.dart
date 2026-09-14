@@ -25,6 +25,7 @@ class ServiceModel {
   final String ownerEmail;
   final int? dayStartHour;
   final int? nightStartHour;
+  final String? venueName;
 
   ServiceModel({
     required this.id,
@@ -51,6 +52,7 @@ class ServiceModel {
     this.faq,
     this.dayStartHour,
     this.nightStartHour,
+    this.venueName,
   });
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
@@ -164,6 +166,14 @@ class ServiceModel {
       parsedIcon = json['photos'][0].toString();
     }
 
+    final String? parsedVenueName = json['venue_name']?.toString() ?? 
+        json['venueName']?.toString() ?? 
+        json['venue']?.toString() ?? 
+        json['court_venue']?.toString() ?? 
+        json['venue_title']?.toString() ?? 
+        json['club_name']?.toString() ?? 
+        json['business_name']?.toString();
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
@@ -189,6 +199,7 @@ class ServiceModel {
       faq: json['faq']?.toString(),
       dayStartHour: parsedDayStart,
       nightStartHour: parsedNightStart,
+      venueName: parsedVenueName,
     );
   }
 }
