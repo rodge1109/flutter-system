@@ -1085,6 +1085,8 @@ class _BookingScreenState extends State<BookingScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_currentStep == 0 && widget.venue != null)
+                          _buildVenuePhotoCarousel(),
                         if (skipChooseService)
                           Container(
                             margin: const EdgeInsets.only(bottom: 16),
@@ -2781,7 +2783,380 @@ class _BookingScreenState extends State<BookingScreen> {
       ],
     );
   }
+
+  Widget _buildVenuePhotoCarousel() {
+    String logoUrl = '';
+    if (widget.venue != null) {
+      logoUrl = (widget.venue!['logo_url'] ?? 
+                 widget.venue!['logoUrl'] ?? 
+                 widget.venue!['logo'] ?? 
+                 widget.venue!['court_logo'] ?? 
+                 widget.venue!['icon'] ?? '').toString().trim();
+    }
+    if (logoUrl.isEmpty && _selectedService != null) {
+      if (_selectedService!.icon.startsWith('http')) {
+        logoUrl = _selectedService!.icon;
+      }
+    }
+
+    List<String> photosList = [];
+
+    void parseAndAddPhotos(dynamic source) {
+      if (source == null) return;
+      if (source is List) {
+        for (var item in source) {
+          if (item != null) {
+            final s = item.toString().trim();
+            if (s.isNotEmpty && s.startsWith('http') && !photosList.contains(s)) {
+              photosList.add(s);
+            }
+          }
+        }
+      } else if (source is String && source.trim().isNotEmpty) {
+        final str = source.trim();
+        if (str.startsWith('[')) {
+          try {
+            final decoded = jsonDecode(str);
+            if (decoded is List) {
+              for (var item in decoded) {
+                final s = item.toString().trim();
+                if (s.isNotEmpty && s.startsWith('http') && !photosList.contains(s)) {
+                  photosList.add(s);
+                }
+              }
+            }
+          } catch (_) {}
+        } else if (str.contains(',')) {
+          for (var part in str.split(',')) {
+            final s = part.trim();
+            if (s.isNotEmpty && s.startsWith('http') && !photosList.contains(s)) {
+              photosList.add(s);
+            }
+          }
+        } else if (str.startsWith('http') && !photosList.contains(str)) {
+          photosList.add(str);
+        }
+      }
+    }
+
+    if (widget.venue != null) {
+      parseAndAddPhotos(widget.venue!['photos']);
+      parseAndAddPhotos(widget.venue!['images']);
+      parseAndAddPhotos(widget.venue!['gallery']);
+      if (widget.venue!['courts'] != null && widget.venue!['courts'] is List) {
+        for (var c in widget.venue!['courts']) {
+          parseAndAddPhotos(c['photos']);
+          parseAndAddPhotos(c['images']);
+        }
+      }
+    }
+
+    for (var service in _services) {
+      if (service.icon.startsWith('http') && !photosList.contains(service.icon)) {
+        if (!service.icon.contains('paddle') && !service.icon.contains('logo')) {
+          photosList.add(service.icon);
+        }
+      }
+    }
+
+    bool isUsingDefaultLogo = false;
+    if (photosList.isEmpty) {
+      if (logoUrl.isNotEmpty) {
+        photosList.add(logoUrl);
+        isUsingDefaultLogo = true;
+      }
+    }
+
+    return _VenuePhotoCarouselWidget(
+      photos: photosList,
+      logoUrl: logoUrl,
+      venueName: (widget.venue?['venueName'] ?? widget.venue?['name'] ?? 'PICKLEBALL VENUE').toString(),
+      isUsingDefaultLogo: isUsingDefaultLogo,
+    );
+  }
 }
 
+class _VenuePhotoCarouselWidget extends StatefulWidget {
+  final List<String> photos;
+  final String logoUrl;
+  final String venueName;
+  final bool isUsingDefaultLogo;
 
+  const _VenuePhotoCarouselWidget({
+    Key? key,
+    required this.photos,
+    required this.logoUrl,
+    required this.venueName,
+    this.isUsingDefaultLogo = false,
+  }) : super(key: key);
 
+  @override
+  _VenuePhotoCarouselWidgetState createState() => _VenuePhotoCarouselWidgetState();
+}
+
+class _VenuePhotoCarouselWidgetState extends State<_VenuePhotoCarouselWidget> {
+  final PageController _pageController = PageController();
+  int _currentIndex = 0;
+  Timer? _autoTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.photos.length > 1) {
+      _autoTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (_pageController.hasClients) {
+          int nextPage = (_currentIndex + 1) % widget.photos.length;
+          _pageController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.photos.isEmpty && widget.logoUrl.isEmpty) {
+      return Container(
+        height: 140,
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: [AppColors.deepTeal, AppColors.primaryGreen],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3)),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -20,
+              bottom: -20,
+              child: Opacity(
+                opacity: 0.15,
+                child: Icon(Icons.sports_tennis, size: 140, color: Colors.white),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'OFFICIAL VENUE',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.venueName,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: const [
+                      Icon(Icons.photo_library_outlined, size: 14, color: Colors.white70),
+                      SizedBox(width: 6),
+                      Text('Pickleball Court Facility', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final displayPhotos = widget.photos;
+
+    return Container(
+      height: 180,
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: displayPhotos.length,
+              onPageChanged: (idx) {
+                setState(() => _currentIndex = idx);
+              },
+              itemBuilder: (ctx, i) {
+                final imgUrl = displayPhotos[i];
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      imgUrl,
+                      fit: widget.isUsingDefaultLogo ? BoxFit.contain : BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AppColors.deepTeal.withOpacity(0.1),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.sports_tennis, size: 40, color: AppColors.primaryGreen),
+                              const SizedBox(height: 6),
+                              Text(widget.venueName, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.richBlack, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (!widget.isUsingDefaultLogo)
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withOpacity(0.3),
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.5),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+            if (widget.logoUrl.isNotEmpty && !widget.isUsingDefaultLogo) ...[
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.network(
+                      widget.logoUrl,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => CircleAvatar(
+                        radius: 16,
+                        backgroundColor: AppColors.primaryGreen,
+                        child: Icon(Icons.sports_tennis, size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (widget.isUsingDefaultLogo) ...[
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.verified_outlined, size: 12, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text('Official Venue Logo', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (displayPhotos.length > 1) ...[
+              Positioned(
+                bottom: 12,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_currentIndex + 1}/${displayPhotos.length}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 12,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(displayPhotos.length, (idx) {
+                    final bool isCurrent = idx == _currentIndex;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: isCurrent ? 16 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: isCurrent ? Colors.white : Colors.white.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+            if (!widget.isUsingDefaultLogo)
+              Positioned(
+                bottom: 12,
+                left: 12,
+                child: Text(
+                  widget.venueName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
