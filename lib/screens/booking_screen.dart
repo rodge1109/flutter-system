@@ -708,8 +708,27 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  String _getPriceForTime(String time, {ServiceModel? service}) {
-    final s = service ?? _selectedService;
+  String _getPriceForTime(String timeStr, {ServiceModel? service}) {
+    String time = timeStr.trim();
+    ServiceModel? matchedService = service;
+
+    if (timeStr.contains(':')) {
+      final parts = timeStr.split(':');
+      if (parts.length > 2) {
+        String cName = parts[0].trim();
+        time = parts.sublist(1).join(':').trim();
+        if (matchedService == null) {
+          for (var s in _services) {
+            if (s.name.toLowerCase() == cName.toLowerCase()) {
+              matchedService = s;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    final s = matchedService ?? _selectedService;
     if (s == null) return '';
     
     // Use actual court configured base price
