@@ -711,7 +711,10 @@ class _BookingScreenState extends State<BookingScreen> {
   String _getPriceForTime(String time, {ServiceModel? service}) {
     final s = service ?? _selectedService;
     if (s == null) return '';
-    double basePrice = 300.0;
+    
+    // Use actual court configured base price
+    double courtPrice = double.tryParse(s.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 300.0;
+    double basePrice = courtPrice;
     
     List<dynamic>? vPrices = s.variablePrices;
     if (vPrices == null && s.hourlyPrices != null) {
@@ -749,22 +752,10 @@ class _BookingScreenState extends State<BookingScreen> {
         }
       }
       if (!found) {
-        int dayStart = s.dayStartHour ?? 6;
-        int nightStart = s.nightStartHour ?? 18;
-        int h = _parseHourFromTimeString(time);
-        bool isDay = dayStart < nightStart
-            ? (h >= dayStart && h < nightStart)
-            : (h >= dayStart || h < nightStart);
-        basePrice = isDay ? 200.0 : 300.0;
+        basePrice = courtPrice;
       }
     } else {
-      int dayStart = s.dayStartHour ?? 6;
-      int nightStart = s.nightStartHour ?? 18;
-      int h = _parseHourFromTimeString(time);
-      bool isDay = dayStart < nightStart
-          ? (h >= dayStart && h < nightStart)
-          : (h >= dayStart || h < nightStart);
-      basePrice = isDay ? 200.0 : 300.0;
+      basePrice = courtPrice;
     }
 
     // Automatically apply member discount for registered members
