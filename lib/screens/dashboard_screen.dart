@@ -210,6 +210,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? venueUploadedLogo 
           : ((first['image'] != null && first['image'].toString().isNotEmpty) ? first['image'].toString() : '');
 
+      Map<String, dynamic> mergedPayment = {};
+      for (var c in courtList) {
+        if (c['owner_payment'] is Map) {
+          mergedPayment.addAll(Map<String, dynamic>.from(c['owner_payment']));
+        } else if (c['ownerPayment'] is Map) {
+          mergedPayment.addAll(Map<String, dynamic>.from(c['ownerPayment']));
+        }
+        for (var k in ['gcash_number', 'gcash', 'paymaya_number', 'maya_number', 'paymaya', 'maya', 'bank_account', 'bank_account_name', 'bank_name', 'payment_instructions', 'instructions', 'qr_code_url', 'payment_qr_url', 'qr_code']) {
+          if (c[k] != null && c[k].toString().trim().isNotEmpty && c[k].toString().trim() != 'null') {
+            mergedPayment[k] = c[k];
+          }
+        }
+      }
+
       venueList.add({
         'venueKey': key,
         'venueName': vTitle,
@@ -226,15 +240,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'aboutVenue': first['aboutVenue'] ?? first['about_venue'],
         'bookingPolicy': first['bookingPolicy'] ?? first['booking_policy'],
         'faq': first['faq'],
-        'owner_payment': first['owner_payment'] ?? first['ownerPayment'],
+        'owner_payment': mergedPayment,
+        'ownerPayment': mergedPayment,
         'owner_email': first['owner_email'] ?? first['ownerEmail'] ?? first['email'],
         'ownerEmail': first['owner_email'] ?? first['ownerEmail'] ?? first['email'],
-        'gcash_number': first['gcash_number'] ?? first['gcash'],
-        'paymaya_number': first['paymaya_number'] ?? first['paymaya'],
-        'bank_account': first['bank_account'],
-        'bank_account_name': first['bank_account_name'],
-        'qr_code_url': first['qr_code_url'] ?? first['payment_qr_url'] ?? first['qr_code'],
-        'payment_qr_url': first['qr_code_url'] ?? first['payment_qr_url'] ?? first['qr_code'],
+        'gcash_number': mergedPayment['gcash_number'] ?? mergedPayment['gcash'] ?? first['gcash_number'] ?? first['gcash'],
+        'paymaya_number': mergedPayment['paymaya_number'] ?? mergedPayment['paymaya'] ?? first['paymaya_number'] ?? first['paymaya'],
+        'bank_account': mergedPayment['bank_account'] ?? first['bank_account'],
+        'bank_account_name': mergedPayment['bank_account_name'] ?? first['bank_account_name'],
+        'qr_code_url': mergedPayment['qr_code_url'] ?? mergedPayment['payment_qr_url'] ?? mergedPayment['qr_code'] ?? first['qr_code_url'] ?? first['payment_qr_url'] ?? first['qr_code'],
+        'payment_qr_url': mergedPayment['payment_qr_url'] ?? mergedPayment['qr_code_url'] ?? mergedPayment['qr_code'] ?? first['payment_qr_url'] ?? first['qr_code_url'] ?? first['qr_code'],
       });
     });
 

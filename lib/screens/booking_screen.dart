@@ -2354,18 +2354,11 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
-    // 3. Check all services in _services
-    final targetOwner = _selectedService?.ownerEmail.toLowerCase().trim() ?? '';
-    final selectedName = _selectedService?.name.toLowerCase().trim() ?? '';
+    // 3. Check all services in _services for payment details fallback
     for (var service in _services) {
-      final matchesOwner = targetOwner.isNotEmpty && service.ownerEmail.toLowerCase().trim() == targetOwner;
-      final matchesName = selectedName.isNotEmpty && (service.name.toLowerCase().trim() == selectedName || service.name.toLowerCase().contains(selectedName) || selectedName.contains(service.name.toLowerCase()));
-      
-      if (matchesOwner || matchesName || _services.length == 1) {
-        if (service.ownerPayment != null) {
-          final found = checkMap(service.ownerPayment);
-          if (found != null) return found;
-        }
+      if (service.ownerPayment != null) {
+        final found = checkMap(service.ownerPayment);
+        if (found != null) return found;
       }
     }
 
