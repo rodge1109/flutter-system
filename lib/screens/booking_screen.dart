@@ -792,19 +792,41 @@ class _BookingScreenState extends State<BookingScreen> {
           bool slotIsNight = (nightStart > dayStart) 
               ? (hourNum >= slotNightStart || hourNum < dayStart) 
               : (hourNum >= slotNightStart && hourNum < dayStart);
+          DateTime targetDate = _selectedDate ?? DateTime.now();
+          bool isWeekday = targetDate.weekday >= DateTime.monday && targetDate.weekday <= DateTime.friday;
+          bool isWeekend = targetDate.weekday == DateTime.saturday || targetDate.weekday == DateTime.sunday;
 
-          final priceKey = slotIsNight
-              ? (vp['night_price'] ?? vp['nightPrice'] ?? vp['night_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate'])
-              : (vp['day_price'] ?? vp['dayPrice'] ?? vp['day_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate']);
-              
-          if (priceKey != null) {
-            String priceStr = priceKey.toString().replaceAll(RegExp(r'[^0-9.]'), '');
-            double? parsed = double.tryParse(priceStr);
-            if (parsed != null && parsed > 0) {
-              basePrice = parsed;
-              found = true;
-              break;
+          bool isDiscActive = vp['isDiscountActive'] == true || vp['is_discount_active'] == true || vp['isDiscountActive'] == 'true';
+          final discPriceRaw = vp['discountPrice'] ?? vp['discount_price'] ?? vp['promoPrice'] ?? vp['promo_price'];
+          final appTo = (vp['discountAppliesTo'] ?? vp['discount_applies_to'] ?? vp['discountDays'] ?? vp['discount_days'] ?? 'ALL').toString().toUpperCase();
+
+          bool appliesToSelectedDate = true;
+          if (appTo.contains('WEEKDAY')) {
+            appliesToSelectedDate = isWeekday;
+          } else if (appTo.contains('WEEKEND')) {
+            appliesToSelectedDate = isWeekend;
+          }
+
+          double? selectedPrice;
+          if (isDiscActive && appliesToSelectedDate && discPriceRaw != null) {
+            double? dp = double.tryParse(discPriceRaw.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+            if (dp != null && dp > 0) selectedPrice = dp;
+          }
+
+          if (selectedPrice == null) {
+            final priceKey = slotIsNight
+                ? (vp['night_price'] ?? vp['nightPrice'] ?? vp['night_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate'])
+                : (vp['day_price'] ?? vp['dayPrice'] ?? vp['day_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate']);
+            if (priceKey != null) {
+              double? p = double.tryParse(priceKey.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+              if (p != null && p > 0) selectedPrice = p;
             }
+          }
+
+          if (selectedPrice != null && selectedPrice > 0) {
+            basePrice = selectedPrice;
+            found = true;
+            break;
           }
         }
       }
