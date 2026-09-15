@@ -731,18 +731,28 @@ class _BookingScreenState extends State<BookingScreen> {
     final s = matchedService ?? _selectedService;
     if (s == null) return '';
 
-    // Use actual court configured price or base price (default 350)
-    double courtPrice = 0.0;
-    if (s.price.isNotEmpty) {
-      double? parsedP = double.tryParse(s.price.replaceAll(RegExp(r'[^0-9.]'), ''));
-      if (parsedP != null && parsedP > 0) courtPrice = parsedP;
+    int hourNum = _parseHourFromTimeString(time);
+    int dayStart = s.dayStartHour ?? 6;
+    int nightStart = s.nightStartHour ?? 18;
+    bool isNight = (hourNum >= nightStart || hourNum < dayStart);
+
+    // Default rate rule: Day rate = 300, Night rate = 350
+    double defaultRate = isNight ? 350.0 : 300.0;
+    double courtPrice = defaultRate;
+
+    // Check if court has custom price or basePrice configured
+    if (isNight) {
+      if (s.basePrice != null && s.basePrice!.isNotEmpty) {
+        double? parsedBp = double.tryParse(s.basePrice!.replaceAll(RegExp(r'[^0-9.]'), ''));
+        if (parsedBp != null && parsedBp > 0) courtPrice = parsedBp;
+      }
+    } else {
+      if (s.price.isNotEmpty) {
+        double? parsedP = double.tryParse(s.price.replaceAll(RegExp(r'[^0-9.]'), ''));
+        if (parsedP != null && parsedP > 0) courtPrice = parsedP;
+      }
     }
-    if (courtPrice <= 0 && s.basePrice != null && s.basePrice!.isNotEmpty) {
-      double? parsedBp = double.tryParse(s.basePrice!.replaceAll(RegExp(r'[^0-9.]'), ''));
-      if (parsedBp != null && parsedBp > 0) courtPrice = parsedBp;
-    }
-    if (courtPrice <= 0) courtPrice = 350.0;
-    double basePrice = courtPrice; courtPrice;
+    double basePrice = courtPrice;
     
     List<dynamic>? vPrices = s.variablePrices;
     if (vPrices == null && s.hourlyPrices != null) {
@@ -757,7 +767,6 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     final targetNormalized = _normalizeTime(time);
-    int hourNum = _parseHourFromTimeString(time);
 
     if (vPrices != null && vPrices.isNotEmpty) {
       bool found = false;
@@ -772,22 +781,13 @@ class _BookingScreenState extends State<BookingScreen> {
             (vpHourInt != null && vpHourInt == hourNum);
             
         if (isMatched) {
-          final price = vp['price'] ?? vp['standardPrice'] ?? vp['standard_price'] ?? vp['rate'] ?? vp['amount'];
-          if (price != null) {
-            String priceStr = price.toString().replaceAll(RegExp(r'[^0-9.]'), '');
+          final priceKey = isNight
+              ? (vp['night_price'] ?? vp['nightPrice'] ?? vp['night_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate'])
+              : (vp['day_price'] ?? vp['dayPrice'] ?? vp['day_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate']);
+              
+          if (priceKey != null) {
+            String priceStr = priceKey.toString().replaceAll(RegExp(r'[^0-9.]'), '');
             double? parsed = double.tryParse(priceStr);
-            if (parsed != null && parsed > 0) {
-              basePrice = parsed;
-              found = true;
-              break;
-            }
-          }
-        }
-
-        if (!found && s.nightStartHour != null && hourNum >= s.nightStartHour!) {
-          final nightP = vp['night_price'] ?? vp['nightPrice'] ?? vp['night_rate'] ?? vp['peak_price'];
-          if (nightP != null) {
-            double? parsed = double.tryParse(nightP.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
             if (parsed != null && parsed > 0) {
               basePrice = parsed;
               found = true;
