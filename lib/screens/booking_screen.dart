@@ -832,8 +832,12 @@ class _BookingScreenState extends State<BookingScreen> {
     return basePrice > 0 ? 'PHP ${basePrice.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}' : s.price;
   }
 
-  int _parseHourFromTimeString(String time) {
-    String clean = time.trim().toUpperCase();
+  int _parseHourFromTimeString(String timeStr) {
+    String time = timeStr.trim();
+    if (time.contains('-')) time = time.split('-')[0].trim();
+    if (time.contains('—')) time = time.split('—')[0].trim();
+
+    String clean = time.toUpperCase();
     bool isPm = clean.contains('PM');
     bool isAm = clean.contains('AM');
     clean = clean.replaceAll('AM', '').replaceAll('PM', '').trim();
@@ -852,6 +856,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
   String _normalizeTime(String t) {
     String clean = t.trim();
+    if (clean.contains('-')) clean = clean.split('-')[0].trim();
+    if (clean.contains('—')) clean = clean.split('—')[0].trim();
+
     if (clean.toUpperCase().contains('AM') || clean.toUpperCase().contains('PM')) {
       if (clean.startsWith('0')) clean = clean.substring(1);
       return clean.toUpperCase();

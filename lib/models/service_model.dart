@@ -2,8 +2,11 @@ import 'dart:convert';
 
 int parseHourValue(dynamic val, int fallback) {
   if (val == null) return fallback;
-  final str = val.toString().trim();
+  String str = val.toString().trim();
   if (str.isEmpty || str == 'null') return fallback;
+
+  if (str.contains('-')) str = str.split('-')[0].trim();
+  if (str.contains('—')) str = str.split('—')[0].trim();
 
   final directInt = int.tryParse(str);
   if (directInt != null && directInt >= 0 && directInt <= 23) {
