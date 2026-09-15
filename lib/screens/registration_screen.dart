@@ -107,6 +107,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context, true);
+        return;
+      }
       if (result['user'] != null && result['user']['role'] == 'court_owner') {
         Navigator.pushReplacement(
           context,

@@ -179,6 +179,11 @@ class _LoginScreenState extends State<LoginScreen> {
       // Initialize Push Notifications
       FcmService().init(_emailController.text.trim());
 
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context, true);
+        return;
+      }
+
       if (result['user'] != null && result['user']['role'] == 'court_owner') {
         Navigator.pushReplacement(
           context,
