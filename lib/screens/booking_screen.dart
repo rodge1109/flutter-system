@@ -734,24 +734,34 @@ class _BookingScreenState extends State<BookingScreen> {
     int hourNum = _parseHourFromTimeString(time);
     int dayStart = s.dayStartHour ?? 6;
     int nightStart = s.nightStartHour ?? 18;
-    bool isNight = (hourNum >= nightStart || hourNum < dayStart);
-
-    // Default rate rule: Day rate = 300, Night rate = 350
-    double defaultRate = isNight ? 350.0 : 300.0;
-    double courtPrice = defaultRate;
-
-    // Check if court has custom price or basePrice configured
-    if (isNight) {
-      if (s.basePrice != null && s.basePrice!.isNotEmpty) {
-        double? parsedBp = double.tryParse(s.basePrice!.replaceAll(RegExp(r'[^0-9.]'), ''));
-        if (parsedBp != null && parsedBp > 0) courtPrice = parsedBp;
-      }
+    bool isNight = false;
+    if (nightStart > dayStart) {
+      isNight = (hourNum >= nightStart || hourNum < dayStart);
     } else {
-      if (s.price.isNotEmpty) {
-        double? parsedP = double.tryParse(s.price.replaceAll(RegExp(r'[^0-9.]'), ''));
-        if (parsedP != null && parsedP > 0) courtPrice = parsedP;
-      }
+      isNight = (hourNum >= nightStart && hourNum < dayStart);
     }
+
+    // Determine court day rate (e.g. 200 for Aminova, 300 for Red Goose)
+    double courtDayRate = 200.0;
+    if (s.dayPrice != null && s.dayPrice!.isNotEmpty) {
+      double? p = double.tryParse(s.dayPrice!.replaceAll(RegExp(r'[^0-9.]'), ''));
+      if (p != null && p > 0) courtDayRate = p;
+    } else if (s.price.isNotEmpty) {
+      double? p = double.tryParse(s.price.replaceAll(RegExp(r'[^0-9.]'), ''));
+      if (p != null && p > 0) courtDayRate = p;
+    }
+
+    // Determine court night rate (e.g. 300 for Aminova, 350 for Red Goose)
+    double courtNightRate = courtDayRate >= 300.0 ? 350.0 : 300.0;
+    if (s.nightPrice != null && s.nightPrice!.isNotEmpty) {
+      double? p = double.tryParse(s.nightPrice!.replaceAll(RegExp(r'[^0-9.]'), ''));
+      if (p != null && p > 0) courtNightRate = p;
+    } else if (s.basePrice != null && s.basePrice!.isNotEmpty) {
+      double? bp = double.tryParse(s.basePrice!.replaceAll(RegExp(r'[^0-9.]'), ''));
+      if (bp != null && bp > 0) courtNightRate = bp;
+    }
+
+    double courtPrice = isNight ? courtNightRate : courtDayRate;
     double basePrice = courtPrice;
     
     List<dynamic>? vPrices = s.variablePrices;

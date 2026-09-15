@@ -55,6 +55,8 @@ class ServiceModel {
   final int? dayStartHour;
   final int? nightStartHour;
   final String? venueName;
+  final String? dayPrice;
+  final String? nightPrice;
 
   ServiceModel({
     required this.id,
@@ -82,6 +84,8 @@ class ServiceModel {
     this.dayStartHour,
     this.nightStartHour,
     this.venueName,
+    this.dayPrice,
+    this.nightPrice,
   });
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
@@ -240,6 +244,8 @@ class ServiceModel {
       dayStartHour: parsedDayStart,
       nightStartHour: parsedNightStart,
       venueName: parsedVenueName,
+      dayPrice: json['day_price']?.toString() ?? json['dayPrice']?.toString() ?? json['day_rate']?.toString() ?? json['dayRate']?.toString() ?? json['price']?.toString(),
+      nightPrice: json['night_price']?.toString() ?? json['nightPrice']?.toString() ?? json['night_rate']?.toString() ?? json['nightRate']?.toString() ?? json['base_price']?.toString() ?? json['basePrice']?.toString(),
     );
   }
 }
