@@ -296,8 +296,8 @@ class _BookingScreenState extends State<BookingScreen> {
           aboutVenue: c['about_venue'] ?? c['aboutVenue'] ?? widget.venue!['aboutVenue'],
           bookingPolicy: c['booking_policy'] ?? c['bookingPolicy'] ?? widget.venue!['bookingPolicy'],
           faq: c['faq'] ?? widget.venue!['faq'],
-          dayStartHour: c['day_start_hour'] ?? c['dayStartHour'] ?? widget.venue!['day_start_hour'] ?? widget.venue!['dayStartHour'],
-          nightStartHour: c['night_start_hour'] ?? c['nightStartHour'] ?? widget.venue!['night_start_hour'] ?? widget.venue!['nightStartHour'],
+          dayStartHour: parseHourValue(c['day_start_hour'] ?? c['dayStartHour'] ?? c['day_start'] ?? widget.venue!['day_start_hour'] ?? widget.venue!['dayStartHour'] ?? widget.venue!['day_start'], 6),
+          nightStartHour: parseHourValue(c['night_start_hour'] ?? c['nightStartHour'] ?? c['night_start'] ?? widget.venue!['night_start_hour'] ?? widget.venue!['nightStartHour'] ?? widget.venue!['night_start'], 18),
           facilities: courtFac,
         );
       }).toList();

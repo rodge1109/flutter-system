@@ -1905,13 +1905,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String dayRate = baseFallback;
     String nightRate = baseFallback;
 
-    int dayStart = court['day_start_hour'] != null 
-        ? (int.tryParse(court['day_start_hour'].toString()) ?? 6)
-        : (court['dayStartHour'] != null ? (int.tryParse(court['dayStartHour'].toString()) ?? 6) : 6);
-
-    int nightStart = court['night_start_hour'] != null 
-        ? (int.tryParse(court['night_start_hour'].toString()) ?? 18)
-        : (court['nightStartHour'] != null ? (int.tryParse(court['nightStartHour'].toString()) ?? 18) : 18);
+    int dayStart = parseHourValue(court['day_start_hour'] ?? court['dayStartHour'] ?? court['day_start'], 6);
+    int nightStart = parseHourValue(court['night_start_hour'] ?? court['nightStartHour'] ?? court['night_start'], 18);
 
     if (court['day_rate'] != null) dayRate = court['day_rate'].toString();
     else if (court['dayRate'] != null) dayRate = court['dayRate'].toString();
@@ -3372,12 +3367,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String? nightPriceText;
     if (court['variable_prices'] != null && court['variable_prices'] is List && (court['variable_prices'] as List).isNotEmpty) {
       final vp = court['variable_prices'] as List;
-      int dayStart = court['day_start_hour'] != null 
-          ? (int.tryParse(court['day_start_hour'].toString()) ?? 6)
-          : (court['dayStartHour'] != null ? (int.tryParse(court['dayStartHour'].toString()) ?? 6) : 6);
-      int nightStart = court['night_start_hour'] != null 
-          ? (int.tryParse(court['night_start_hour'].toString()) ?? 18)
-          : (court['nightStartHour'] != null ? (int.tryParse(court['nightStartHour'].toString()) ?? 18) : 18);
+      int dayStart = parseHourValue(court['day_start_hour'] ?? court['dayStartHour'] ?? court['day_start'], 6);
+      int nightStart = parseHourValue(court['night_start_hour'] ?? court['nightStartHour'] ?? court['night_start'], 18);
       String dayTimeStr = '${dayStart.toString().padLeft(2, '0')}:00';
       String nightTimeStr = '${nightStart.toString().padLeft(2, '0')}:00';
 

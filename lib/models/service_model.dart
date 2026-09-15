@@ -1,5 +1,34 @@
 import 'dart:convert';
 
+int parseHourValue(dynamic val, int fallback) {
+  if (val == null) return fallback;
+  final str = val.toString().trim();
+  if (str.isEmpty || str == 'null') return fallback;
+
+  final directInt = int.tryParse(str);
+  if (directInt != null && directInt >= 0 && directInt <= 23) {
+    return directInt;
+  }
+
+  String clean = str.toUpperCase();
+  bool isPm = clean.contains('PM');
+  bool isAm = clean.contains('AM');
+  clean = clean.replaceAll('AM', '').replaceAll('PM', '').trim();
+
+  if (clean.contains(':')) {
+    final parts = clean.split(':');
+    int h = int.tryParse(parts[0]) ?? fallback;
+    if (isPm && h < 12) h += 12;
+    if (isAm && h == 12) h = 0;
+    return h;
+  } else {
+    int h = int.tryParse(clean) ?? fallback;
+    if (isPm && h < 12) h += 12;
+    if (isAm && h == 12) h = 0;
+    return h;
+  }
+}
+
 class ServiceModel {
   final int id;
   final String name;
@@ -71,13 +100,24 @@ class ServiceModel {
       }
     }
 
-    final int parsedDayStart = json['day_start_hour'] != null 
-        ? (int.tryParse(json['day_start_hour'].toString()) ?? 6)
-        : (json['dayStartHour'] != null ? (int.tryParse(json['dayStartHour'].toString()) ?? 6) : 6);
+    dynamic rawDayStart = json['day_start_hour'] ?? 
+        json['dayStartHour'] ?? 
+        json['day_start'] ?? 
+        json['day_hour'] ?? 
+        json['day_time'] ?? 
+        (json['owner_payment'] is Map ? json['owner_payment']['day_start_hour'] ?? json['owner_payment']['day_start'] : null);
 
-    final int parsedNightStart = json['night_start_hour'] != null 
-        ? (int.tryParse(json['night_start_hour'].toString()) ?? 18)
-        : (json['nightStartHour'] != null ? (int.tryParse(json['nightStartHour'].toString()) ?? 18) : 18);
+    final int parsedDayStart = parseHourValue(rawDayStart, 6);
+
+    dynamic rawNightStart = json['night_start_hour'] ?? 
+        json['nightStartHour'] ?? 
+        json['night_start'] ?? 
+        json['night_hour'] ?? 
+        json['night_time'] ?? 
+        json['peak_start_hour'] ?? 
+        (json['owner_payment'] is Map ? json['owner_payment']['night_start_hour'] ?? json['owner_payment']['night_start'] : null);
+
+    final int parsedNightStart = parseHourValue(rawNightStart, 18);
 
     final String parsedOwnerEmail = json['owner_email']?.toString() ?? 
         json['ownerEmail']?.toString() ?? 
