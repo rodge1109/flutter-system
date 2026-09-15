@@ -346,28 +346,22 @@ class _BookingScreenState extends State<BookingScreen> {
           _expandedCourtIds = _services.length > 1 ? {} : {_selectedService!.id};
         } else if (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty) {
           final matchName = widget.initialServiceName!.toLowerCase().trim();
-          final match = _services.firstWhere(
-            (s) => s.name.toLowerCase().trim() == matchName ||
-                   s.name.toLowerCase().contains(matchName) ||
-                   matchName.contains(s.name.toLowerCase()),
-            orElse: () => _services.isNotEmpty ? _services.first : ServiceModel(
-              id: 999,
-              name: widget.initialServiceName!,
-              description: 'Enjoy a fun and active game on our well-maintained pickleball court, perfect for players of all skill levels.',
-              price: 'PHP 350',
-              icon: '🎾',
-              duration: '30M',
-              category: 'pickle',
-              isActive: true,
-            ),
-          );
-          _selectedService = match;
-          _selectedServiceIds = {match.id};
-          _expandedCourtIds = _services.length > 1 ? {} : {match.id};
+          final venueMatches = _services.where((s) {
+            final vName = (s.venueName ?? '').toLowerCase().trim();
+            final sName = s.name.toLowerCase().trim();
+            return (vName.isNotEmpty && (vName == matchName || vName.contains(matchName) || matchName.contains(vName))) ||
+                   sName.contains(matchName) || matchName.contains(sName);
+          }).toList();
 
-          if (_services.contains(match)) {
-            _services.remove(match);
-            _services.insert(0, match);
+          if (venueMatches.isNotEmpty) {
+            _services = venueMatches;
+            _selectedService = venueMatches.first;
+            _selectedServiceIds = {venueMatches.first.id};
+            _expandedCourtIds = venueMatches.length > 1 ? {} : {venueMatches.first.id};
+          } else {
+            _selectedService = _services.first;
+            _selectedServiceIds = {_services.first.id};
+            _expandedCourtIds = _services.length > 1 ? {} : {_services.first.id};
           }
         } else if (_services.isNotEmpty) {
           _selectedService = _services.first;

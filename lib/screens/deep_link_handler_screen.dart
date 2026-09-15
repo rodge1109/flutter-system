@@ -64,6 +64,17 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
               'about_venue': s['about_venue'] ?? s['aboutVenue'] ?? '',
               'booking_policy': s['booking_policy'] ?? s['bookingPolicy'] ?? '',
               'faq': s['faq'] ?? '',
+              'variable_prices': s['variable_prices'] ?? s['variablePrices'] ?? s['hourly_prices'] ?? s['hourlyPrices'],
+              'hourly_prices': s['hourly_prices'] ?? s['hourlyPrices'] ?? s['variable_prices'] ?? s['variablePrices'],
+              'day_start_hour': s['day_start_hour'] ?? s['dayStartHour'],
+              'night_start_hour': s['night_start_hour'] ?? s['nightStartHour'],
+              'day_price': s['day_price'] ?? s['dayPrice'] ?? s['day_rate'] ?? s['dayRate'],
+              'night_price': s['night_price'] ?? s['nightPrice'] ?? s['night_rate'] ?? s['nightRate'],
+              'base_price': s['base_price'] ?? s['basePrice'],
+              'owner_payment': s['owner_payment'] ?? s['ownerPayment'],
+              'gcash_number': s['gcash_number'] ?? s['gcash'],
+              'paymaya_number': s['paymaya_number'] ?? s['paymaya'],
+              'qr_code_url': s['qr_code_url'] ?? s['payment_qr_url'] ?? s['qr_code'],
             };
         }).toList();
 
@@ -106,6 +117,18 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
             if (vTitle.isEmpty) vTitle = first['address'] ?? 'Sports Venue';
           }
 
+          Map<String, dynamic> mergedPayment = {};
+          for (var c in courtList) {
+            if (c['owner_payment'] is Map) {
+              mergedPayment.addAll(Map<String, dynamic>.from(c['owner_payment']));
+            }
+            for (var k in ['gcash_number', 'gcash', 'paymaya_number', 'maya_number', 'paymaya', 'maya', 'bank_account', 'bank_account_name', 'bank_name', 'payment_instructions', 'instructions', 'qr_code_url', 'payment_qr_url', 'qr_code']) {
+              if (c[k] != null && c[k].toString().trim().isNotEmpty && c[k].toString().trim() != 'null') {
+                mergedPayment[k] = c[k];
+              }
+            }
+          }
+
           venueList.add({
             'venueKey': key,
             'venueName': vTitle.toUpperCase(),
@@ -114,7 +137,7 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
             'logo_url': first['logo_url'] ?? first['logo'],
             'rating': first['rating'] ?? '4.8',
             'distance': first['distance'] ?? '2.0 km away',
-            'basePrice': '300',
+            'basePrice': first['price'] ?? '300',
             'sports': ['Pickleball'],
             'courts': courtList,
             'latitude': first['latitude'],
@@ -122,6 +145,13 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
             'aboutVenue': first['aboutVenue'] ?? first['about_venue'],
             'bookingPolicy': first['bookingPolicy'] ?? first['booking_policy'],
             'faq': first['faq'],
+            'day_start_hour': first['day_start_hour'] ?? first['dayStartHour'],
+            'night_start_hour': first['night_start_hour'] ?? first['nightStartHour'],
+            'owner_payment': mergedPayment,
+            'ownerPayment': mergedPayment,
+            'gcash_number': mergedPayment['gcash_number'] ?? first['gcash_number'],
+            'paymaya_number': mergedPayment['paymaya_number'] ?? first['paymaya_number'],
+            'qr_code_url': mergedPayment['qr_code_url'] ?? first['qr_code_url'],
           });
         });
 
