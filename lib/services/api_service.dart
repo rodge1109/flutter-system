@@ -116,7 +116,7 @@ class ApiService {
       }
 
       final response = await http.post(
-        Uri.parse('$baseUrl/appointments/hold'),
+        Uri.parse('$baseUrl/appointments/hold-v2-secure'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'preferredDate': dateStr,
