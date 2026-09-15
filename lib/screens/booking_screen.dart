@@ -15,6 +15,7 @@ import '../widgets/loyalty_stamp_card_widget.dart';
 import '../services/api_service.dart';
 import 'booking_confirmation_screen.dart';
 import 'login_screen.dart';
+import 'registration_screen.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../utils/download_helper_stub.dart' if (dart.library.html) '../utils/download_helper_web.dart';
@@ -182,24 +183,160 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
+  bool _isLoggedIn = false;
+
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
-    if (userStr != null) {
-      final userObj = json.decode(userStr);
-      setState(() {
-        _nameController.text = userObj['full_name'] ?? '';
-        _emailController.text = userObj['email'] ?? '';
-        _phoneController.text = userObj['phone_number'] ?? '';
-      });
-      _checkLoyaltyStatus();
+    if (userStr != null && userStr.isNotEmpty && userStr != 'null') {
+      try {
+        final userObj = json.decode(userStr);
+        if (mounted) {
+          setState(() {
+            _isLoggedIn = true;
+            _nameController.text = userObj['full_name'] ?? userObj['fullName'] ?? '';
+            _emailController.text = userObj['email'] ?? '';
+            _phoneController.text = userObj['phone_number'] ?? userObj['phoneNumber'] ?? userObj['phone'] ?? '';
+          });
+        }
+        _checkLoyaltyStatus();
+      } catch (e) {
+        debugPrint('Error loading user data: $e');
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+        });
+      }
     }
     
     // Load Open Play defaults
-    setState(() {
-      _openPlayInstructionsController.text = prefs.getString('open_play_instructions_default') ?? '';
-      _openPlayPaymentDetailsController.text = prefs.getString('open_play_payment_details_default') ?? '';
-    });
+    if (mounted) {
+      setState(() {
+        _openPlayInstructionsController.text = prefs.getString('open_play_instructions_default') ?? '';
+        _openPlayPaymentDetailsController.text = prefs.getString('open_play_payment_details_default') ?? '';
+      });
+    }
+  }
+
+  Future<bool> _ensureUserLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    if (userStr != null && userStr.isNotEmpty && userStr != 'null') {
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = true;
+        });
+      }
+      return true;
+    }
+
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.shield_outlined, size: 40, color: AppColors.primaryGreen),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Account Required to Book',
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.richBlack,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'To protect court availability and prevent fake bookings, please log in or create an account to lock in your reservation.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.login, color: Colors.white, size: 20),
+                label: Text(
+                  'Log In to Account',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+                  await _loadUserData();
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                icon: Icon(Icons.person_add_outlined, color: AppColors.primaryGreen, size: 20),
+                label: Text(
+                  'Create New Account',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primaryGreen),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppColors.primaryGreen, width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => RegistrationScreen()));
+                  await _loadUserData();
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    await _loadUserData();
+    return _isLoggedIn;
   }
 
   Future<void> _loadServices() async {
@@ -450,6 +587,11 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
 
+    if (!_isLoggedIn) {
+      final loggedIn = await _ensureUserLoggedIn();
+      if (!loggedIn) return;
+    }
+
     setState(() => _isLoading = true);
 
     final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
@@ -551,7 +693,23 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _submitBooking() async {
-    if (_selectedDate == null || _selectedTimes.isEmpty || _nameController.text.isEmpty) {
+    if (_selectedDate == null || _selectedTimes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please select a date and time slot first'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!_isLoggedIn) {
+      final loggedIn = await _ensureUserLoggedIn();
+      if (!loggedIn) return;
+    }
+
+    if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Please fill all required fields'),
@@ -936,18 +1094,28 @@ class _BookingScreenState extends State<BookingScreen> {
       ),
     );
   }
-  void _handleStepContinue(bool skipChooseService) {
+  void _handleStepContinue(bool skipChooseService) async {
     if (_currentStep == 0 && (_selectedDate == null || _selectedTimes.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Select at least one time slot')));
       return;
     }
     if (_currentStep == 0 && _holdToken == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please click "Lock in this time" before proceeding.')));
+      if (!_isLoggedIn) {
+        final loggedIn = await _ensureUserLoggedIn();
+        if (!loggedIn) return;
+      }
+      _holdSelectedSlots();
       return;
     }
-    if (_currentStep == 1 && (_nameController.text.isEmpty || _phoneController.text.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill your details')));
-      return;
+    if (_currentStep == 1) {
+      if (!_isLoggedIn) {
+        final loggedIn = await _ensureUserLoggedIn();
+        if (!loggedIn) return;
+      }
+      if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill your details')));
+        return;
+      }
     }
     if (_currentStep == 2 && _referenceNumberController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter your reference number to continue')));
@@ -957,6 +1125,10 @@ class _BookingScreenState extends State<BookingScreen> {
     if (_currentStep < 3) {
       setState(() => _currentStep += 1);
     } else {
+      if (!_isLoggedIn) {
+        final loggedIn = await _ensureUserLoggedIn();
+        if (!loggedIn) return;
+      }
       _submitBooking();
     }
   }
@@ -2066,61 +2238,99 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Widget _buildUserDetails() {
-    bool isGuest = _emailController.text.isEmpty;
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (isGuest) ...[
+          if (!_isLoggedIn) ...[
             Container(
-              margin: EdgeInsets.only(bottom: 16),
-              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.shield_outlined, color: Colors.amber.shade900, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Account Required to Book',
+                          style: GoogleFonts.outfit(fontSize: 13, color: Colors.amber.shade900, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Please log in or create an account to lock in court slots and proceed to payment.',
+                          style: GoogleFonts.outfit(fontSize: 12, color: Colors.amber.shade900, height: 1.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _ensureUserLoggedIn(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text('Log In', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: AppColors.primaryGreen.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Icon(Icons.verified_user, color: AppColors.primaryGreen, size: 20),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Already a member? Log in to auto-fill details & unlock VIP rates.',
-                      style: GoogleFonts.outfit(fontSize: 12, color: AppColors.primaryGreen, fontWeight: FontWeight.w600),
+                      'Verified Account: ${_nameController.text} (${_emailController.text})',
+                      style: GoogleFonts.outfit(fontSize: 12, color: AppColors.primaryGreen, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      await Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen()));
-                      _loadUserData();
-                    },
-                    child: Text('Log In', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
                   ),
                 ],
               ),
             ),
           ],
-          _buildTextField(_nameController, 'Full Name', Icons.person_outline),
-          SizedBox(height: 16),
-          _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined, isPhone: true),
-          SizedBox(height: 16),
-          _buildTextField(_emailController, 'Email Address', Icons.email_outlined, isEmail: true),
+          _buildTextField(_nameController, 'Full Name', Icons.person_outline, readOnly: _isLoggedIn),
+          const SizedBox(height: 16),
+          _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined, isPhone: true, readOnly: _isLoggedIn),
+          const SizedBox(height: 16),
+          _buildTextField(_emailController, 'Email Address', Icons.email_outlined, isEmail: true, readOnly: _isLoggedIn),
         ],
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isPhone = false, bool isEmail = false}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool isPhone = false, bool isEmail = false, bool readOnly = false}) {
     return TextField(
       controller: controller,
+      readOnly: readOnly,
       keyboardType: isPhone ? TextInputType.phone : (isEmail ? TextInputType.emailAddress : TextInputType.text),
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.grey.shade600),
+        suffixIcon: readOnly ? Icon(Icons.lock_outline, size: 16, color: Colors.grey.shade400) : null,
         filled: true,
-        fillColor: AppColors.softWhite,
+        fillColor: readOnly ? Colors.grey.shade100 : AppColors.softWhite,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey.shade300),
