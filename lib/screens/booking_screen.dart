@@ -730,18 +730,19 @@ class _BookingScreenState extends State<BookingScreen> {
 
     final s = matchedService ?? _selectedService;
     if (s == null) return '';
-    
-    // Use actual court configured base price or price
-    double courtPrice = 300.0;
-    if (s.basePrice != null && s.basePrice!.isNotEmpty) {
-      double? parsedBp = double.tryParse(s.basePrice!.replaceAll(RegExp(r'[^0-9.]'), ''));
-      if (parsedBp != null && parsedBp > 0) courtPrice = parsedBp;
-    }
-    if (courtPrice == 300.0 && s.price.isNotEmpty) {
+
+    // Use actual court configured price or base price (default 350)
+    double courtPrice = 0.0;
+    if (s.price.isNotEmpty) {
       double? parsedP = double.tryParse(s.price.replaceAll(RegExp(r'[^0-9.]'), ''));
       if (parsedP != null && parsedP > 0) courtPrice = parsedP;
     }
-    double basePrice = courtPrice;
+    if (courtPrice <= 0 && s.basePrice != null && s.basePrice!.isNotEmpty) {
+      double? parsedBp = double.tryParse(s.basePrice!.replaceAll(RegExp(r'[^0-9.]'), ''));
+      if (parsedBp != null && parsedBp > 0) courtPrice = parsedBp;
+    }
+    if (courtPrice <= 0) courtPrice = 350.0;
+    double basePrice = courtPrice; courtPrice;
     
     List<dynamic>? vPrices = s.variablePrices;
     if (vPrices == null && s.hourlyPrices != null) {
