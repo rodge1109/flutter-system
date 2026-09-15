@@ -99,6 +99,22 @@ class ApiService {
     required String email,
   }) async {
     try {
+      String userEmail = email.trim();
+      final prefs = await SharedPreferences.getInstance();
+      final userStr = prefs.getString('user');
+      
+      if (userEmail.isEmpty && userStr != null && userStr.isNotEmpty && userStr != 'null') {
+        try {
+          final uObj = json.decode(userStr);
+          userEmail = (uObj['email'] ?? '').toString().trim();
+        } catch (_) {}
+      }
+
+      if (userEmail.isEmpty) {
+        print('holdSlots aborted: User is not authenticated');
+        return null;
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/appointments/hold'),
         headers: {'Content-Type': 'application/json'},
@@ -106,7 +122,7 @@ class ApiService {
           'preferredDate': dateStr,
           'preferredTimes': times,
           'serviceType': serviceType,
-          'email': email,
+          'email': userEmail,
         }),
       );
       if (response.statusCode == 200) {
