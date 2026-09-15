@@ -41,6 +41,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   
   bool _enableDayDiscount = false;
   bool _enableNightDiscount = false;
+  String _dayDiscountAppliesTo = 'ALL';
+  String _nightDiscountAppliesTo = 'ALL';
 
   int _dayStartHour = 6;
   int _nightStartHour = 18;
@@ -163,9 +165,11 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       
       _enableDayDiscount = widget.court!['is_day_discount_active'] == true || widget.court!['is_day_discount_active'] == 'true' || widget.court!['is_day_discount_active'] == 1;
       _dayDiscountCtrl.text = widget.court!['day_discount_rate']?.toString() ?? '';
+      _dayDiscountAppliesTo = (widget.court!['day_discount_applies_to'] ?? widget.court!['dayDiscountAppliesTo'] ?? 'ALL').toString();
       
       _enableNightDiscount = widget.court!['is_night_discount_active'] == true || widget.court!['is_night_discount_active'] == 'true' || widget.court!['is_night_discount_active'] == 1;
       _nightDiscountCtrl.text = widget.court!['night_discount_rate']?.toString() ?? '';
+      _nightDiscountAppliesTo = (widget.court!['night_discount_applies_to'] ?? widget.court!['nightDiscountAppliesTo'] ?? 'ALL').toString();
 
       final rawImages = widget.court!['images'] ?? widget.court!['photos'] ?? [];
       List<dynamic> parsedImages = [];
@@ -414,12 +418,18 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       final effectivePrice = isDay ? effectiveDayRate : effectiveNightRate;
       final timeString = '${i.toString().padLeft(2, '0')}:00';
       
+      final appliesTo = isDay ? _dayDiscountAppliesTo : _nightDiscountAppliesTo;
+
       hourlyPrices.add({
         'time': timeString,
         'price': effectivePrice,
         'standardPrice': standard,
         'discountPrice': discount,
         'isDiscountActive': isActive,
+        'discountAppliesTo': appliesTo,
+        'discount_applies_to': appliesTo,
+        'discountDays': appliesTo,
+        'discount_days': appliesTo,
         'dayStartHour': _dayStartHour,
         'day_start_hour': _dayStartHour,
         'nightStartHour': _nightStartHour,
@@ -480,6 +490,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'day_discount_rate': dayDiscount,
       'isDayDiscountActive': isDayDiscountActive,
       'is_day_discount_active': isDayDiscountActive,
+      'dayDiscountAppliesTo': _dayDiscountAppliesTo,
+      'day_discount_applies_to': _dayDiscountAppliesTo,
       'nightRate': nightStandard,
       'night_rate': nightStandard,
       'night_price': nightStandard,
@@ -487,6 +499,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'night_discount_rate': nightDiscount,
       'isNightDiscountActive': isNightDiscountActive,
       'is_night_discount_active': isNightDiscountActive,
+      'nightDiscountAppliesTo': _nightDiscountAppliesTo,
+      'night_discount_applies_to': _nightDiscountAppliesTo,
       'dayStartHour': _dayStartHour,
       'day_start_hour': _dayStartHour,
       'day_start': _dayStartHour,
@@ -864,11 +878,32 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                               ],
                             ],
                           ),
-                          if (_enableDayDiscount)
+                          if (_enableDayDiscount) ...[
+                            SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              value: ['ALL', 'WEEKDAYS', 'WEEKENDS'].contains(_dayDiscountAppliesTo.toUpperCase()) ? _dayDiscountAppliesTo.toUpperCase() : 'ALL',
+                              decoration: InputDecoration(
+                                labelText: 'Applies Promo On',
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              items: [
+                                DropdownMenuItem(value: 'ALL', child: Text('All Days (Mon - Sun)', style: TextStyle(fontSize: 13))),
+                                DropdownMenuItem(value: 'WEEKDAYS', child: Text('Weekdays Only (Mon - Fri)', style: TextStyle(fontSize: 13))),
+                                DropdownMenuItem(value: 'WEEKENDS', child: Text('Weekends Only (Sat - Sun)', style: TextStyle(fontSize: 13))),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) setState(() => _dayDiscountAppliesTo = val);
+                              },
+                            ),
                             Padding(
                               padding: const EdgeInsets.only(top: 8.0),
-                              child: Text('PROMO ACTIVE: Players will book at the discounted day rate.', style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                              child: Text(
+                                'PROMO ACTIVE: Players will book at the discounted day rate on ${_dayDiscountAppliesTo == 'WEEKDAYS' ? 'Weekdays Only' : (_dayDiscountAppliesTo == 'WEEKENDS' ? 'Weekends Only' : 'All Days')}.',
+                                style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
                             ),
+                          ],
                         ],
                       ),
                     ),
@@ -918,11 +953,32 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                               ],
                             ],
                           ),
-                          if (_enableNightDiscount)
+                          if (_enableNightDiscount) ...[
+                            SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              value: ['ALL', 'WEEKDAYS', 'WEEKENDS'].contains(_nightDiscountAppliesTo.toUpperCase()) ? _nightDiscountAppliesTo.toUpperCase() : 'ALL',
+                              decoration: InputDecoration(
+                                labelText: 'Applies Promo On',
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              items: [
+                                DropdownMenuItem(value: 'ALL', child: Text('All Days (Mon - Sun)', style: TextStyle(fontSize: 13))),
+                                DropdownMenuItem(value: 'WEEKDAYS', child: Text('Weekdays Only (Mon - Fri)', style: TextStyle(fontSize: 13))),
+                                DropdownMenuItem(value: 'WEEKENDS', child: Text('Weekends Only (Sat - Sun)', style: TextStyle(fontSize: 13))),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) setState(() => _nightDiscountAppliesTo = val);
+                              },
+                            ),
                             Padding(
                               padding: const EdgeInsets.only(top: 8.0),
-                              child: Text('PROMO ACTIVE: Players will book at the discounted night rate.', style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                              child: Text(
+                                'PROMO ACTIVE: Players will book at the discounted night rate on ${_nightDiscountAppliesTo == 'WEEKDAYS' ? 'Weekdays Only' : (_nightDiscountAppliesTo == 'WEEKENDS' ? 'Weekends Only' : 'All Days')}.',
+                                style: TextStyle(color: AppColors.primaryGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
                             ),
+                          ],
                         ],
                       ),
                     ),
