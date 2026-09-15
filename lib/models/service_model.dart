@@ -111,6 +111,13 @@ class ServiceModel {
         json['day_time'] ?? 
         (json['owner_payment'] is Map ? json['owner_payment']['day_start_hour'] ?? json['owner_payment']['day_start'] : null);
 
+    if (rawDayStart == null && parsedVariablePrices != null && parsedVariablePrices.isNotEmpty) {
+      final firstVp = parsedVariablePrices.first;
+      if (firstVp is Map) {
+        rawDayStart = firstVp['day_start_hour'] ?? firstVp['dayStartHour'] ?? firstVp['day_start'];
+      }
+    }
+
     final int parsedDayStart = parseHourValue(rawDayStart, 6);
 
     dynamic rawNightStart = json['night_start_hour'] ?? 
@@ -120,6 +127,13 @@ class ServiceModel {
         json['night_time'] ?? 
         json['peak_start_hour'] ?? 
         (json['owner_payment'] is Map ? json['owner_payment']['night_start_hour'] ?? json['owner_payment']['night_start'] : null);
+
+    if (rawNightStart == null && parsedVariablePrices != null && parsedVariablePrices.isNotEmpty) {
+      final firstVp = parsedVariablePrices.first;
+      if (firstVp is Map) {
+        rawNightStart = firstVp['night_start_hour'] ?? firstVp['nightStartHour'] ?? firstVp['night_start'];
+      }
+    }
 
     final int parsedNightStart = parseHourValue(rawNightStart, 18);
 

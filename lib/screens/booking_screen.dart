@@ -784,14 +784,22 @@ class _BookingScreenState extends State<BookingScreen> {
         if (vp is! Map) continue;
         String? vpTime = vp['time']?.toString() ?? vp['slot']?.toString() ?? vp['time_slot']?.toString();
         String? vpHour = vp['hour']?.toString();
-        int? vpHourInt = vp['hour'] != null ? int.tryParse(vp['hour'].toString()) : null;
+        int? vpHourInt = vp['hour'] != null ? parseHourValue(vp['hour'], -1) : (vpTime != null ? _parseHourFromTimeString(vpTime) : null);
         
-        bool isMatched = (vpTime != null && _normalizeTime(vpTime) == targetNormalized) ||
-            (vpHour != null && _normalizeTime(vpHour) == targetNormalized) ||
-            (vpHourInt != null && vpHourInt == hourNum);
+        bool isMatched = (vpHourInt != null && vpHourInt >= 0 && vpHourInt == hourNum) ||
+            (vpTime != null && _normalizeTime(vpTime) == targetNormalized) ||
+            (vpHour != null && _normalizeTime(vpHour) == targetNormalized);
             
         if (isMatched) {
-          final priceKey = isNight
+          int slotNightStart = vp['night_start_hour'] != null 
+              ? parseHourValue(vp['night_start_hour'], nightStart) 
+              : (vp['nightStartHour'] != null ? parseHourValue(vp['nightStartHour'], nightStart) : nightStart);
+          
+          bool slotIsNight = (nightStart > dayStart) 
+              ? (hourNum >= slotNightStart || hourNum < dayStart) 
+              : (hourNum >= slotNightStart && hourNum < dayStart);
+
+          final priceKey = slotIsNight
               ? (vp['night_price'] ?? vp['nightPrice'] ?? vp['night_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate'])
               : (vp['day_price'] ?? vp['dayPrice'] ?? vp['day_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate']);
               
