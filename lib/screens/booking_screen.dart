@@ -981,12 +981,19 @@ class _BookingScreenState extends State<BookingScreen> {
               double? p = double.tryParse(vp['price'].toString().replaceAll(RegExp(r'[^0-9.]'), ''));
               if (p != null && p > 0) selectedPrice = p;
             }
+          } else {
+            // Promo does NOT apply to selected date (e.g. Weekend when promo is Weekdays Only)
+            final stdKey = vp['standardPrice'] ?? vp['standard_price'] ?? vp['standardRate'] ?? vp['standard_rate'];
+            if (stdKey != null) {
+              double? sp = double.tryParse(stdKey.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+              if (sp != null && sp > 0) selectedPrice = sp;
+            }
           }
 
           if (selectedPrice == null) {
             final priceKey = slotIsNight
-                ? (vp['night_price'] ?? vp['nightPrice'] ?? vp['night_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate'])
-                : (vp['day_price'] ?? vp['dayPrice'] ?? vp['day_rate'] ?? vp['price'] ?? vp['standardPrice'] ?? vp['rate']);
+                ? (vp['night_price'] ?? vp['nightPrice'] ?? vp['night_rate'] ?? vp['standardPrice'] ?? vp['price'] ?? vp['rate'])
+                : (vp['day_price'] ?? vp['dayPrice'] ?? vp['day_rate'] ?? vp['standardPrice'] ?? vp['price'] ?? vp['rate']);
             if (priceKey != null) {
               double? p = double.tryParse(priceKey.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
               if (p != null && p > 0) selectedPrice = p;
