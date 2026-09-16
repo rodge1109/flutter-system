@@ -116,7 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
-            mainAxisSize: MinAxisSize.min,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text('Upload Payment QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               SizedBox(height: 16),
