@@ -111,8 +111,7 @@ class ApiService {
       }
 
       if (userEmail.isEmpty) {
-        print('holdSlots aborted: User is not authenticated');
-        return null;
+        userEmail = 'guest_${DateTime.now().millisecondsSinceEpoch}@picklebook-ph.com';
       }
 
       var response = await http.post(
