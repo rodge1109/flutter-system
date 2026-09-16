@@ -78,7 +78,10 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/appointments'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Secret': 'pickle_v2_app_secret_key_88',
+        },
         body: json.encode(appointmentData),
       );
       
@@ -117,7 +120,10 @@ class ApiService {
 
       final response = await http.post(
         Uri.parse('$baseUrl/appointments/hold-v2-secure'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Secret': 'pickle_v2_app_secret_key_88',
+        },
         body: json.encode({
           'preferredDate': dateStr,
           'preferredTimes': times,
