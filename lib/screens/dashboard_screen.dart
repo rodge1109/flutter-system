@@ -1931,7 +1931,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (item is Map && item['time'] != null && (item['price'] != null || item['standardPrice'] != null)) {
           final String timeStr = item['time'].toString();
           final int hour = int.tryParse(timeStr.split(':')[0]) ?? -1;
-          final String priceVal = (item['standardPrice'] ?? item['price']).toString();
+          final String priceVal = (item['price'] ?? item['standardPrice']).toString();
           if (hour == dayStart) {
             dayRate = priceVal;
           } else if (hour == nightStart) {

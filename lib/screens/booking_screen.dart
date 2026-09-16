@@ -954,7 +954,13 @@ class _BookingScreenState extends State<BookingScreen> {
           bool isWeekday = targetDate.weekday >= DateTime.monday && targetDate.weekday <= DateTime.friday;
           bool isWeekend = targetDate.weekday == DateTime.saturday || targetDate.weekday == DateTime.sunday;
 
-          bool isDiscActive = vp['isDiscountActive'] == true || vp['is_discount_active'] == true || vp['isDiscountActive'] == 'true';
+          bool isDiscActive = vp['isDiscountActive'] == true || 
+              vp['is_discount_active'] == true || 
+              vp['isDiscountActive'] == 'true' ||
+              vp['is_discount_active'] == 'true' ||
+              vp['isDiscountActive'] == 1 ||
+              vp['is_discount_active'] == 1;
+
           final discPriceRaw = vp['discountPrice'] ?? vp['discount_price'] ?? vp['promoPrice'] ?? vp['promo_price'];
           final appTo = (vp['discountAppliesTo'] ?? vp['discount_applies_to'] ?? vp['discountDays'] ?? vp['discount_days'] ?? 'ALL').toString().toUpperCase();
 
@@ -966,9 +972,15 @@ class _BookingScreenState extends State<BookingScreen> {
           }
 
           double? selectedPrice;
-          if (isDiscActive && appliesToSelectedDate && discPriceRaw != null) {
-            double? dp = double.tryParse(discPriceRaw.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
-            if (dp != null && dp > 0) selectedPrice = dp;
+          if (isDiscActive && appliesToSelectedDate) {
+            if (discPriceRaw != null) {
+              double? dp = double.tryParse(discPriceRaw.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+              if (dp != null && dp > 0) selectedPrice = dp;
+            }
+            if (selectedPrice == null && vp['price'] != null) {
+              double? p = double.tryParse(vp['price'].toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+              if (p != null && p > 0) selectedPrice = p;
+            }
           }
 
           if (selectedPrice == null) {
