@@ -947,7 +947,7 @@ class _BookingScreenState extends State<BookingScreen> {
               ? parseHourValue(vp['night_start_hour'], nightStart) 
               : (vp['nightStartHour'] != null ? parseHourValue(vp['nightStartHour'], nightStart) : nightStart);
           
-          bool slotIsNight = (nightStart > dayStart) 
+          bool slotIsNight = (slotNightStart > dayStart) 
               ? (hourNum >= slotNightStart || hourNum < dayStart) 
               : (hourNum >= slotNightStart && hourNum < dayStart);
           DateTime targetDate = _selectedDate ?? DateTime.now();
@@ -1762,7 +1762,9 @@ class _BookingScreenState extends State<BookingScreen> {
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
                                             Icon(
-                                              time.toUpperCase().contains('AM') ? Icons.wb_sunny_outlined : Icons.nights_stay_outlined,
+                                              (slotHour >= (court.dayStartHour ?? 6) && slotHour < (court.nightStartHour ?? 18))
+                                                  ? Icons.wb_sunny_outlined 
+                                                  : Icons.nights_stay_outlined,
                                               size: 12,
                                               color: isSelected ? AppColors.softWhite : (isDisabled ? Colors.grey.shade400 : AppColors.deepTeal),
                                             ),

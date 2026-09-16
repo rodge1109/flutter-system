@@ -49,12 +49,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userObj = json.decode(userStr);
       _userId = userObj['id'];
       _isOwner = userObj['role'] == 'owner' || userObj['role'] == 'court_owner';
-      _nameController.text = userObj['full_name'] ?? '';
+      _nameController.text = userObj['full_name'] ?? userObj['name'] ?? '';
       _emailController.text = userObj['email'] ?? '';
-      _phoneController.text = userObj['phone'] ?? '';
+      _phoneController.text = userObj['phone'] ?? userObj['phone_number'] ?? userObj['phoneNumber'] ?? userObj['telephone'] ?? userObj['mobile'] ?? '';
       _addressController.text = userObj['address'] ?? '';
-      _gcashController.text = userObj['gcash_number'] ?? '';
-      _paymayaController.text = userObj['paymaya_number'] ?? userObj['maya_number'] ?? '';
+      _gcashController.text = userObj['gcash_number'] ?? userObj['gcash'] ?? '';
+      _paymayaController.text = userObj['paymaya_number'] ?? userObj['paymaya'] ?? userObj['maya_number'] ?? '';
       _bankAccountController.text = userObj['bank_account'] ?? userObj['bank_account_number'] ?? '';
       _bankNameController.text = userObj['bank_account_name'] ?? userObj['bank_name'] ?? '';
       _paymentInstructionsController.text = userObj['payment_instructions'] ?? userObj['instructions'] ?? '';
@@ -116,7 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MinAxisSize.min,
             children: [
               Text('Upload Payment QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               SizedBox(height: 16),
@@ -158,55 +158,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
     
+    final phoneVal = _phoneController.text.trim();
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
     if (userStr != null) {
       final userObj = json.decode(userStr);
-      userObj['full_name'] = _nameController.text;
-      userObj['email'] = _emailController.text;
-      userObj['phone'] = _phoneController.text;
-      userObj['address'] = _addressController.text;
+      userObj['full_name'] = _nameController.text.trim();
+      userObj['email'] = _emailController.text.trim();
+      userObj['phone'] = phoneVal;
+      userObj['phone_number'] = phoneVal;
+      userObj['phoneNumber'] = phoneVal;
+      userObj['telephone'] = phoneVal;
+      userObj['mobile'] = phoneVal;
+      userObj['address'] = _addressController.text.trim();
       if (_isOwner) {
-        userObj['gcash_number'] = _gcashController.text;
-        userObj['paymaya_number'] = _paymayaController.text;
-        userObj['bank_account'] = _bankAccountController.text;
-        userObj['bank_account_name'] = _bankNameController.text;
-        userObj['payment_instructions'] = _paymentInstructionsController.text;
+        userObj['gcash_number'] = _gcashController.text.trim();
+        userObj['paymaya_number'] = _paymayaController.text.trim();
+        userObj['bank_account'] = _bankAccountController.text.trim();
+        userObj['bank_account_name'] = _bankNameController.text.trim();
+        userObj['payment_instructions'] = _paymentInstructionsController.text.trim();
         userObj['qr_code_url'] = _paymentQrUrl;
         userObj['payment_qr_url'] = _paymentQrUrl;
-        userObj['facebook_url'] = _facebookController.text;
-        userObj['instagram_url'] = _instagramController.text;
-        userObj['website_url'] = _websiteController.text;
+        userObj['facebook_url'] = _facebookController.text.trim();
+        userObj['instagram_url'] = _instagramController.text.trim();
+        userObj['website_url'] = _websiteController.text.trim();
       }
       await prefs.setString('user', json.encode(userObj));
     }
     
     if (_userId != null) {
       final profileData = {
-        'full_name': _nameController.text,
-        'email': _emailController.text,
-        'phone_number': _phoneController.text,
-        'gcash_number': _gcashController.text,
-        'paymaya_number': _paymayaController.text,
-        'bank_account': _bankAccountController.text,
-        'bank_account_name': _bankNameController.text,
-        'bank_name': _bankNameController.text,
-        'payment_instructions': _paymentInstructionsController.text,
+        'full_name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'phone': phoneVal,
+        'phone_number': phoneVal,
+        'phoneNumber': phoneVal,
+        'telephone': phoneVal,
+        'mobile': phoneVal,
+        'address': _addressController.text.trim(),
+        'gcash_number': _gcashController.text.trim(),
+        'paymaya_number': _paymayaController.text.trim(),
+        'bank_account': _bankAccountController.text.trim(),
+        'bank_account_name': _bankNameController.text.trim(),
+        'bank_name': _bankNameController.text.trim(),
+        'payment_instructions': _paymentInstructionsController.text.trim(),
         'qr_code_url': _paymentQrUrl,
         'payment_qr_url': _paymentQrUrl,
-        'facebook_url': _facebookController.text,
-        'instagram_url': _instagramController.text,
-        'website_url': _websiteController.text,
+        'facebook_url': _facebookController.text.trim(),
+        'instagram_url': _instagramController.text.trim(),
+        'website_url': _websiteController.text.trim(),
       };
       final res = await ApiService().updateUserProfile(_userId!, profileData);
       if (res['success'] == true && res['user'] != null) {
         Map<String, dynamic> updatedUser = Map<String, dynamic>.from(res['user']);
+        updatedUser['phone'] = phoneVal;
+        updatedUser['phone_number'] = phoneVal;
+        updatedUser['phoneNumber'] = phoneVal;
+        updatedUser['telephone'] = phoneVal;
+        updatedUser['mobile'] = phoneVal;
+        updatedUser['address'] = updatedUser['address'] ?? _addressController.text.trim();
         updatedUser['qr_code_url'] = updatedUser['qr_code_url'] ?? _paymentQrUrl;
         updatedUser['payment_qr_url'] = updatedUser['payment_qr_url'] ?? _paymentQrUrl;
-        updatedUser['payment_instructions'] = updatedUser['payment_instructions'] ?? _paymentInstructionsController.text;
-        updatedUser['facebook_url'] = updatedUser['facebook_url'] ?? _facebookController.text;
-        updatedUser['instagram_url'] = updatedUser['instagram_url'] ?? _instagramController.text;
-        updatedUser['website_url'] = updatedUser['website_url'] ?? _websiteController.text;
+        updatedUser['payment_instructions'] = updatedUser['payment_instructions'] ?? _paymentInstructionsController.text.trim();
+        updatedUser['facebook_url'] = updatedUser['facebook_url'] ?? _facebookController.text.trim();
+        updatedUser['instagram_url'] = updatedUser['instagram_url'] ?? _instagramController.text.trim();
+        updatedUser['website_url'] = updatedUser['website_url'] ?? _websiteController.text.trim();
         await prefs.setString('user', json.encode(updatedUser));
       }
     }

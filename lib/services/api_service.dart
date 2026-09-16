@@ -795,8 +795,26 @@ class ApiService {
       final data = json.decode(response.body);
       if (response.statusCode == 200 && data['success'] == true) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user', json.encode(data['user']));
-        return {'success': true, 'user': data['user']};
+        final userStr = prefs.getString('user');
+        Map<String, dynamic> mergedUser = {};
+        if (userStr != null) {
+          try {
+            mergedUser = json.decode(userStr);
+          } catch (_) {}
+        }
+        if (data['user'] is Map) {
+          mergedUser.addAll(Map<String, dynamic>.from(data['user']));
+        }
+        final phone = profileData['phone_number'] ?? profileData['phone'] ?? mergedUser['phone'] ?? mergedUser['phone_number'];
+        if (phone != null) {
+          mergedUser['phone'] = phone;
+          mergedUser['phone_number'] = phone;
+          mergedUser['phoneNumber'] = phone;
+          mergedUser['telephone'] = phone;
+          mergedUser['mobile'] = phone;
+        }
+        await prefs.setString('user', json.encode(mergedUser));
+        return {'success': true, 'user': mergedUser};
       }
       return {'success': false, 'message': data['message'] ?? 'Profile update failed'};
     } catch (e) {
