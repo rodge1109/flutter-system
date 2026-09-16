@@ -163,13 +163,45 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _dayRateCtrl.text = dayRateStr.replaceAll(RegExp(r'\.0+$'), '').replaceAll(RegExp(r'\.00$'), '');
       _nightRateCtrl.text = nightRateStr.replaceAll(RegExp(r'\.0+$'), '').replaceAll(RegExp(r'\.00$'), '');
       
-      _enableDayDiscount = widget.court!['is_day_discount_active'] == true || widget.court!['is_day_discount_active'] == 'true' || widget.court!['is_day_discount_active'] == 1;
-      _dayDiscountCtrl.text = widget.court!['day_discount_rate']?.toString() ?? '';
-      _dayDiscountAppliesTo = (widget.court!['day_discount_applies_to'] ?? widget.court!['dayDiscountAppliesTo'] ?? 'ALL').toString();
-      
-      _enableNightDiscount = widget.court!['is_night_discount_active'] == true || widget.court!['is_night_discount_active'] == 'true' || widget.court!['is_night_discount_active'] == 1;
-      _nightDiscountCtrl.text = widget.court!['night_discount_rate']?.toString() ?? '';
-      _nightDiscountAppliesTo = (widget.court!['night_discount_applies_to'] ?? widget.court!['nightDiscountAppliesTo'] ?? 'ALL').toString();
+      String? foundDayAppliesTo = widget.court!['day_discount_applies_to']?.toString() ?? widget.court!['dayDiscountAppliesTo']?.toString() ?? widget.court!['day_discount_days']?.toString();
+      String? foundNightAppliesTo = widget.court!['night_discount_applies_to']?.toString() ?? widget.court!['nightDiscountAppliesTo']?.toString() ?? widget.court!['night_discount_days']?.toString();
+      String? foundDayDiscount = widget.court!['day_discount_rate']?.toString() ?? widget.court!['dayDiscountRate']?.toString() ?? widget.court!['day_discount']?.toString();
+      String? foundNightDiscount = widget.court!['night_discount_rate']?.toString() ?? widget.court!['nightDiscountRate']?.toString() ?? widget.court!['night_discount']?.toString();
+
+      bool foundEnableDayDisc = widget.court!['is_day_discount_active'] == true || widget.court!['is_day_discount_active'] == 'true' || widget.court!['is_day_discount_active'] == 1 || widget.court!['isDayDiscountActive'] == true || widget.court!['isDayDiscountActive'] == 'true' || widget.court!['isDayDiscountActive'] == 1;
+      bool foundEnableNightDisc = widget.court!['is_night_discount_active'] == true || widget.court!['is_night_discount_active'] == 'true' || widget.court!['is_night_discount_active'] == 1 || widget.court!['isNightDiscountActive'] == true || widget.court!['isNightDiscountActive'] == 'true' || widget.court!['isNightDiscountActive'] == 1;
+
+      if (pricesList.isNotEmpty) {
+        String dayStartStr = '${_dayStartHour.toString().padLeft(2, '0')}:00';
+        String nightStartStr = '${_nightStartHour.toString().padLeft(2, '0')}:00';
+        for (var p in pricesList) {
+          if (p is Map) {
+            String tStr = p['time']?.toString() ?? '';
+            if (tStr == dayStartStr) {
+              foundDayAppliesTo ??= (p['discountAppliesTo'] ?? p['discount_applies_to'] ?? p['discountDays'] ?? p['discount_days'])?.toString();
+              foundDayDiscount ??= (p['discountPrice'] ?? p['discount_price'])?.toString();
+              if (p['isDiscountActive'] == true || p['is_discount_active'] == true || p['isDiscountActive'] == 'true' || p['is_discount_active'] == 'true' || p['isDiscountActive'] == 1 || p['is_discount_active'] == 1) {
+                foundEnableDayDisc = true;
+              }
+            }
+            if (tStr == nightStartStr) {
+              foundNightAppliesTo ??= (p['discountAppliesTo'] ?? p['discount_applies_to'] ?? p['discountDays'] ?? p['discount_days'])?.toString();
+              foundNightDiscount ??= (p['discountPrice'] ?? p['discount_price'])?.toString();
+              if (p['isDiscountActive'] == true || p['is_discount_active'] == true || p['isDiscountActive'] == 'true' || p['is_discount_active'] == 'true' || p['isDiscountActive'] == 1 || p['is_discount_active'] == 1) {
+                foundEnableNightDisc = true;
+              }
+            }
+          }
+        }
+      }
+
+      _enableDayDiscount = foundEnableDayDisc;
+      _dayDiscountCtrl.text = foundDayDiscount ?? '';
+      _dayDiscountAppliesTo = (foundDayAppliesTo ?? 'ALL').toUpperCase();
+
+      _enableNightDiscount = foundEnableNightDisc;
+      _nightDiscountCtrl.text = foundNightDiscount ?? '';
+      _nightDiscountAppliesTo = (foundNightAppliesTo ?? 'ALL').toUpperCase();
 
       final rawImages = widget.court!['images'] ?? widget.court!['photos'] ?? [];
       List<dynamic> parsedImages = [];
@@ -492,6 +524,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'is_day_discount_active': isDayDiscountActive,
       'dayDiscountAppliesTo': _dayDiscountAppliesTo,
       'day_discount_applies_to': _dayDiscountAppliesTo,
+      'dayDiscountDays': _dayDiscountAppliesTo,
+      'day_discount_days': _dayDiscountAppliesTo,
       'nightRate': nightStandard,
       'night_rate': nightStandard,
       'night_price': nightStandard,
@@ -501,6 +535,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'is_night_discount_active': isNightDiscountActive,
       'nightDiscountAppliesTo': _nightDiscountAppliesTo,
       'night_discount_applies_to': _nightDiscountAppliesTo,
+      'nightDiscountDays': _nightDiscountAppliesTo,
+      'night_discount_days': _nightDiscountAppliesTo,
       'dayStartHour': _dayStartHour,
       'day_start_hour': _dayStartHour,
       'day_start': _dayStartHour,
