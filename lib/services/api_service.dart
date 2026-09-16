@@ -78,10 +78,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/appointments'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Secret': 'pickle_v2_app_secret_key_88',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: json.encode(appointmentData),
       );
       
@@ -118,19 +115,31 @@ class ApiService {
         return null;
       }
 
-      final response = await http.post(
+      var response = await http.post(
         Uri.parse('$baseUrl/appointments/hold-v2-secure'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Secret': 'pickle_v2_app_secret_key_88',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'preferredDate': dateStr,
           'preferredTimes': times,
           'serviceType': serviceType,
           'email': userEmail,
+          'appSecret': 'pickle_v2_app_secret_key_88',
         }),
       );
+
+      if (response.statusCode == 404) {
+        response = await http.post(
+          Uri.parse('$baseUrl/appointments/hold'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'preferredDate': dateStr,
+            'preferredTimes': times,
+            'serviceType': serviceType,
+            'email': userEmail,
+          }),
+        );
+      }
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
