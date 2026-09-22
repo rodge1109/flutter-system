@@ -15,7 +15,7 @@ import 'manage_court_schedule_screen.dart';
 import 'add_court_screen.dart';
 import 'earnings_screen.dart';
 import 'manage_customers_screen.dart';
-import '../widgets/ai_promo_dialog.dart';
+import 'ai_promo_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   @override
@@ -552,13 +552,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             b['appointment_date'].toString().startsWith(todayStr)
                           ).toList();
 
-                          showDialog(
-                            context: context,
-                            builder: (context) => AiPromoDialog(
-                              venueName: _myCourts.isNotEmpty ? (_myCourts.first['venue_name'] ?? _myCourts.first['name'] ?? 'Aminova Court') : 'Aminova Court',
-                              courts: _myCourts,
-                              todayBookings: todayBookings,
-                              ownerEmail: _userEmail,
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AiPromoScreen(
+                                venueName: _myCourts.isNotEmpty ? (_myCourts.first['venue_name'] ?? _myCourts.first['name'] ?? 'Aminova Court') : 'Aminova Court',
+                                courts: _myCourts,
+                                todayBookings: todayBookings,
+                                ownerEmail: _userEmail,
+                              ),
                             ),
                           );
                         },
