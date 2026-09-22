@@ -15,6 +15,7 @@ import 'manage_court_schedule_screen.dart';
 import 'add_court_screen.dart';
 import 'earnings_screen.dart';
 import 'manage_customers_screen.dart';
+import '../widgets/ai_promo_dialog.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   @override
@@ -57,18 +58,103 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final userStr = prefs.getString('user');
     if (userStr != null) {
       final userObj = json.decode(userStr);
+      final email = userObj['email'] ?? '';
+      _userName = userObj['full_name'] ?? 'Owner';
+      _userEmail = email;
+
+      // 1. Instant Cache Load (Stale-While-Revalidate)
+      final cachedBookingsStr = prefs.getString('owner_cached_bookings_$email');
+      final cachedCourtsStr = prefs.getString('owner_cached_courts_$email');
+      final cachedUnreadNotifs = prefs.getInt('owner_cached_unread_notifs_$email') ?? 0;
+      final cachedUnreadMsgs = prefs.getInt('owner_cached_unread_msgs_$email') ?? 0;
+
+      List<dynamic> cachedBookings = [];
+      List<dynamic> cachedCourts = [];
+
+      if (cachedBookingsStr != null) {
+        try {
+          cachedBookings = json.decode(cachedBookingsStr);
+        } catch (_) {}
+      }
+      if (cachedCourtsStr != null) {
+        try {
+          cachedCourts = json.decode(cachedCourtsStr);
+        } catch (_) {}
+      }
+
+      final hasCache = cachedBookings.isNotEmpty || cachedCourts.isNotEmpty;
+
       setState(() {
-        _userName = userObj['full_name'] ?? 'Owner';
-        _userEmail = userObj['email'] ?? '';
+        if (hasCache) {
+          _allBookings = cachedBookings;
+          _myCourts = cachedCourts;
+          _unreadCount = cachedUnreadNotifs;
+          _unreadMessageCount = cachedUnreadMsgs;
+          _isLoading = false;
+        }
       });
-      // Fetch bookings for owner's courts
-      _fetchOwnerBookings(_userEmail);
-      _fetchCourts(_userEmail);
-      _fetchUnreadNotifications(_userEmail);
-      _fetchUnreadMessages(_userEmail);
+
+      // 2. Fetch Fresh Data in Parallel
+      _refreshDashboardData(showLoadingIfNoCache: !hasCache);
       _startNotificationListener();
     } else {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _refreshDashboardData({bool showLoadingIfNoCache = false}) async {
+    if (_userEmail.isEmpty) return;
+
+    if (_allBookings.isEmpty && _myCourts.isEmpty && showLoadingIfNoCache) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final results = await Future.wait([
+        _apiService.fetchOwnerBookingsAPI(_userEmail),
+        _apiService.fetchOwnerCourts(_userEmail),
+        _apiService.fetchNotifications(_userEmail),
+        _apiService.fetchUnreadMessagesCount(_userEmail),
+      ]);
+
+      if (!mounted) return;
+
+      final freshBookings = results[0] as List<dynamic>;
+      final freshCourts = results[1] as List<dynamic>;
+      final notifications = results[2] as List<dynamic>;
+      final unreadMsgs = results[3] as int;
+
+      final unreadNotifs = notifications.where((n) => n['is_read'] != true).length;
+      if (notifications.isNotEmpty && _lastNotificationId == 0) {
+        _lastNotificationId = notifications.first['id'] ?? 0;
+      }
+
+      // Save to SharedPreferences for next fast launch
+      final prefs = await SharedPreferences.getInstance();
+      if (freshBookings.isNotEmpty) {
+        await prefs.setString('owner_cached_bookings_$_userEmail', json.encode(freshBookings));
+      }
+      if (freshCourts.isNotEmpty) {
+        await prefs.setString('owner_cached_courts_$_userEmail', json.encode(freshCourts));
+      }
+      await prefs.setInt('owner_cached_unread_notifs_$_userEmail', unreadNotifs);
+      await prefs.setInt('owner_cached_unread_msgs_$_userEmail', unreadMsgs);
+
+      setState(() {
+        if (freshBookings.isNotEmpty || _allBookings.isEmpty) {
+          _allBookings = freshBookings;
+        }
+        if (freshCourts.isNotEmpty || _myCourts.isEmpty) {
+          _myCourts = freshCourts;
+        }
+        _unreadCount = unreadNotifs;
+        _unreadMessageCount = unreadMsgs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -308,184 +394,265 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       ),
       body: _isLoading 
         ? Center(child: CircularProgressIndicator(color: AppColors.richBlack))
-        : Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + kToolbarHeight + 24.0, bottom: 24.0),
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => EarningsScreen()),
-                        );
-                      },
-                      child: Container(
-                        margin: EdgeInsets.symmetric(horizontal: 24),
-                        padding: EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryGreen.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+        : RefreshIndicator(
+            color: AppColors.primaryGreen,
+            onRefresh: () => _refreshDashboardData(),
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + kToolbarHeight + 24.0, bottom: 24.0),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => EarningsScreen()),
+                          );
+                        },
+                        child: Container(
+                          margin: EdgeInsets.symmetric(horizontal: 24),
+                          padding: EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Hi, ${_toTitleCase(_userName)}',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.richBlack,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Court Owner',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        'Earnings this Month',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.richBlack,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(Icons.arrow_forward_ios, size: 10, color: AppColors.richBlack),
+                                    ],
+                                  ),
+                                  SizedBox(height: 2),
                                   Text(
-                                    'Hi, ${_toTitleCase(_userName)}',
+                                    'P${_calculateMonthlyEarnings()}',
                                     style: TextStyle(
                                       fontFamily: 'Poppins',
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.richBlack,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Court Owner',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey.shade700,
+                                      color: AppColors.primaryGreen,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      'Earnings this Month',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.richBlack,
-                                      ),
-                                    ),
-                                    SizedBox(width: 4),
-                                    Icon(Icons.arrow_forward_ios, size: 10, color: AppColors.richBlack),
-                                  ],
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'P${_calculateMonthlyEarnings()}',
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primaryGreen,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ManageCustomersScreen(ownerEmail: _userEmail),
+                            ],
                           ),
-                        );
-                      },
-                      child: Container(
-                        margin: EdgeInsets.symmetric(horizontal: 24),
-                        padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryGreen,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primaryGreen.withOpacity(0.2),
-                              blurRadius: 8,
-                              offset: Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.accentLime.withOpacity(0.25),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(Icons.badge_outlined, color: AppColors.accentLime, size: 20),
-                                ),
-                                SizedBox(width: 14),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Customers & Member Loyalty',
-                                      style: GoogleFonts.outfit(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Manage members, rates & 10th free rewards',
-                                      style: GoogleFonts.outfit(
-                                        color: Colors.white70,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Icon(Icons.arrow_forward_ios, color: AppColors.accentLime, size: 14),
-                          ],
                         ),
                       ),
-                    ),
-                    SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildNavButton(
-                          icon: Icons.calendar_month, 
-                          label: 'Calendar', 
-                          isSelected: _currentTab == 'calendar',
-                          onTap: () => setState(() => _currentTab = 'calendar'),
+                      SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ManageCustomersScreen(ownerEmail: _userEmail),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          margin: EdgeInsets.symmetric(horizontal: 24),
+                          padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primaryGreen.withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accentLime.withOpacity(0.25),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.badge_outlined, color: AppColors.accentLime, size: 20),
+                                  ),
+                                  SizedBox(width: 14),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Customers & Member Loyalty',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Manage members, rates & 10th free rewards',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Icon(Icons.arrow_forward_ios, color: AppColors.accentLime, size: 14),
+                            ],
+                          ),
                         ),
-                        _buildNavButton(
-                          icon: Icons.list_alt, 
-                          label: 'Upcoming', 
-                          isSelected: _currentTab == 'upcoming',
-                          onTap: () => setState(() => _currentTab = 'upcoming'),
+                      ),
+                      SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () {
+                          final todayStr = DateTime.now().toString().substring(0, 10);
+                          final todayBookings = _allBookings.where((b) =>
+                            b['appointment_date'] != null &&
+                            b['appointment_date'].toString().startsWith(todayStr)
+                          ).toList();
+
+                          showDialog(
+                            context: context,
+                            builder: (context) => AiPromoDialog(
+                              venueName: _myCourts.isNotEmpty ? (_myCourts.first['venue_name'] ?? _myCourts.first['name'] ?? 'Aminova Court') : 'Aminova Court',
+                              courts: _myCourts,
+                              todayBookings: todayBookings,
+                              ownerEmail: _userEmail,
+                            ),
+                          );
+                        },
+                        child: Container(
+                          margin: EdgeInsets.symmetric(horizontal: 24),
+                          padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF1877F2), Color(0xFF0056C6)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFF1877F2).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.between,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                                  ),
+                                  SizedBox(width: 14),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '⚡ 1-Click AI FB Promo Generator',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Gemini AI open slots post & Facebook promo',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+                            ],
+                          ),
                         ),
-                        _buildNavButton(
-                          icon: Icons.sports_tennis, 
-                          label: _myCourts.isNotEmpty ? 'My Courts (${_myCourts.length})' : 'My Courts', 
-                          isSelected: _currentTab == 'courts',
-                          onTap: () => setState(() => _currentTab = 'courts'),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildNavButton(
+                            icon: Icons.calendar_month, 
+                            label: 'Calendar', 
+                            isSelected: _currentTab == 'calendar',
+                            onTap: () => setState(() => _currentTab = 'calendar'),
+                          ),
+                          _buildNavButton(
+                            icon: Icons.list_alt, 
+                            label: 'Upcoming (${_allBookings.length})', 
+                            isSelected: _currentTab == 'upcoming',
+                            onTap: () => setState(() => _currentTab = 'upcoming'),
+                          ),
+                          _buildNavButton(
+                            icon: Icons.sports_tennis, 
+                            label: _myCourts.isNotEmpty ? 'My Courts (${_myCourts.length})' : 'My Courts', 
+                            isSelected: _currentTab == 'courts',
+                            onTap: () => setState(() => _currentTab = 'courts'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _buildTabContent(),
-              ),
-            ],
+                Expanded(
+                  child: _buildTabContent(),
+                ),
+              ],
+            ),
           ),
     );
   }

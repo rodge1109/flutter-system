@@ -643,7 +643,9 @@ class ApiService {
 
   Future<List<dynamic>> fetchOwnerBookingsAPI(String email) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/owner/bookings/${Uri.encodeComponent(email)}'));
+      final response = await http
+          .get(Uri.parse('$baseUrl/owner/bookings/${Uri.encodeComponent(email)}'))
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
@@ -785,7 +787,9 @@ class ApiService {
 
   Future<List<dynamic>> fetchOwnerCourts(String email) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/courts/${Uri.encodeComponent(email)}?t=${DateTime.now().millisecondsSinceEpoch}'));
+      final response = await http
+          .get(Uri.parse('$baseUrl/courts/${Uri.encodeComponent(email)}?t=${DateTime.now().millisecondsSinceEpoch}'))
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
@@ -842,7 +846,9 @@ class ApiService {
   Future<List<dynamic>> fetchNotifications(String email) async {
     try {
       final t = DateTime.now().millisecondsSinceEpoch;
-      final response = await http.get(Uri.parse('$baseUrl/notifications/${Uri.encodeComponent(email)}?t=$t'));
+      final response = await http
+          .get(Uri.parse('$baseUrl/notifications/${Uri.encodeComponent(email)}?t=$t'))
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
@@ -1002,7 +1008,9 @@ class ApiService {
 
   Future<int> fetchUnreadMessagesCount(String email) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/messages/unread/${Uri.encodeComponent(email)}'));
+      final response = await http
+          .get(Uri.parse('$baseUrl/messages/unread/${Uri.encodeComponent(email)}'))
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
