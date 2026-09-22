@@ -581,7 +581,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             ],
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.between,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Row(
                                 children: [
