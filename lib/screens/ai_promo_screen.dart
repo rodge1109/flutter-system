@@ -161,43 +161,25 @@ class _AiPromoScreenState extends State<AiPromoScreen> {
   }
 
   Future<void> _shareToFacebook() async {
-    _copyToClipboard();
+    // 1. Copy AI caption to clipboard
+    Clipboard.setData(ClipboardData(text: _captionController.text));
 
-    setState(() => _isExporting = true);
-    final bytes = await _capturePosterBytes();
-    setState(() => _isExporting = false);
-
-    if (bytes != null) {
-      try {
-        final xFile = XFile.fromData(
-          bytes,
-          name: 'court_promo_poster.png',
-          mimeType: 'image/png',
-        );
-        await Share.shareXFiles(
-          [xFile],
-          text: _captionController.text,
-          subject: '🏓 Court Promo - ${widget.venueName}',
-        );
-        return;
-      } catch (e) {
-        print('Share XFile failed, falling back to Facebook sharer: $e');
-      }
-    }
-
-    // Direct Web Sharer fallback
+    // 2. Open Facebook Sharer link directly
     final encodedUrl = Uri.encodeComponent(_bookingUrl);
     final fbShareUrl = 'https://www.facebook.com/sharer/sharer.php?u=$encodedUrl';
 
     final Uri uri = Uri.parse(fbShareUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open browser for Facebook sharing.')),
-        );
-      }
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('📋 Caption copied! Directing to Facebook — paste caption & attach your downloaded graphic poster.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
     }
   }
 
@@ -448,7 +430,7 @@ class _AiPromoScreenState extends State<AiPromoScreen> {
                             spacing: 10,
                             runSpacing: 10,
                             alignment: WrapAlignment.center,
-                            children: _openSlots.take(6).map((s) {
+                            children: _openSlots.map((s) {
                               return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                 decoration: BoxDecoration(
@@ -641,7 +623,7 @@ class _AiPromoScreenState extends State<AiPromoScreen> {
                           onPressed: _shareToFacebook,
                           icon: const Icon(Icons.facebook, size: 20, color: Colors.white),
                           label: Text(
-                            'Share Poster & Caption',
+                            'Share to Facebook',
                             style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                           style: ElevatedButton.styleFrom(
