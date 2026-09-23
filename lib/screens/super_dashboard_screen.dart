@@ -387,15 +387,13 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                     if (filteredBookings.isEmpty)
                       _buildEmptyState()
                     else
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollablePhysics(),
-                        itemCount: filteredBookings.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final booking = filteredBookings[index];
-                          return _buildBookingItemCard(booking);
-                        },
+                      Column(
+                        children: filteredBookings.map((booking) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: _buildBookingItemCard(booking),
+                          );
+                        }).toList(),
                       ),
                   ],
                 ),
