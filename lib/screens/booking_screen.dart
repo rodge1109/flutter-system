@@ -579,7 +579,7 @@ class _BookingScreenState extends State<BookingScreen> {
     super.dispose();
   }
 
-  void _holdSelectedSlots() async {
+  void _holdSelectedSlots({bool autoAdvance = false}) async {
     if (_selectedDate == null || _selectedTimes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please select a date and time slot first'), backgroundColor: Colors.redAccent),
@@ -637,6 +637,9 @@ class _BookingScreenState extends State<BookingScreen> {
       setState(() {
         _holdToken = lastHoldToken;
         _holdSecondsRemaining = 300; // 5 minutes
+        if (autoAdvance && _currentStep == 0) {
+          _currentStep = 1;
+        }
       });
       _scrollToBottom();
       _holdTimer?.cancel();
@@ -1122,7 +1125,7 @@ class _BookingScreenState extends State<BookingScreen> {
         final loggedIn = await _ensureUserLoggedIn();
         if (!loggedIn) return;
       }
-      _holdSelectedSlots();
+      _holdSelectedSlots(autoAdvance: true);
       return;
     }
     if (_currentStep == 1) {
