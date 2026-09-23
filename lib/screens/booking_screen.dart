@@ -1672,7 +1672,8 @@ class _BookingScreenState extends State<BookingScreen> {
                             final time = _getDisplayTimeSlots(service: court)[idx];
                             final slotKey = '${court.name}: $time';
                             final isSelected = _selectedTimes.contains(slotKey) || (_selectedServiceIds.length == 1 && _selectedTimes.contains(time));
-                            final isBooked = _courtBookedSlots[court.name]?.contains(time) ?? false;
+                            final isBooked = (_courtBookedSlots[court.name] ?? _courtBookedSlots[court.venueName] ?? [])
+                                .any((bTime) => _normalizeTime(bTime) == _normalizeTime(time) || bTime.trim() == time.trim());
 
                             bool isPast = false;
                             bool isOutsideHours = false;
