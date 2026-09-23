@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'login_screen.dart';
+import 'super_dashboard_screen.dart';
 import '../services/api_service.dart';
 
 import '../models/customer_model.dart';
@@ -590,6 +591,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ElevatedButton(
                     onPressed: _saveProfile,
                     child: Text('Save Changes'),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => SuperDashboardScreen()),
+                      );
+                    },
+                    icon: Icon(Icons.dashboard_customize, color: AppColors.richBlack),
+                    label: Text('Open Super Dashboard (App Owner)', style: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accentLime,
+                      minimumSize: Size(double.infinity, 50),
+                    ),
                   ),
                   SizedBox(height: 16),
                   OutlinedButton(

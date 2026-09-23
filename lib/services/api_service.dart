@@ -1292,4 +1292,77 @@ class ApiService {
       return [];
     }
   }
+
+  // ==================== SUPER ADMIN / APP OWNER ENDPOINTS ====================
+
+  Future<List<dynamic>> fetchSuperAdminBookings() async {
+    try {
+      final t = DateTime.now().millisecondsSinceEpoch;
+      final response = await http
+          .get(Uri.parse('$baseUrl/admin/all-bookings?t=$t'))
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['bookings'] != null) {
+          return data['bookings'];
+        }
+      }
+
+      // Fallback: try owner bookings endpoint for main admin if dedicated route not present
+      final fallbackResponse = await http
+          .get(Uri.parse('$baseUrl/owner/bookings/rodge1109@yahoo.com?t=$t'))
+          .timeout(const Duration(seconds: 8));
+      if (fallbackResponse.statusCode == 200) {
+        final data = json.decode(fallbackResponse.body);
+        if (data['success'] == true && data['bookings'] != null) {
+          return data['bookings'];
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Fetch super admin bookings error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchSuperAdminEarnings({String? startDate, String? endDate}) async {
+    try {
+      String url = '$baseUrl/admin/earnings';
+      if (startDate != null && endDate != null) {
+        url += '?startDate=$startDate&endDate=$endDate';
+      }
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data;
+        }
+      }
+      
+      // Fallback: fetch owner earnings for admin or fallback data
+      final fallback = await fetchOwnerEarnings('rodge1109@yahoo.com', startDate: startDate, endDate: endDate);
+      if (fallback['success'] == true) {
+        final List transactions = fallback['transactions'] ?? [];
+        double gross = (fallback['grossEarnings'] ?? 0).toDouble();
+        // ₱15.00 flat service fee per booking session
+        double totalAppServiceFee = transactions.length * 15.00;
+        double totalNetToOwners = gross - totalAppServiceFee;
+        if (totalNetToOwners < 0) totalNetToOwners = 0;
+
+        return {
+          'success': true,
+          'grossEarnings': gross,
+          'totalServiceFee': totalAppServiceFee,
+          'totalNetEarnings': totalNetToOwners,
+          'transactions': transactions,
+        };
+      }
+      return {'success': false, 'message': 'Failed to fetch admin earnings'};
+    } catch (e) {
+      print('Fetch super admin earnings error: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }
+

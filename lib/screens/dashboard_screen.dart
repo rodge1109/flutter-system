@@ -25,6 +25,7 @@ import 'open_challenges_screen.dart';
 import 'manage_challenges_screen.dart';
 import 'live_broadcast_screen.dart';
 import 'booking_assistant_screen.dart';
+import 'super_dashboard_screen.dart';
 import 'pasalo_courts_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -850,6 +851,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen())).then((_) => _loadUserData());
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.dashboard_customize, color: AppColors.primaryGreen),
+              title: Text('Super Dashboard (App Owner)', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => SuperDashboardScreen()));
               },
             ),
             ListTile(
