@@ -37,10 +37,59 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   // Segregated Owner/Venue Summaries
   Map<String, Map<String, dynamic>> _venueSummaries = {};
 
+  // Disabled Venues / Owners Tracking
+  Set<String> _disabledVenues = {};
+  Set<String> _disabledOwners = {};
+
   @override
   void initState() {
     super.initState();
+    _loadDisabledLists();
     _loadDashboardData();
+  }
+
+  Future<void> _loadDisabledLists() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _disabledVenues = (prefs.getStringList('deactivated_venues') ?? []).map((e) => e.toLowerCase()).toSet();
+        _disabledOwners = (prefs.getStringList('deactivated_owners') ?? []).map((e) => e.toLowerCase()).toSet();
+      });
+    }
+  }
+
+  bool _isVenueCurrentlyActive(String venueName, String ownerEmail) {
+    String vKey = venueName.trim().toLowerCase();
+    String oKey = ownerEmail.trim().toLowerCase();
+    if (_disabledVenues.contains(vKey) || (oKey.isNotEmpty && _disabledOwners.contains(oKey))) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _handleToggleVenueActivation(String venueName, String ownerEmail, dynamic courtId, bool currentStatus) async {
+    bool nextStatus = !currentStatus;
+    bool success = await _apiService.toggleCourtActivation(courtId, venueName, ownerEmail, nextStatus);
+
+    if (success) {
+      await _loadDisabledLists();
+      _processCalculations();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              nextStatus
+                  ? '🟢 $venueName has been ACTIVATED and is now visible in Courts Nearby.'
+                  : '🔴 $venueName is TEMPORARILY DEACTIVATED and hidden from Courts Nearby.',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: nextStatus ? AppColors.primaryGreen : Colors.redAccent,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -51,6 +100,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
 
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
+    await _loadDisabledLists();
     
     // Load cached first if available
     final prefs = await SharedPreferences.getInstance();
@@ -98,6 +148,23 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     double appFee = 0;
     Map<String, Map<String, dynamic>> summaries = {};
 
+    // First populate all registered courts from raw services so all venues can be managed
+    for (var c in _allCourts) {
+      String vName = c['name'] ?? c['venue_name'] ?? c['service_title'] ?? 'Court Venue';
+      String oEmail = c['owner_email'] ?? c['ownerEmail'] ?? c['owner'] ?? '';
+      String groupKey = '$vName (${oEmail.isNotEmpty ? oEmail : "rodge1109@yahoo.com"})';
+
+      summaries[groupKey] = {
+        'courtId': c['id'],
+        'venueName': vName,
+        'ownerEmail': oEmail.isNotEmpty ? oEmail : 'rodge1109@yahoo.com',
+        'bookingsCount': 0,
+        'grossVolume': 0.0,
+        'appServiceFee': 0.0,
+        'netOwnerPayout': 0.0,
+      };
+    }
+
     for (var b in filtered) {
       // Calculation of amount
       double price = 0;
@@ -126,6 +193,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
 
       if (!summaries.containsKey(groupKey)) {
         summaries[groupKey] = {
+          'courtId': b['court_id'] ?? b['service_id'] ?? 0,
           'venueName': venueName,
           'ownerEmail': ownerEmail,
           'bookingsCount': 0,
@@ -706,21 +774,42 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                 color: AppColors.richBlack,
               ),
             ),
-            if (_selectedVenue != 'ALL')
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _selectedVenue = 'ALL';
-                    _processCalculations();
-                  });
-                },
-                child: Text('Reset Filter', style: GoogleFonts.outfit(fontSize: 12, color: AppColors.primaryGreen)),
-              ),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _showVenueActivationManager,
+                  icon: const Icon(Icons.power_settings_new, size: 14, color: AppColors.richBlack),
+                  label: Text(
+                    'Court Activation',
+                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentLime,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    elevation: 0,
+                  ),
+                ),
+                if (_selectedVenue != 'ALL') ...[
+                  const SizedBox(width: 6),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedVenue = 'ALL';
+                        _processCalculations();
+                      });
+                    },
+                    child: Text('Reset', style: GoogleFonts.outfit(fontSize: 12, color: AppColors.primaryGreen)),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 140,
+          height: 175,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _venueSummaries.keys.length + 1,
@@ -738,7 +827,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                   },
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    width: 200,
+                    width: 220,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: isSelected ? AppColors.primaryGreen : Colors.white,
@@ -786,6 +875,17 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                             ),
                           ],
                         ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white12,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'All Venues Default Active 🟢',
+                            style: GoogleFonts.outfit(fontSize: 10, color: isSelected ? Colors.white : Colors.grey.shade700),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -795,6 +895,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
               String key = _venueSummaries.keys.elementAt(index - 1);
               final item = _venueSummaries[key]!;
               bool isSelected = _selectedVenue == key;
+              bool isActive = _isVenueCurrentlyActive(item['venueName'], item['ownerEmail']);
 
               return InkWell(
                 onTap: () {
@@ -805,13 +906,15 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  width: 210,
+                  width: 230,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.primaryGreen : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isSelected ? AppColors.primaryGreen : Colors.grey.shade200,
+                      color: isSelected
+                          ? AppColors.primaryGreen
+                          : (isActive ? Colors.grey.shade200 : Colors.red.shade300),
                       width: isSelected ? 2 : 1,
                     ),
                     boxShadow: [
@@ -826,30 +929,68 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      // Venue title & status badge
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            item['venueName'],
-                            style: GoogleFonts.outfit(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? Colors.white : AppColors.richBlack,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item['venueName'],
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected ? Colors.white : AppColors.richBlack,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  item['ownerEmail'],
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          Text(
-                            item['ownerEmail'],
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              color: isSelected ? Colors.white70 : Colors.grey.shade600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Switch(
+                            value: isActive,
+                            activeColor: AppColors.accentLime,
+                            inactiveThumbColor: Colors.redAccent,
+                            onChanged: (val) {
+                              _handleToggleVenueActivation(item['venueName'], item['ownerEmail'], item['courtId'], isActive);
+                            },
                           ),
                         ],
                       ),
+
+                      // Status Badge Tag
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? (isSelected ? Colors.white24 : Colors.green.shade50)
+                              : Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          isActive ? '🟢 ACTIVATED' : '🔴 DEACTIVATED (Hidden in Nearby)',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: isActive
+                                ? (isSelected ? Colors.white : Colors.green.shade800)
+                                : Colors.red.shade800,
+                          ),
+                        ),
+                      ),
+
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -866,7 +1007,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                               Text(
                                 _formatCurrency(item['appServiceFee']),
                                 style: GoogleFonts.outfit(
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: isSelected ? AppColors.accentLime : AppColors.primaryGreen,
                                 ),
@@ -1112,6 +1253,126 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showVenueActivationManager() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final keys = _venueSummaries.keys.toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Court Venue Status & Activation',
+                              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                            ),
+                            Text(
+                              'Default status is ACTIVATED. Deactivated venues are hidden from Courts Nearby.',
+                              style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: keys.isEmpty
+                        ? Center(child: Text('No registered court venues found', style: GoogleFonts.outfit(color: Colors.grey)))
+                        : ListView.separated(
+                            itemCount: keys.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              String key = keys[index];
+                              final item = _venueSummaries[key]!;
+                              bool isActive = _isVenueCurrentlyActive(item['venueName'], item['ownerEmail']);
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: isActive ? Colors.green.shade50 : Colors.red.shade50,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isActive ? Icons.check_circle : Icons.pause_circle_filled,
+                                    color: isActive ? Colors.green.shade700 : Colors.red.shade700,
+                                  ),
+                                ),
+                                title: Text(
+                                  item['venueName'],
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                subtitle: Text(
+                                  'Owner: ${item['ownerEmail']} • ${item['bookingsCount']} bookings',
+                                  style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade600),
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isActive ? Colors.green.shade100 : Colors.red.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        isActive ? 'Active 🟢' : 'Deactivated 🔴',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isActive ? Colors.green.shade900 : Colors.red.shade900,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Switch(
+                                      value: isActive,
+                                      activeColor: AppColors.primaryGreen,
+                                      inactiveThumbColor: Colors.redAccent,
+                                      onChanged: (val) async {
+                                        await _handleToggleVenueActivation(item['venueName'], item['ownerEmail'], item['courtId'], isActive);
+                                        setModalState(() {});
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

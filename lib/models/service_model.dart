@@ -235,6 +235,27 @@ class ServiceModel {
         json['club_name']?.toString() ?? 
         json['business_name']?.toString();
 
+    bool parsedIsActive = true;
+    if (json['is_active'] != null) {
+      if (json['is_active'] is bool) {
+        parsedIsActive = json['is_active'] as bool;
+      } else if (json['is_active'] is num) {
+        parsedIsActive = (json['is_active'] as num) != 0;
+      } else if (json['is_active'] is String) {
+        String str = (json['is_active'] as String).toLowerCase().trim();
+        parsedIsActive = str != 'false' && str != '0' && str != 'deactivated' && str != 'inactive';
+      }
+    } else if (json['isActive'] != null) {
+      if (json['isActive'] is bool) {
+        parsedIsActive = json['isActive'] as bool;
+      } else if (json['isActive'] is num) {
+        parsedIsActive = (json['isActive'] as num) != 0;
+      }
+    } else if (json['status'] != null) {
+      String statusStr = json['status'].toString().toLowerCase().trim();
+      parsedIsActive = statusStr != 'deactivated' && statusStr != 'inactive' && statusStr != 'disabled';
+    }
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
@@ -246,7 +267,7 @@ class ServiceModel {
       icon: parsedIcon,
       duration: json['duration']?.toString() ?? '30M',
       category: json['category'] as String? ?? 'General',
-      isActive: json['is_active'] as bool? ?? true,
+      isActive: parsedIsActive,
       variablePrices: parsedVariablePrices,
       ownerPayment: parsedOwnerPayment.isNotEmpty ? parsedOwnerPayment : null,
       latitude: json['latitude'] != null ? double.tryParse(json['latitude'].toString()) : null,

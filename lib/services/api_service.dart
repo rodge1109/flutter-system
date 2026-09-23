@@ -37,6 +37,68 @@ class ApiService {
     }
   }
 
+  Future<bool> isVenueActive(String venueName, String ownerEmail) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final disabledVenues = (prefs.getStringList('deactivated_venues') ?? []).map((e) => e.toLowerCase()).toSet();
+      final disabledOwners = (prefs.getStringList('deactivated_owners') ?? []).map((e) => e.toLowerCase()).toSet();
+
+      String venueKey = venueName.trim().toLowerCase();
+      String ownerKey = ownerEmail.trim().toLowerCase();
+
+      if (disabledVenues.contains(venueKey) || (ownerKey.isNotEmpty && disabledOwners.contains(ownerKey))) {
+        return false;
+      }
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<bool> toggleCourtActivation(dynamic courtId, String venueName, String ownerEmail, bool activate) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> disabledVenues = prefs.getStringList('deactivated_venues') ?? [];
+      List<String> disabledOwners = prefs.getStringList('deactivated_owners') ?? [];
+
+      String venueKey = venueName.trim().toLowerCase();
+      String ownerKey = ownerEmail.trim().toLowerCase();
+
+      if (activate) {
+        disabledVenues.removeWhere((v) => v.toLowerCase() == venueKey);
+        if (ownerKey.isNotEmpty) disabledOwners.removeWhere((o) => o.toLowerCase() == ownerKey);
+      } else {
+        if (venueKey.isNotEmpty && !disabledVenues.any((v) => v.toLowerCase() == venueKey)) {
+          disabledVenues.add(venueKey);
+        }
+        if (ownerKey.isNotEmpty && !disabledOwners.any((o) => o.toLowerCase() == ownerKey)) {
+          disabledOwners.add(ownerKey);
+        }
+      }
+
+      await prefs.setStringList('deactivated_venues', disabledVenues);
+      await prefs.setStringList('deactivated_owners', disabledOwners);
+
+      try {
+        await http.post(
+          Uri.parse('$baseUrl/admin/courts/toggle-active'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'courtId': courtId,
+            'venueName': venueName,
+            'ownerEmail': ownerEmail,
+            'isActive': activate,
+          }),
+        ).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+
+      return true;
+    } catch (e) {
+      print('Error toggling court activation: $e');
+      return false;
+    }
+  }
+
   Future<List<ServiceModel>> fetchServices() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/booking-services?t=${DateTime.now().millisecondsSinceEpoch}'));
@@ -45,7 +107,22 @@ class ApiService {
         final Map<String, dynamic> data = json.decode(response.body);
         if (data['success'] == true && data['services'] != null) {
           final List<dynamic> servicesJson = data['services'];
-          return servicesJson.map((json) => ServiceModel.fromJson(json)).toList();
+          final allServices = servicesJson.map((json) => ServiceModel.fromJson(json)).toList();
+
+          final prefs = await SharedPreferences.getInstance();
+          final disabledVenues = (prefs.getStringList('deactivated_venues') ?? []).map((e) => e.toLowerCase()).toSet();
+          final disabledOwners = (prefs.getStringList('deactivated_owners') ?? []).map((e) => e.toLowerCase()).toSet();
+
+          return allServices.where((s) {
+            if (!s.isActive) return false;
+            String vName = (s.venueName ?? s.name).toLowerCase().trim();
+            String sName = s.name.toLowerCase().trim();
+            String oEmail = s.ownerEmail.toLowerCase().trim();
+            if (disabledVenues.contains(vName) || disabledVenues.contains(sName) || (oEmail.isNotEmpty && disabledOwners.contains(oEmail))) {
+              return false;
+            }
+            return true;
+          }).toList();
         }
       }
       throw Exception('Failed to load services');
