@@ -127,7 +127,22 @@ class _BookingScreenState extends State<BookingScreen> {
 
   Future<void> _checkLoyaltyStatus() async {
     final email = _emailController.text.trim();
-    if (email.isEmpty) return;
+    if (email.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _customerLoyalty = null;
+          _loyaltySettings = null;
+        });
+      }
+      return;
+    }
+
+    // Immediately reset loyalty state to prevent stale state leak during async fetching
+    if (mounted) {
+      setState(() {
+        _customerLoyalty = null;
+      });
+    }
 
     String ownerEmail = _selectedService?.ownerEmail ?? '';
     if (ownerEmail.isEmpty && _selectedService?.ownerPayment != null) {
@@ -176,10 +191,12 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     if (mounted) {
-      setState(() {
-        _customerLoyalty = loyalty;
-        _loyaltySettings = settings;
-      });
+      if (_emailController.text.trim() == email) {
+        setState(() {
+          _customerLoyalty = loyalty;
+          _loyaltySettings = settings;
+        });
+      }
     }
   }
 
