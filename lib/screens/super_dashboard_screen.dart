@@ -166,9 +166,14 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }
 
     for (var b in filtered) {
-      // Calculation of amount
+      final status = (b['status'] ?? '').toString().toLowerCase();
+      if (status == 'cancelled' || status == 'blocked' || status == 'rejected') continue;
+
+      // Calculation of amount: check total_amount first, then fallback fields
       double price = 0;
-      if (b['total_price'] != null) {
+      if (b['total_amount'] != null) {
+        price = (b['total_amount'] is num) ? (b['total_amount'] as num).toDouble() : (double.tryParse(b['total_amount'].toString()) ?? 0);
+      } else if (b['total_price'] != null) {
         price = (b['total_price'] is num) ? (b['total_price'] as num).toDouble() : (double.tryParse(b['total_price'].toString()) ?? 0);
       } else if (b['amount'] != null) {
         price = (b['amount'] is num) ? (b['amount'] as num).toDouble() : (double.tryParse(b['amount'].toString()) ?? 0);
@@ -176,17 +181,25 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         price = (b['price'] is num) ? (b['price'] as num).toDouble() : (double.tryParse(b['price'].toString()) ?? 0);
       }
 
+      if (price == 0 && (status == 'confirmed' || status == 'queued' || status == 'completed')) {
+        price = 350.0;
+      }
+
       // App service fee is ₱15 flat fee per booking session
       double fee = 15.00;
       if (b['service_fee'] != null && (b['service_fee'] as num) > 0) {
         fee = (b['service_fee'] as num).toDouble();
+      } else if (b['service_charge'] != null) {
+        fee = double.tryParse(b['service_charge'].toString()) ?? 15.00;
       }
+
+      double net = price > fee ? (price - fee) : price;
 
       gross += price;
       appFee += fee;
 
       // Grouping by Venue / Owner
-      String venueName = b['court_name'] ?? b['venue_name'] ?? b['service_title'] ?? 'General Venue';
+      String venueName = b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? b['service_title'] ?? 'General Venue';
       String ownerEmail = b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? 'Unknown Owner';
 
       String groupKey = '$venueName ($ownerEmail)';
@@ -206,7 +219,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       summaries[groupKey]!['bookingsCount'] = (summaries[groupKey]!['bookingsCount'] as int) + 1;
       summaries[groupKey]!['grossVolume'] = (summaries[groupKey]!['grossVolume'] as double) + price;
       summaries[groupKey]!['appServiceFee'] = (summaries[groupKey]!['appServiceFee'] as double) + fee;
-      summaries[groupKey]!['netOwnerPayout'] = (summaries[groupKey]!['netOwnerPayout'] as double) + (price - fee);
+      summaries[groupKey]!['netOwnerPayout'] = (summaries[groupKey]!['netOwnerPayout'] as double) + net;
     }
 
     _platformGrossVolume = gross;
