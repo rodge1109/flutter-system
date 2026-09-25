@@ -401,325 +401,329 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + kToolbarHeight + 24.0, bottom: 24.0),
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => EarningsScreen()),
-                          );
-                        },
-                        child: Container(
-                          margin: EdgeInsets.symmetric(horizontal: 24),
-                          padding: EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryGreen.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(16),
+                  padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + kToolbarHeight + 16.0, bottom: 12.0),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => EarningsScreen()),
+                      );
+                    },
+                    child: Container(
+                      margin: EdgeInsets.symmetric(horizontal: 24),
+                      padding: EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Hi, ${_toTitleCase(_userName)}',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.richBlack,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Court Owner',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Hi, ${_toTitleCase(_userName)}',
-                                      style: TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.richBlack,
-                                      ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'Earnings this Month',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.richBlack,
                                     ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Court Owner',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.arrow_forward_ios, size: 10, color: AppColors.richBlack),
+                                ],
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'P${_calculateMonthlyEarnings()}',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryGreen,
                                 ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        'Earnings this Month',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.richBlack,
-                                        ),
-                                      ),
-                                      SizedBox(width: 4),
-                                      Icon(Icons.arrow_forward_ios, size: 10, color: AppColors.richBlack),
-                                    ],
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'P${_calculateMonthlyEarnings()}',
-                                    style: TextStyle(
-                                      fontFamily: 'Poppins',
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primaryGreen,
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => SuperDashboardScreen()),
-                          );
-                        },
-                        child: Container(
-                          margin: EdgeInsets.symmetric(horizontal: 24),
-                          padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF0F382A), AppColors.primaryGreen],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primaryGreen.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.accentLime.withOpacity(0.25),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(Icons.dashboard_customize_outlined, color: AppColors.accentLime, size: 20),
-                                  ),
-                                  SizedBox(width: 14),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Super Dashboard (App Owner)',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        'All bookings by court owner & ₱15 fee earnings',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white70,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Icon(Icons.arrow_forward_ios, color: AppColors.accentLime, size: 14),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ManageCustomersScreen(ownerEmail: _userEmail),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          margin: EdgeInsets.symmetric(horizontal: 24),
-                          padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryGreen,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primaryGreen.withOpacity(0.2),
-                                blurRadius: 8,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.accentLime.withOpacity(0.25),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(Icons.badge_outlined, color: AppColors.accentLime, size: 20),
-                                  ),
-                                  SizedBox(width: 14),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Customers & Member Loyalty',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Manage members, rates & 10th free rewards',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white70,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Icon(Icons.arrow_forward_ios, color: AppColors.accentLime, size: 14),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      GestureDetector(
-                        onTap: () {
-                          final todayStr = DateTime.now().toString().substring(0, 10);
-                          final todayBookings = _allBookings.where((b) =>
-                            b['appointment_date'] != null &&
-                            b['appointment_date'].toString().startsWith(todayStr)
-                          ).toList();
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AiPromoScreen(
-                                venueName: _myCourts.isNotEmpty ? (_myCourts.first['venue_name'] ?? _myCourts.first['name'] ?? 'Aminova Court') : 'Aminova Court',
-                                courts: _myCourts,
-                                todayBookings: todayBookings,
-                                ownerEmail: _userEmail,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          margin: EdgeInsets.symmetric(horizontal: 24),
-                          padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF1877F2), Color(0xFF0056C6)],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color(0xFF1877F2).withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-                                  ),
-                                  SizedBox(width: 14),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '⚡ 1-Click AI FB Promo Generator',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Gemini AI open slots post & Facebook promo',
-                                        style: GoogleFonts.outfit(
-                                          color: Colors.white70,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildNavButton(
-                            icon: Icons.calendar_month, 
-                            label: 'Calendar', 
-                            isSelected: _currentTab == 'calendar',
-                            onTap: () => setState(() => _currentTab = 'calendar'),
-                          ),
-                          _buildNavButton(
-                            icon: Icons.list_alt, 
-                            label: 'Upcoming (${_allBookings.length})', 
-                            isSelected: _currentTab == 'upcoming',
-                            onTap: () => setState(() => _currentTab = 'upcoming'),
-                          ),
-                          _buildNavButton(
-                            icon: Icons.sports_tennis, 
-                            label: _myCourts.isNotEmpty ? 'My Courts (${_myCourts.length})' : 'My Courts', 
-                            isSelected: _currentTab == 'courts',
-                            onTap: () => setState(() => _currentTab = 'courts'),
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
                 Expanded(
-                  child: _buildTabContent(),
+                  child: SingleChildScrollView(
+                    physics: AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(bottom: 32),
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => SuperDashboardScreen()),
+                            );
+                          },
+                          child: Container(
+                            margin: EdgeInsets.symmetric(horizontal: 24),
+                            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF0F382A), AppColors.primaryGreen],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryGreen.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accentLime.withOpacity(0.25),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.dashboard_customize_outlined, color: AppColors.accentLime, size: 20),
+                                    ),
+                                    SizedBox(width: 14),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Super Dashboard (App Owner)',
+                                          style: GoogleFonts.outfit(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          'All bookings by court owner & ₱15 fee earnings',
+                                          style: GoogleFonts.outfit(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Icon(Icons.arrow_forward_ios, color: AppColors.accentLime, size: 14),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ManageCustomersScreen(ownerEmail: _userEmail),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            margin: EdgeInsets.symmetric(horizontal: 24),
+                            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryGreen.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accentLime.withOpacity(0.25),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.badge_outlined, color: AppColors.accentLime, size: 20),
+                                    ),
+                                    SizedBox(width: 14),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Customers & Member Loyalty',
+                                          style: GoogleFonts.outfit(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Manage members, rates & 10th free rewards',
+                                          style: GoogleFonts.outfit(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Icon(Icons.arrow_forward_ios, color: AppColors.accentLime, size: 14),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: () {
+                            final todayStr = DateTime.now().toString().substring(0, 10);
+                            final todayBookings = _allBookings.where((b) =>
+                              b['appointment_date'] != null &&
+                              b['appointment_date'].toString().startsWith(todayStr)
+                            ).toList();
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AiPromoScreen(
+                                  venueName: _myCourts.isNotEmpty ? (_myCourts.first['venue_name'] ?? _myCourts.first['name'] ?? 'Aminova Court') : 'Aminova Court',
+                                  courts: _myCourts,
+                                  todayBookings: todayBookings,
+                                  ownerEmail: _userEmail,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            margin: EdgeInsets.symmetric(horizontal: 24),
+                            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF1877F2), Color(0xFF0056C6)],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Color(0xFF1877F2).withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                                    ),
+                                    SizedBox(width: 14),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '⚡ 1-Click AI FB Promo Generator',
+                                          style: GoogleFonts.outfit(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Gemini AI open slots post & Facebook promo',
+                                          style: GoogleFonts.outfit(
+                                            color: Colors.white70,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildNavButton(
+                              icon: Icons.calendar_month, 
+                              label: 'Calendar', 
+                              isSelected: _currentTab == 'calendar',
+                              onTap: () => setState(() => _currentTab = 'calendar'),
+                            ),
+                            _buildNavButton(
+                              icon: Icons.list_alt, 
+                              label: 'Upcoming (${_allBookings.length})', 
+                              isSelected: _currentTab == 'upcoming',
+                              onTap: () => setState(() => _currentTab = 'upcoming'),
+                            ),
+                            _buildNavButton(
+                              icon: Icons.sports_tennis, 
+                              label: _myCourts.isNotEmpty ? 'My Courts (${_myCourts.length})' : 'My Courts', 
+                              isSelected: _currentTab == 'courts',
+                              onTap: () => setState(() => _currentTab = 'courts'),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+                        _buildTabContent(),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -787,101 +791,89 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       return timeA.compareTo(timeB);
     });
     
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Column(
-            children: [
-              Container(
-                margin: EdgeInsets.symmetric(horizontal: 24),
-                decoration: BoxDecoration(
-                  color: AppColors.softWhite,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: TableCalendar(
-                  firstDay: DateTime.utc(2020, 10, 16),
-                  lastDay: DateTime.utc(2030, 3, 14),
-                  focusedDay: _focusedDay,
-                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                  onDaySelected: (selectedDay, focusedDay) {
-                    setState(() {
-                      _selectedDay = selectedDay;
-                      _focusedDay = focusedDay;
-                    });
-                  },
-                  onPageChanged: (focusedDay) {
-                    setState(() {
-                      _focusedDay = focusedDay;
-                    });
-                  },
-                  eventLoader: _getBookingsForDay,
-                  calendarBuilders: CalendarBuilders(
-                    markerBuilder: (context, date, events) {
-                      if (events.isNotEmpty) {
-                        return Positioned(
-                          bottom: 1,
-                          child: Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.primaryGreen.withOpacity(0.08),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${events.length}',
-                                style: TextStyle(fontSize: 9, color: AppColors.primaryGreen, fontWeight: FontWeight.bold, height: 1.0),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      return null;
-                    },
-                  ),
-                  calendarStyle: CalendarStyle(
-                    selectedDecoration: BoxDecoration(
-                      color: Color(0xFFE2F999),
-                      shape: BoxShape.circle,
+    return Column(
+      children: [
+        Container(
+          margin: EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: AppColors.softWhite,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TableCalendar(
+            firstDay: DateTime.utc(2020, 10, 16),
+            lastDay: DateTime.utc(2030, 3, 14),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            onPageChanged: (focusedDay) {
+              setState(() {
+                _focusedDay = focusedDay;
+              });
+            },
+            eventLoader: _getBookingsForDay,
+            calendarBuilders: CalendarBuilders(
+              markerBuilder: (context, date, events) {
+                if (events.isNotEmpty) {
+                  return Positioned(
+                    bottom: 1,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primaryGreen.withOpacity(0.08),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${events.length}',
+                          style: TextStyle(fontSize: 9, color: AppColors.primaryGreen, fontWeight: FontWeight.bold, height: 1.0),
+                        ),
+                      ),
                     ),
-                    selectedTextStyle: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold),
-                    todayDecoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      shape: BoxShape.circle,
-                    ),
-                    todayTextStyle: TextStyle(color: AppColors.richBlack),
-                    markerDecoration: BoxDecoration(
-                      color: AppColors.richBlack,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  headerStyle: HeaderStyle(
-                    formatButtonVisible: false,
-                    titleCentered: true,
-                  ),
-                ),
+                  );
+                }
+                return null;
+              },
+            ),
+            calendarStyle: CalendarStyle(
+              selectedDecoration: BoxDecoration(
+                color: Color(0xFFE2F999),
+                shape: BoxShape.circle,
               ),
-              SizedBox(height: 16),
-            ],
+              selectedTextStyle: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold),
+              todayDecoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                shape: BoxShape.circle,
+              ),
+              todayTextStyle: TextStyle(color: AppColors.richBlack),
+              markerDecoration: BoxDecoration(
+                color: AppColors.richBlack,
+                shape: BoxShape.circle,
+              ),
+            ),
+            headerStyle: HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+            ),
           ),
         ),
+        SizedBox(height: 16),
         if (selectedBookings.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: Text("No bookings for this date", style: TextStyle(color: Colors.grey))),
           )
         else
-          SliverPadding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final booking = selectedBookings[index];
-                  return _buildBookingCard(booking);
-                },
-                childCount: selectedBookings.length,
-              ),
+            child: Column(
+              children: selectedBookings.map((booking) => _buildBookingCard(booking)).toList(),
             ),
           ),
       ],
@@ -929,15 +921,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     });
     
     if (upcomingBookings.isEmpty) {
-      return Center(child: Text("No upcoming bookings", style: TextStyle(color: Colors.grey)));
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text("No upcoming bookings", style: TextStyle(color: Colors.grey))),
+      );
     }
     
-    return ListView.builder(
+    return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24),
-      itemCount: upcomingBookings.length,
-      itemBuilder: (context, index) {
-        return _buildBookingCard(upcomingBookings[index]);
-      },
+      child: Column(
+        children: upcomingBookings.map((booking) => _buildBookingCard(booking)).toList(),
+      ),
     );
   }
 
@@ -1000,17 +994,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ),
           ),
         ),
-        Expanded(
-          child: _myCourts.isEmpty 
-            ? Center(child: Text("You haven't added any courts yet.", style: TextStyle(color: Colors.grey)))
-            : GridView.builder(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 0.70,
-                ),
+        _myCourts.isEmpty 
+          ? Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: Text("You haven't added any courts yet.", style: TextStyle(color: Colors.grey))),
+            )
+          : GridView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.70,
+              ),
                 itemCount: _myCourts.length,
                 itemBuilder: (context, index) {
                   final court = _myCourts[index];
@@ -1141,7 +1139,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   );
                 },
               ),
-        ),
       ],
     );
   }
