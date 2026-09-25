@@ -10,7 +10,7 @@ class LoyaltySettingsModel {
     this.id,
     required this.ownerEmail,
     this.memberDiscountType = 'PERCENTAGE',
-    this.memberDiscountValue = 15.0, // Default 15% off for members
+    this.memberDiscountValue = 0.0, // Default 0.0 for members
     this.milestoneTarget = 10,
     this.freeRewardEnabled = true,
   });
@@ -20,7 +20,7 @@ class LoyaltySettingsModel {
       id: json['id'],
       ownerEmail: json['owner_email'] as String? ?? '',
       memberDiscountType: json['member_discount_type'] as String? ?? 'PERCENTAGE',
-      memberDiscountValue: double.tryParse(json['member_discount_value']?.toString() ?? '15.0') ?? 15.0,
+      memberDiscountValue: double.tryParse(json['member_discount_value']?.toString() ?? '0.0') ?? 0.0,
       milestoneTarget: int.tryParse(json['milestone_target']?.toString() ?? '10') ?? 10,
       freeRewardEnabled: json['free_reward_enabled'] == null ? true : (json['free_reward_enabled'] == true || json['free_reward_enabled'] == 1),
     );

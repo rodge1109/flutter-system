@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS pickle_loyalty_settings (
     id SERIAL PRIMARY KEY,
     owner_email VARCHAR(255) UNIQUE NOT NULL,
     member_discount_type VARCHAR(50) DEFAULT 'PERCENTAGE', -- 'PERCENTAGE', 'FIXED_PRICE', 'DISCOUNT_AMOUNT'
-    member_discount_value NUMERIC(10, 2) DEFAULT 15.00,
+    member_discount_value NUMERIC(10, 2) DEFAULT 0.00,
     milestone_target INT DEFAULT 10,
     free_reward_enabled BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -118,7 +118,7 @@ app.get('/api/owner/loyalty-settings', async (req, res) => {
     const settings = (result.rows && result.rows[0]) ? result.rows[0] : {
       owner_email,
       member_discount_type: 'PERCENTAGE',
-      member_discount_value: 15.00,
+      member_discount_value: 0.00,
       milestone_target: 10,
       free_reward_enabled: true,
     };
@@ -151,7 +151,7 @@ app.post('/api/owner/loyalty-settings', async (req, res) => {
     const result = await db.query(query, [
       owner_email,
       member_discount_type || 'PERCENTAGE',
-      member_discount_value || 15.00,
+      (member_discount_value !== undefined && member_discount_value !== null) ? member_discount_value : 0.00,
       milestone_target || 10,
       free_reward_enabled !== false,
     ]);

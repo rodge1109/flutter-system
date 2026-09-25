@@ -29,7 +29,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
   
   // Controllers for Loyalty Settings Form
   String _discountType = 'PERCENTAGE';
-  final TextEditingController _discountValueController = TextEditingController(text: '15.0');
+  final TextEditingController _discountValueController = TextEditingController(text: '0.0');
   bool _freeRewardEnabled = true;
 
   @override
@@ -61,7 +61,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
         _filteredCustomers = List.from(_customers);
         _loyaltySettings = results[1] as LoyaltySettingsModel;
         _discountType = _loyaltySettings?.memberDiscountType ?? 'PERCENTAGE';
-        _discountValueController.text = (_loyaltySettings?.memberDiscountValue ?? 15.0).toString();
+        _discountValueController.text = (_loyaltySettings?.memberDiscountValue ?? 0.0).toString();
         _freeRewardEnabled = _loyaltySettings?.freeRewardEnabled ?? true;
         _isLoading = false;
       });
@@ -96,7 +96,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
   }
 
   Future<void> _saveLoyaltySettings() async {
-    double value = double.tryParse(_discountValueController.text.trim()) ?? 15.0;
+    double value = double.tryParse(_discountValueController.text.trim()) ?? 0.0;
     final updated = LoyaltySettingsModel(
       ownerEmail: widget.ownerEmail,
       memberDiscountType: _discountType,
