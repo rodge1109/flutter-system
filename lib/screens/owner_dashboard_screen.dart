@@ -1,4 +1,5 @@
 import 'package:flutter_project/theme/app_colors.dart';
+import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import 'dashboard_screen.dart';
 import 'profile_screen.dart';
 import 'notifications_screen.dart';
 import 'inbox_screen.dart';
@@ -17,6 +19,7 @@ import 'earnings_screen.dart';
 import 'manage_customers_screen.dart';
 import 'ai_promo_screen.dart';
 import 'super_dashboard_screen.dart';
+import 'login_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   @override
@@ -24,6 +27,31 @@ class OwnerDashboardScreen extends StatefulWidget {
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
+  DateTime _parseDateStandard(dynamic dateRaw) {
+    if (dateRaw == null) return DateTime.now();
+    String s = dateRaw.toString().trim();
+    if (s.isEmpty) return DateTime.now();
+    try {
+      String clean = s.replaceAll(RegExp(r'Z$|[+-]\d{2}:?\d{2}$'), '');
+      return DateTime.parse(clean);
+    } catch (_) {
+      try {
+        return DateTime.parse(s);
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+  }
+
+  String _formatDateCreated(dynamic rawCreatedAt) {
+    if (rawCreatedAt == null || rawCreatedAt.toString().trim().isEmpty) return '';
+    try {
+      DateTime dt = _parseDateStandard(rawCreatedAt);
+      return DateFormat('MMM dd, yyyy h:mm a').format(dt);
+    } catch (_) {
+      return rawCreatedAt.toString();
+    }
+  }
   final ApiService _apiService = ApiService();
   String _userName = 'Owner';
   String _userEmail = '';
@@ -423,20 +451,94 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Hi, ${_toTitleCase(_userName)}',
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.richBlack,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Hi, ${_toTitleCase(_userName)}',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.richBlack,
+                                      ),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryGreen.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(color: AppColors.primaryGreen, width: 1),
+                                      ),
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          value: 'court_owner',
+                                          dropdownColor: Colors.white,
+                                          icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryGreen, size: 16),
+                                          isDense: true,
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontFamily: 'Poppins'),
+                                          onChanged: (val) async {
+                                            if (val == 'signout') {
+                                              final prefs = await SharedPreferences.getInstance();
+                                              await prefs.remove('user');
+                                              if (!mounted) return;
+                                              Navigator.of(context).pushAndRemoveUntil(
+                                                MaterialPageRoute(builder: (context) => LoginScreen()),
+                                                (Route<dynamic> route) => false,
+                                              );
+                                            } else if (val == 'player') {
+                                              if (Navigator.canPop(context)) {
+                                                Navigator.pop(context);
+                                              } else {
+                                                Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen()));
+                                              }
+                                            }
+                                          },
+                                          items: [
+                                            DropdownMenuItem(
+                                              value: 'player',
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.person, size: 12, color: AppColors.primaryGreen),
+                                                  SizedBox(width: 3),
+                                                  Text('Player', style: TextStyle(color: AppColors.richBlack, fontSize: 10, fontWeight: FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'court_owner',
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.storefront_rounded, size: 12, color: AppColors.primaryGreen),
+                                                  SizedBox(width: 3),
+                                                  Text('Court Owner', style: TextStyle(color: AppColors.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'signout',
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.logout_rounded, size: 12, color: Colors.redAccent),
+                                                  SizedBox(width: 3),
+                                                  Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 SizedBox(height: 2),
                                 Text(
                                   'Court Owner',
                                   style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: Colors.grey.shade700,
                                   ),
                                 ),
@@ -1299,6 +1401,79 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ),
             SizedBox(height: 8),
           ],
+          if (booking['created_at'] != null && booking['created_at'].toString().trim().isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Date Created: ${_formatDateCreated(booking['created_at'])}',
+                    style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+          ],
+          Builder(
+            builder: (context) {
+              bool isOfflineBooking = (booking['status'] == 'blocked') ||
+                                       (booking['full_name'] ?? '').toString().toLowerCase().contains('offline');
+
+              String firstNonEmpty(List<dynamic> candidates) {
+                for (var c in candidates) {
+                  if (c != null) {
+                    String s = c.toString().trim();
+                    if (s.isNotEmpty && s != 'null') {
+                      return s;
+                    }
+                  }
+                }
+                return '';
+              }
+
+              String payRef = '';
+              if (!isOfflineBooking) {
+                String rawRef = firstNonEmpty([
+                  booking['payment_reference'],
+                  booking['ref_no'],
+                  booking['payment_ref'],
+                  booking['proof_of_payment'],
+                  booking['agent_code'],
+                ]);
+                if (rawRef.startsWith('data:') || rawRef.length > 60) {
+                  rawRef = firstNonEmpty([
+                    booking['payment_reference'],
+                    booking['ref_no'],
+                    booking['payment_ref'],
+                    booking['agent_code'],
+                  ]);
+                }
+                payRef = rawRef.replaceAll(RegExp(r'^REF:\s*', caseSensitive: false), '');
+              }
+
+              if (payRef.isEmpty) return SizedBox.shrink();
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.payment, size: 16, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Payment Ref No: $payRef',
+                        style: TextStyle(color: Colors.grey.shade800, fontSize: 13, fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

@@ -15,7 +15,7 @@ class LoyaltyStampCardWidget extends StatelessWidget {
     required this.stampCount,
     this.milestoneTarget = 10,
     this.courtOwnerName = 'Member Rewards',
-    this.isMember = true,
+    this.isMember = false,
     this.onTapReward,
   }) : super(key: key);
 

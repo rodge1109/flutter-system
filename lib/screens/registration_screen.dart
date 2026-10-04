@@ -39,7 +39,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               children: [
                 Text('1. Service Charge', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 SizedBox(height: 4),
-                Text('By using the Picklebook platform as a court owner, you agree that a 6.5% service charge of the net amount of rent collected for court bookings and open plays will be deducted by Picklebook as a platform fee.'),
+                Text('By using the Picklebook platform as a court owner, you agree that a ₱15.00 service charge per 5 hours (or fraction thereof) per transaction will be deducted by Picklebook as a platform fee.'),
                 SizedBox(height: 16),
                 Text('2. Court Accuracy and Maintenance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 SizedBox(height: 4),
@@ -47,7 +47,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 SizedBox(height: 16),
                 Text('3. Payments and Payouts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 SizedBox(height: 4),
-                Text('Payouts of the net rental amount (after the 6.5% service charge) will be processed according to our standard payout schedule. You are responsible for providing accurate payout details.'),
+                Text('Payouts of the net rental amount (after the ₱15.00 per 5 hours service charge) will be processed according to our standard payout schedule. You are responsible for providing accurate payout details.'),
                 SizedBox(height: 16),
                 Text('4. Cancellations and Refunds', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 SizedBox(height: 4),
@@ -107,16 +107,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context, true);
-        return;
-      }
-      if (result['user'] != null && result['user']['role'] == 'court_owner') {
-        Navigator.pushReplacement(
+      final userRole = result['user']?['role'];
+      final isOwner = userRole == 'court_owner' || userRole == 'owner';
+      if (isOwner) {
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => OwnerDashboardScreen()),
+          (route) => false,
         );
       } else {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context, true);
+          return;
+        }
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => DashboardScreen()),
@@ -144,11 +147,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (token != null) {
         final result = await _apiService.googleSignIn(token, role: _selectedRole);
         if (result['success']) {
-          Navigator.pushReplacement(
+          final userRole = result['user']?['role'];
+          final isOwner = userRole == 'court_owner' || userRole == 'owner';
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (context) => result['user']['role'] == 'court_owner' ? OwnerDashboardScreen() : DashboardScreen()
+              builder: (context) => isOwner ? OwnerDashboardScreen() : DashboardScreen()
             ),
+            (route) => false,
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'])));
@@ -168,11 +174,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         final token = fbResult.accessToken!.tokenString;
         final result = await _apiService.facebookSignIn(token, role: _selectedRole);
         if (result['success']) {
-          Navigator.pushReplacement(
+          final userRole = result['user']?['role'];
+          final isOwner = userRole == 'court_owner' || userRole == 'owner';
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (context) => result['user']['role'] == 'court_owner' ? OwnerDashboardScreen() : DashboardScreen()
+              builder: (context) => isOwner ? OwnerDashboardScreen() : DashboardScreen()
             ),
+            (route) => false,
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'])));

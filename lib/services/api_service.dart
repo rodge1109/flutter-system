@@ -236,10 +236,44 @@ class ApiService {
         url += '?startDate=$startDate&endDate=$endDate';
       }
       final response = await http.get(Uri.parse(url));
+      
+      List<dynamic> allTransactions = [];
+      
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['transactions'] != null) {
+          allTransactions = List.from(data['transactions']);
+        }
       }
-      return {'success': false, 'message': 'Failed to fetch owner earnings'};
+
+      // Merge from owner bookings to ensure offline blocks and proof_of_payment references are included
+      try {
+        final bookingsUrl = '$baseUrl/owner/bookings/${Uri.encodeComponent(email)}';
+        final bResponse = await http.get(Uri.parse(bookingsUrl));
+        if (bResponse.statusCode == 200) {
+          final bData = json.decode(bResponse.body);
+          if (bData['success'] == true && bData['bookings'] != null) {
+            final List bList = bData['bookings'];
+            for (var b in bList) {
+              if (b['id'] != null) {
+                var idx = allTransactions.indexWhere((t) => t['id']?.toString() == b['id']?.toString());
+                if (idx != -1) {
+                  if (b['proof_of_payment'] != null) allTransactions[idx]['proof_of_payment'] = b['proof_of_payment'];
+                  if (b['agent_code'] != null) allTransactions[idx]['agent_code'] = b['agent_code'];
+                  if (b['payment_reference'] != null) allTransactions[idx]['payment_reference'] = b['payment_reference'];
+                } else {
+                  allTransactions.add(b);
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {}
+
+      return {
+        'success': true,
+        'transactions': allTransactions,
+      };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
@@ -1255,7 +1289,7 @@ class ApiService {
     required String fullName,
     required String email,
     String? phone,
-    bool isMember = true,
+    bool isMember = false,
   }) async {
     try {
       final response = await http.post(

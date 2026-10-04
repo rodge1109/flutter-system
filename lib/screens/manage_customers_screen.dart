@@ -118,7 +118,7 @@ class _ManageCustomersScreenState extends State<ManageCustomersScreen> with Sing
     final nameController = TextEditingController(text: existingCustomer?.fullName ?? '');
     final emailController = TextEditingController(text: existingCustomer?.email ?? '');
     final phoneController = TextEditingController(text: existingCustomer?.phone ?? '');
-    bool isMember = existingCustomer?.isMember ?? true;
+    bool isMember = existingCustomer?.isMember ?? false;
 
     showModalBottomSheet(
       context: context,

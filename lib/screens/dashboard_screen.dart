@@ -26,6 +26,9 @@ import 'manage_challenges_screen.dart';
 import 'live_broadcast_screen.dart';
 import 'booking_assistant_screen.dart';
 import 'super_dashboard_screen.dart';
+import 'owner_dashboard_screen.dart';
+import 'registration_screen.dart';
+import 'login_screen.dart';
 import 'pasalo_courts_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -43,6 +46,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   
   String _userName = 'Roger';
   String _userEmail = '';
+  String _userRole = 'user';
+  bool _isCourtOwner = false;
+  String _activePortal = 'player';
   List<dynamic> _upcomingBookings = [];
   List<dynamic> _pastBookings = [];
   List<dynamic> _courtsList = [];
@@ -402,9 +408,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (userStr != null) {
       final userObj = json.decode(userStr);
       final email = userObj['email'] ?? '';
+      final role = (userObj['role'] ?? 'user').toString();
+      final isOwner = role == 'court_owner' || role == 'owner' || role == 'super_admin';
       setState(() {
         _userName = userObj['full_name'] ?? 'Roger';
         _userEmail = email;
+        _userRole = role;
+        _isCourtOwner = isOwner;
         _isLoading = false; // Add this so the UI renders instantly
       });
 
@@ -429,6 +439,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else {
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _handleRoleSwitch(String selectedRole) async {
+    if (selectedRole == 'court_owner') {
+      Navigator.pop(context); // Close drawer
+      
+      bool isVerifiedOwner = _isCourtOwner;
+      if (!isVerifiedOwner && _userEmail.isNotEmpty) {
+        // Double check against courts list
+        isVerifiedOwner = _courtsList.any((c) {
+          final ownerMail = (c['owner_email'] ?? c['email'] ?? '').toString().trim().toLowerCase();
+          return ownerMail.isNotEmpty && ownerMail == _userEmail.trim().toLowerCase();
+        });
+      }
+
+      if (!isVerifiedOwner && _userEmail.isNotEmpty) {
+        try {
+          final courts = await _apiService.fetchRawServices();
+          isVerifiedOwner = courts.any((c) {
+            final ownerMail = (c['owner_email'] ?? c['email'] ?? '').toString().trim().toLowerCase();
+            return ownerMail.isNotEmpty && ownerMail == _userEmail.trim().toLowerCase();
+          });
+        } catch (_) {}
+      }
+
+      if (isVerifiedOwner) {
+        // Verified owner: Route to Court Owner Portal
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => OwnerDashboardScreen()),
+        );
+      } else {
+        // Not a court owner: Show restriction dialog
+        _showNotCourtOwnerDialog();
+      }
+    }
+  }
+
+  Future<void> _handleSignOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user');
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => LoginScreen()),
+      (Route<dynamic> route) => false,
+    );
+  }
+
+  void _showNotCourtOwnerDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.shield_outlined, color: Colors.amber.shade900, size: 22),
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Access Restricted',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Account $_userEmail is currently logged in as a Player and does not have Court Owner permissions.',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade800, height: 1.4),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Would you like to register as a Court Owner to manage venue courts?',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.richBlack, height: 1.4),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryGreen,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => RegistrationScreen()),
+              );
+            },
+            child: Text('Register as Owner', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchPasaloCourts() async {
@@ -813,8 +933,78 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: EdgeInsets.zero,
           children: [
             UserAccountsDrawerHeader(
-              accountName: Text(_userName, style: TextStyle(fontWeight: FontWeight.bold)),
-              accountEmail: Text(_userEmail),
+              accountName: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _userName, 
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(right: 4),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentLime.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.accentLime, width: 1),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _activePortal,
+                        dropdownColor: AppColors.richBlack,
+                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.accentLime, size: 18),
+                        isDense: true,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.accentLime, fontFamily: 'Poppins'),
+                        onChanged: (val) {
+                          if (val == 'signout') {
+                            _handleSignOut();
+                          } else if (val != null && val != _activePortal) {
+                            _handleRoleSwitch(val);
+                          }
+                        },
+                        items: [
+                          DropdownMenuItem(
+                            value: 'player',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.person, size: 13, color: AppColors.accentLime),
+                                SizedBox(width: 4),
+                                Text('Player', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'court_owner',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.storefront_rounded, size: 13, color: AppColors.accentLime),
+                                SizedBox(width: 4),
+                                Text('Court Owner', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'signout',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.logout_rounded, size: 13, color: Colors.redAccent),
+                                SizedBox(width: 4),
+                                Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              accountEmail: Text(_userEmail, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: AppColors.accentLime,
                 child: Text(_userName.isNotEmpty ? _userName[0].toUpperCase() : 'U', style: TextStyle(color: AppColors.softWhite, fontSize: 24, fontWeight: FontWeight.bold)),
@@ -1023,7 +1213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 60),
+            SizedBox(height: MediaQuery.of(context).padding.top + kToolbarHeight + 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'booking_screen.dart';
 import 'dashboard_screen.dart';
+import 'owner_dashboard_screen.dart';
 import 'login_screen.dart';
 
 class DeepLinkHandlerScreen extends StatefulWidget {
@@ -21,6 +23,20 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
   void initState() {
     super.initState();
     _processDeepLink();
+  }
+
+  Widget _getScreenForUser(String? userStr) {
+    if (userStr == null) return LoginScreen();
+    try {
+      final userObj = json.decode(userStr);
+      final role = userObj['role'];
+      if (role == 'court_owner' || role == 'owner') {
+        return OwnerDashboardScreen();
+      }
+    } catch (e) {
+      debugPrint('Error parsing user json in deep link: $e');
+    }
+    return DashboardScreen();
   }
 
   Future<void> _processDeepLink() async {
@@ -222,7 +238,7 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
           final prefs = await SharedPreferences.getInstance();
           final userStr = prefs.getString('user');
           
-          Widget baseScreen = userStr != null ? DashboardScreen() : LoginScreen();
+          Widget baseScreen = _getScreenForUser(userStr);
           
           Navigator.pushAndRemoveUntil(
             context,
@@ -248,7 +264,7 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
       // If slug wasn't matched, navigate smoothly to Dashboard/Login rather than infinite splash
       final prefs = await SharedPreferences.getInstance();
       final userStr = prefs.getString('user');
-      Widget targetScreen = userStr != null ? DashboardScreen() : LoginScreen();
+      Widget targetScreen = _getScreenForUser(userStr);
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => targetScreen));
     }
   }

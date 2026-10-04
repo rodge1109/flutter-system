@@ -105,15 +105,17 @@ class _LoginScreenState extends State<LoginScreen> {
       final token = googleAuth.idToken;
       if (token != null) {
         final result = await _apiService.googleSignIn(token);
-        if (result['success']) {
+        if (result['success'] == true) {
           await secureStorage.write(key: 'email', value: result['user']['email']);
-          if (result['user'] != null && result['user']['role'] == 'court_owner') {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => OwnerDashboardScreen()));
+          final userRole = result['user']?['role'];
+          final isOwner = userRole == 'court_owner' || userRole == 'owner';
+          if (isOwner) {
+            Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => OwnerDashboardScreen()), (route) => false);
           } else {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => DashboardScreen()));
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'])));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Google Sign In failed')));
         }
       }
     } catch (e) {
@@ -131,8 +133,10 @@ class _LoginScreenState extends State<LoginScreen> {
         final result = await _apiService.facebookSignIn(token);
         if (result['success']) {
           await secureStorage.write(key: 'email', value: result['user']['email']);
-          if (result['user'] != null && result['user']['role'] == 'court_owner') {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => OwnerDashboardScreen()));
+          final userRole = result['user']?['role'];
+          final isOwner = userRole == 'court_owner' || userRole == 'owner';
+          if (isOwner) {
+            Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => OwnerDashboardScreen()), (route) => false);
           } else {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => DashboardScreen()));
           }
@@ -179,17 +183,20 @@ class _LoginScreenState extends State<LoginScreen> {
       // Initialize Push Notifications
       FcmService().init(_emailController.text.trim());
 
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context, true);
-        return;
-      }
+      final userRole = result['user']?['role'];
+      final isOwner = userRole == 'court_owner' || userRole == 'owner';
 
-      if (result['user'] != null && result['user']['role'] == 'court_owner') {
-        Navigator.pushReplacement(
+      if (isOwner) {
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => OwnerDashboardScreen()),
+          (route) => false,
         );
       } else {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context, true);
+          return;
+        }
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => DashboardScreen()),

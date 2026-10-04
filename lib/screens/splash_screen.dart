@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dashboard_screen.dart';
+import 'owner_dashboard_screen.dart';
 import 'login_screen.dart';
 import '../theme/app_colors.dart';
+
 class SplashScreen extends StatefulWidget {
   @override
   _SplashScreenState createState() => _SplashScreenState();
@@ -69,9 +72,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       return;
     }
 
-    final user = prefs.getString('user');
+    final userStr = prefs.getString('user');
     
-    if (user != null) {
+    if (userStr != null) {
+      try {
+        final userObj = json.decode(userStr);
+        final role = userObj['role'];
+        if (role == 'court_owner' || role == 'owner') {
+          Navigator.of(context).pushReplacement(
+            _createCornerTransition(OwnerDashboardScreen()),
+          );
+          return;
+        }
+      } catch (e) {
+        print('Error parsing user JSON in splash: $e');
+      }
       Navigator.of(context).pushReplacement(
         _createCornerTransition(DashboardScreen()),
       );

@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
     <application
-        android:label="PICKLEBOOK APP"
+        android:label="PickleBook"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
