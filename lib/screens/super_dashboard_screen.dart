@@ -160,7 +160,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }
   }
 
-  // Precise Venue Matching Helper
+  // Precise Venue Matching Helper (Differentiates multi-venue court owners)
   bool _isBookingForSelectedVenue(dynamic b) {
     if (_selectedVenueKey == 'ALL') return true;
 
@@ -177,26 +177,30 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       targetVenue = _selectedVenueKey.trim().toLowerCase();
     }
 
-    // 1. Email Match (highest confidence)
-    if (targetEmail.isNotEmpty && ownerEmail.isNotEmpty && targetEmail == ownerEmail) {
-      return true;
+    // 1. If owner email is present and DOES NOT match target owner email, it is NOT a match
+    if (targetEmail.isNotEmpty && ownerEmail.isNotEmpty && targetEmail != ownerEmail) {
+      return false;
     }
 
-    // 2. Venue Name / Service Type Overlap Match
+    // 2. Exact or clean venue name match
     if (venueName.isNotEmpty && targetVenue.isNotEmpty) {
+      String cleanVenueName = venueName.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+      String cleanTargetVenue = targetVenue.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+
       if (venueName == targetVenue ||
+          cleanVenueName == cleanTargetVenue ||
           venueName.contains(targetVenue) ||
-          targetVenue.contains(venueName)) {
-        return true;
-      }
-      // Strip court suffixes like "- Court 1"
-      String cleanVenueName = venueName.split('-')[0].trim();
-      String cleanTargetVenue = targetVenue.split('-')[0].trim();
-      if (cleanVenueName == cleanTargetVenue ||
+          targetVenue.contains(venueName) ||
           cleanVenueName.contains(cleanTargetVenue) ||
           cleanTargetVenue.contains(cleanVenueName)) {
         return true;
       }
+      return false;
+    }
+
+    // Fallback if booking venue name is empty but email matches
+    if (venueName.isEmpty && targetEmail.isNotEmpty && ownerEmail == targetEmail) {
+      return true;
     }
 
     return false;
@@ -243,15 +247,19 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       String oEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
       String key = '$vName (${oEmail.isNotEmpty ? oEmail : "rodge1109@yahoo.com"})';
       
-      if (key == _selectedVenueKey || vName == _selectedVenueKey) return true;
+      if (key == _selectedVenueKey) return true;
       
       if (_selectedVenueKey.contains('(') && _selectedVenueKey.endsWith(')')) {
         int openParen = _selectedVenueKey.lastIndexOf('(');
         String targetVenue = _selectedVenueKey.substring(0, openParen).trim().toLowerCase();
         String targetEmail = _selectedVenueKey.substring(openParen + 1, _selectedVenueKey.length - 1).trim().toLowerCase();
         
-        if (oEmail.isNotEmpty && oEmail.toLowerCase() == targetEmail) return true;
-        if (vName.isNotEmpty && (vName.toLowerCase().contains(targetVenue) || targetVenue.contains(vName.toLowerCase()))) return true;
+        String cleanVName = vName.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim().toLowerCase();
+        String cleanTargetVenue = targetVenue.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim().toLowerCase();
+
+        if (oEmail.isNotEmpty && oEmail.toLowerCase() == targetEmail && cleanVName == cleanTargetVenue) {
+          return true;
+        }
       }
       return false;
     }).toList();
