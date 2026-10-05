@@ -21,7 +21,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   // Filter States
   String _selectedVenue = 'ALL';
   String _selectedStatus = 'ALL';
-  String _datePreset = 'MONTH'; // 'TODAY', 'WEEK', 'MONTH', 'ALL', 'CUSTOM'
+  String _datePreset = 'ALL'; // 'TODAY', 'WEEK', 'MONTH', 'ALL', 'CUSTOM'
   DateTimeRange? _customDateRange;
   String _searchQuery = '';
 
@@ -153,6 +153,28 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
 
       String player = (b['player_name'] ?? b['full_name'] ?? 'Player').toString().trim();
       String court = (b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? b['service_title'] ?? 'Court').toString().trim();
+      String ownerEmail = (b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? '').toString().trim();
+
+      // Normalize court & owner email against registered courts list if missing or mismatched
+      for (var c in _allCourts) {
+        String cName = (c['name'] ?? c['venue_name'] ?? '').toString().trim();
+        String cEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
+        if (cName.isNotEmpty && cEmail.isNotEmpty) {
+          if (court.toLowerCase() == cName.toLowerCase() ||
+              court.toLowerCase().contains(cName.toLowerCase()) ||
+              cName.toLowerCase().contains(court.toLowerCase())) {
+            court = cName;
+            if (ownerEmail.isEmpty || ownerEmail == 'Unknown Owner') {
+              ownerEmail = cEmail;
+            }
+            break;
+          }
+        }
+      }
+      if (ownerEmail.isEmpty || ownerEmail == 'Unknown Owner') {
+        ownerEmail = 'rodge1109@yahoo.com';
+      }
+
       String date = (b['preferred_date'] ?? b['appointment_date'] ?? b['date'] ?? '').toString().trim();
       String createdAt = (b['created_at'] ?? '').toString().trim();
       String createdMinute = createdAt.length >= 16 ? createdAt.substring(0, 16) : createdAt;
@@ -163,7 +185,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         sessionMap[sessionKey] = {
           'court_id': b['court_id'] ?? b['service_id'] ?? b['specialist_id'] ?? 0,
           'court_name': court,
-          'owner_email': b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? 'Unknown Owner',
+          'owner_email': ownerEmail,
           'player_name': player,
           'time_list': <String>[],
           'courtAmount': 0.0,

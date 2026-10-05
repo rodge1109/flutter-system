@@ -1415,21 +1415,52 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] == true && data['bookings'] != null) {
+        if (data['success'] == true && data['bookings'] != null && (data['bookings'] as List).isNotEmpty) {
           return data['bookings'];
         }
       }
 
-      // Fallback: try owner bookings endpoint for main admin if dedicated route not present
-      final fallbackResponse = await http
-          .get(Uri.parse('$baseUrl/owner/bookings/rodge1109@yahoo.com?t=$t'))
-          .timeout(const Duration(seconds: 8));
-      if (fallbackResponse.statusCode == 200) {
-        final data = json.decode(fallbackResponse.body);
-        if (data['success'] == true && data['bookings'] != null) {
-          return data['bookings'];
+      // Dynamic Fallback: fetch bookings across all registered court owners if dedicated route is loading
+      try {
+        final courtsResponse = await http.get(Uri.parse('$baseUrl/raw-services?t=$t')).timeout(const Duration(seconds: 5));
+        if (courtsResponse.statusCode == 200) {
+          final List rawCourts = json.decode(courtsResponse.body);
+          final Set<String> ownerEmails = rawCourts
+              .map((c) => (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toSet();
+
+          List<dynamic> allFetchedBookings = [];
+          Set<dynamic> seenIds = {};
+
+          for (var email in ownerEmails) {
+            try {
+              final bResponse = await http
+                  .get(Uri.parse('$baseUrl/owner/bookings/${Uri.encodeComponent(email)}?t=$t'))
+                  .timeout(const Duration(seconds: 4));
+              if (bResponse.statusCode == 200) {
+                final bData = json.decode(bResponse.body);
+                if (bData['success'] == true && bData['bookings'] != null) {
+                  for (var b in bData['bookings']) {
+                    final idStr = b['id']?.toString();
+                    if (idStr != null && !seenIds.contains(idStr)) {
+                      seenIds.add(idStr);
+                      if (b['owner_email'] == null || b['owner_email'].toString().trim().isEmpty) {
+                        b['owner_email'] = email;
+                      }
+                      allFetchedBookings.add(b);
+                    }
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+          if (allFetchedBookings.isNotEmpty) {
+            return allFetchedBookings;
+          }
         }
-      }
+      } catch (_) {}
+
       return [];
     } catch (e) {
       print('Fetch super admin bookings error: $e');
