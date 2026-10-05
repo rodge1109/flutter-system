@@ -144,11 +144,59 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   void _processCalculations() {
     List<dynamic> filtered = _getFilteredBookings();
 
-    double gross = 0;
-    double appFee = 0;
+    // Group raw booking slot items into consolidated checkout sessions (matching Court Owner Dashboard)
+    Map<String, Map<String, dynamic>> sessionMap = {};
+
+    for (var b in filtered) {
+      final status = (b['status'] ?? '').toString().toLowerCase();
+      if (status == 'cancelled' || status == 'blocked' || status == 'rejected') continue;
+
+      String player = (b['player_name'] ?? b['full_name'] ?? 'Player').toString().trim();
+      String court = (b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? b['service_title'] ?? 'Court').toString().trim();
+      String date = (b['preferred_date'] ?? b['appointment_date'] ?? b['date'] ?? '').toString().trim();
+      String createdAt = (b['created_at'] ?? '').toString().trim();
+      String createdMinute = createdAt.length >= 16 ? createdAt.substring(0, 16) : createdAt;
+
+      String sessionKey = '${player}_${court}_${date}_$createdMinute';
+
+      if (!sessionMap.containsKey(sessionKey)) {
+        sessionMap[sessionKey] = {
+          'court_id': b['court_id'] ?? b['service_id'] ?? b['specialist_id'] ?? 0,
+          'court_name': court,
+          'owner_email': b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? 'Unknown Owner',
+          'player_name': player,
+          'time_list': <String>[],
+          'courtAmount': 0.0,
+          'booking_type': b['booking_type'],
+        };
+      }
+
+      double slotAmount = 0;
+      if (b['total_amount'] != null) {
+        slotAmount = (b['total_amount'] is num) ? (b['total_amount'] as num).toDouble() : (double.tryParse(b['total_amount'].toString()) ?? 0);
+      } else if (b['total_price'] != null) {
+        slotAmount = (b['total_price'] is num) ? (b['total_price'] as num).toDouble() : (double.tryParse(b['total_price'].toString()) ?? 0);
+      } else if (b['amount'] != null) {
+        slotAmount = (b['amount'] is num) ? (b['amount'] as num).toDouble() : (double.tryParse(b['amount'].toString()) ?? 0);
+      } else if (b['price'] != null) {
+        slotAmount = (b['price'] is num) ? (b['price'] as num).toDouble() : (double.tryParse(b['price'].toString()) ?? 0);
+      }
+
+      sessionMap[sessionKey]!['courtAmount'] = (sessionMap[sessionKey]!['courtAmount'] as double) + slotAmount;
+
+      String slotTime = (b['preferred_time'] ?? b['appointment_time'] ?? b['time'] ?? b['timeslot'] ?? '').toString().trim();
+      if (slotTime.isNotEmpty && !(sessionMap[sessionKey]!['time_list'] as List<String>).contains(slotTime)) {
+        (sessionMap[sessionKey]!['time_list'] as List<String>).add(slotTime);
+      }
+    }
+
+    double totalGross = 0;
+    double totalAppFee = 0;
+    double totalNetOwners = 0;
+
     Map<String, Map<String, dynamic>> summaries = {};
 
-    // First populate all registered courts from raw services so all venues can be managed
+    // First populate all registered courts from raw services
     for (var c in _allCourts) {
       String vName = c['name'] ?? c['venue_name'] ?? c['service_title'] ?? 'Court Venue';
       String oEmail = c['owner_email'] ?? c['ownerEmail'] ?? c['owner'] ?? '';
@@ -165,48 +213,30 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       };
     }
 
-    for (var b in filtered) {
-      final status = (b['status'] ?? '').toString().toLowerCase();
-      if (status == 'cancelled' || status == 'blocked' || status == 'rejected') continue;
+    for (var session in sessionMap.values) {
+      List<String> times = List<String>.from(session['time_list']);
+      int hours = times.isNotEmpty ? times.length : 1;
 
-      // Calculation of amount: check total_amount first, then fallback fields
-      double price = 0;
-      if (b['total_amount'] != null) {
-        price = (b['total_amount'] is num) ? (b['total_amount'] as num).toDouble() : (double.tryParse(b['total_amount'].toString()) ?? 0);
-      } else if (b['total_price'] != null) {
-        price = (b['total_price'] is num) ? (b['total_price'] as num).toDouble() : (double.tryParse(b['total_price'].toString()) ?? 0);
-      } else if (b['amount'] != null) {
-        price = (b['amount'] is num) ? (b['amount'] as num).toDouble() : (double.tryParse(b['amount'].toString()) ?? 0);
-      } else if (b['price'] != null) {
-        price = (b['price'] is num) ? (b['price'] as num).toDouble() : (double.tryParse(b['price'].toString()) ?? 0);
-      }
+      // Fee rule identical to Court Owner Dashboard: ₱15 per 5-hour checkout block
+      double fee = (hours / 5.0).ceil() * 15.0;
+      double courtAmount = (session['courtAmount'] as double);
 
-      if (price == 0 && (status == 'confirmed' || status == 'queued' || status == 'completed')) {
-        price = 350.0;
-      }
+      // Gross = total received (Court Amount + ₱15 Service Fee)
+      double gross = courtAmount + fee;
+      // Net = court owner payout (Court Amount)
+      double net = courtAmount;
 
-      // App service fee is ₱15 flat fee per booking session
-      double fee = 15.00;
-      if (b['service_fee'] != null && (b['service_fee'] as num) > 0) {
-        fee = (b['service_fee'] as num).toDouble();
-      } else if (b['service_charge'] != null) {
-        fee = double.tryParse(b['service_charge'].toString()) ?? 15.00;
-      }
+      totalGross += gross;
+      totalAppFee += fee;
+      totalNetOwners += net;
 
-      double net = price > fee ? (price - fee) : price;
-
-      gross += price;
-      appFee += fee;
-
-      // Grouping by Venue / Owner
-      String venueName = b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? b['service_title'] ?? 'General Venue';
-      String ownerEmail = b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? 'Unknown Owner';
-
+      String venueName = session['court_name'];
+      String ownerEmail = session['owner_email'];
       String groupKey = '$venueName ($ownerEmail)';
 
       if (!summaries.containsKey(groupKey)) {
         summaries[groupKey] = {
-          'courtId': b['court_id'] ?? b['service_id'] ?? 0,
+          'courtId': session['court_id'],
           'venueName': venueName,
           'ownerEmail': ownerEmail,
           'bookingsCount': 0,
@@ -217,16 +247,15 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       }
 
       summaries[groupKey]!['bookingsCount'] = (summaries[groupKey]!['bookingsCount'] as int) + 1;
-      summaries[groupKey]!['grossVolume'] = (summaries[groupKey]!['grossVolume'] as double) + price;
+      summaries[groupKey]!['grossVolume'] = (summaries[groupKey]!['grossVolume'] as double) + gross;
       summaries[groupKey]!['appServiceFee'] = (summaries[groupKey]!['appServiceFee'] as double) + fee;
       summaries[groupKey]!['netOwnerPayout'] = (summaries[groupKey]!['netOwnerPayout'] as double) + net;
     }
 
-    _platformGrossVolume = gross;
-    _totalAppServiceFee = appFee;
-    _totalNetToOwners = gross - appFee;
-    if (_totalNetToOwners < 0) _totalNetToOwners = 0;
-    _totalBookingsCount = filtered.length;
+    _platformGrossVolume = totalGross;
+    _totalAppServiceFee = totalAppFee;
+    _totalNetToOwners = totalNetOwners;
+    _totalBookingsCount = sessionMap.length;
     _venueSummaries = summaries;
     _totalVenuesCount = summaries.keys.length;
   }
