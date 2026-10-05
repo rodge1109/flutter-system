@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS pickle_customer (
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
     phone VARCHAR(50),
-    is_member BOOLEAN DEFAULT TRUE,
+    is_member BOOLEAN DEFAULT FALSE,
     loyalty_points INT DEFAULT 0,
     stamp_count INT DEFAULT 0,
     total_completed_bookings INT DEFAULT 0,
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS pickle_customer (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_customer_per_owner UNIQUE (owner_email, email)
 );
-
+ 
 -- 2. Loyalty & Member Price Settings Table
 CREATE TABLE IF NOT EXISTS pickle_loyalty_settings (
     id SERIAL PRIMARY KEY,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS pickle_loyalty_settings (
     free_reward_enabled BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
+ 
 -- 3. Loyalty Audit Logs Table
 CREATE TABLE IF NOT EXISTS pickle_loyalty_logs (
     id SERIAL PRIMARY KEY,
@@ -43,11 +43,11 @@ CREATE TABLE IF NOT EXISTS pickle_loyalty_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 */
-
+ 
 // ==========================================================================
 // EXPRESS.JS BACKEND API ENDPOINTS
 // ==========================================================================
-
+ 
 // 1. Fetch Owner's Registered Customers & Loyalty Status
 app.get('/api/owner/customers', async (req, res) => {
   try {
@@ -65,7 +65,7 @@ app.get('/api/owner/customers', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
+ 
 // 2. Add or Update Customer Record (Full Name, Email, VIP Member status)
 app.post('/api/owner/customers', async (req, res) => {
   try {
@@ -73,7 +73,7 @@ app.post('/api/owner/customers', async (req, res) => {
     if (!owner_email || !full_name || !email) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
-
+ 
     const query = `
       INSERT INTO pickle_customer (owner_email, full_name, email, phone, is_member, updated_at)
       VALUES ($1, $2, $3, $4, $5, NOW())
@@ -84,7 +84,8 @@ app.post('/api/owner/customers', async (req, res) => {
         updated_at = NOW()
       RETURNING *;
     `;
-    const result = await db.query(query, [owner_email, full_name, email, phone || null, is_member !== false]);
+    const isMemberBool = is_member === true || is_member === 'true';
+    const result = await db.query(query, [owner_email, full_name, email, phone || null, isMemberBool]);
     res.json({ success: true, customer: result.rows ? result.rows[0] : result[0] });
   } catch (error) {
     console.error('Error saving customer:', error);
