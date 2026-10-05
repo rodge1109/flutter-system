@@ -7,6 +7,11 @@ import '../services/api_service.dart';
 import 'package:intl/intl.dart';
 
 class EarningsScreen extends StatefulWidget {
+  final String? ownerEmail;
+  final String? venueName;
+
+  EarningsScreen({this.ownerEmail, this.venueName});
+
   @override
   _EarningsScreenState createState() => _EarningsScreenState();
 }
@@ -29,20 +34,22 @@ class _EarningsScreenState extends State<EarningsScreen> {
   }
 
   Future<void> _fetchEarnings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userStr = prefs.getString('user');
-    String? email;
+    String? email = widget.ownerEmail;
     
-    if (userStr != null) {
-      try {
-        final userObj = json.decode(userStr);
-        email = userObj['email'];
-      } catch (e) {
-        print('Error parsing user data: $e');
+    if (email == null || email.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final userStr = prefs.getString('user');
+      if (userStr != null) {
+        try {
+          final userObj = json.decode(userStr);
+          email = userObj['email'];
+        } catch (e) {
+          print('Error parsing user data: $e');
+        }
       }
     }
     
-    if (email != null) {
+    if (email != null && email.isNotEmpty) {
       String? startDate;
       String? endDate;
       if (_selectedDateRange != null) {
@@ -52,11 +59,21 @@ class _EarningsScreenState extends State<EarningsScreen> {
       final data = await _apiService.fetchOwnerEarnings(email, startDate: startDate, endDate: endDate);
       if (data['success'] == true) {
         final List rawTransactions = data['transactions'] ?? [];
+
+        // Filter transactions to selected venueName if provided
+        final List filteredRaw = rawTransactions.where((tx) {
+          if (widget.venueName == null || widget.venueName!.trim().isEmpty) return true;
+          String txVenue = (tx['court_name'] ?? tx['service_type'] ?? tx['venue_name'] ?? '').toString().trim().toLowerCase();
+          String targetV = widget.venueName!.trim().toLowerCase();
+          String cleanTx = txVenue.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+          String cleanTarget = targetV.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+          return txVenue == targetV || cleanTx == cleanTarget || txVenue.contains(cleanTarget) || targetV.contains(cleanTx);
+        }).toList();
         
         // Group transactions placed in the same checkout session
         Map<String, Map<String, dynamic>> groupedMap = {};
 
-        for (var item in rawTransactions) {
+        for (var item in filteredRaw) {
           Map<String, dynamic> tx = Map<String, dynamic>.from(item);
           String player = (tx['player_name'] ?? tx['full_name'] ?? 'Player').toString().trim();
           String court = (tx['court_name'] ?? tx['service_type'] ?? 'Court').toString().trim();

@@ -557,9 +557,21 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                               // Platform Fee Earnings Counter (Follows Selected Venue)
                               GestureDetector(
                                 onTap: () {
+                                  String? targetEmail;
+                                  String? targetVenue;
+                                  if (_selectedVenueKey != 'ALL' && _selectedVenueKey.contains('(') && _selectedVenueKey.endsWith(')')) {
+                                    int openParen = _selectedVenueKey.lastIndexOf('(');
+                                    targetVenue = _selectedVenueKey.substring(0, openParen).trim();
+                                    targetEmail = _selectedVenueKey.substring(openParen + 1, _selectedVenueKey.length - 1).trim();
+                                  }
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => EarningsScreen()),
+                                    MaterialPageRoute(
+                                      builder: (context) => EarningsScreen(
+                                        ownerEmail: targetEmail,
+                                        venueName: targetVenue,
+                                      ),
+                                    ),
                                   );
                                 },
                                 child: Column(
