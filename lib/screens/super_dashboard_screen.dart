@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import 'earnings_screen.dart';
+import 'inbox_screen.dart';
+import 'login_screen.dart';
+import 'notifications_screen.dart';
+import 'profile_screen.dart';
 
 class SuperDashboardScreen extends StatefulWidget {
   @override
@@ -18,34 +24,49 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   List<dynamic> _allBookings = [];
   List<dynamic> _allCourts = [];
   
-  // Filter States
-  String _selectedVenue = 'ALL';
+  // Navigation & Filter States
+  String _currentTab = 'calendar'; // 'calendar', 'upcoming', 'courts'
+  String _selectedVenueKey = 'ALL'; // 'ALL' or 'VenueName (owner_email)'
   String _selectedStatus = 'ALL';
-  String _datePreset = 'ALL'; // 'TODAY', 'WEEK', 'MONTH', 'ALL', 'CUSTOM'
-  DateTimeRange? _customDateRange;
   String _searchQuery = '';
 
   final TextEditingController _searchController = TextEditingController();
 
-  // Financial Metrics
-  double _platformGrossVolume = 0;
-  double _totalAppServiceFee = 0; // ₱15 per booking
-  double _totalNetToOwners = 0;
-  int _totalBookingsCount = 0;
-  int _totalVenuesCount = 0;
-
-  // Segregated Owner/Venue Summaries
-  Map<String, Map<String, dynamic>> _venueSummaries = {};
+  // Calendar States
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
 
   // Disabled Venues / Owners Tracking
   Set<String> _disabledVenues = {};
   Set<String> _disabledOwners = {};
 
+  // Unread badges
+  int _unreadMessageCount = 0;
+  int _unreadCount = 0;
+  String _userEmail = 'superadmin@system.com';
+  String _userName = 'Super Admin';
+
   @override
   void initState() {
     super.initState();
+    _selectedDay = _focusedDay;
+    _loadUserData();
     _loadDisabledLists();
     _loadDashboardData();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    if (userStr != null) {
+      try {
+        final userData = json.decode(userStr);
+        setState(() {
+          _userName = userData['name'] ?? userData['full_name'] ?? 'Super Admin';
+          _userEmail = userData['email'] ?? 'superadmin@system.com';
+        });
+      } catch (_) {}
+    }
   }
 
   Future<void> _loadDisabledLists() async {
@@ -73,15 +94,15 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
 
     if (success) {
       await _loadDisabledLists();
-      _processCalculations();
+      setState(() {});
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               nextStatus
-                  ? '🟢 $venueName has been ACTIVATED and is now visible in Courts Nearby.'
-                  : '🔴 $venueName is TEMPORARILY DEACTIVATED and hidden from Courts Nearby.',
+                  ? '🟢 $venueName has been ACTIVATED and is visible to users.'
+                  : '🔴 $venueName is DEACTIVATED and hidden from users.',
               style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
             ),
             backgroundColor: nextStatus ? AppColors.primaryGreen : Colors.redAccent,
@@ -102,7 +123,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     setState(() => _isLoading = true);
     await _loadDisabledLists();
     
-    // Load cached first if available
+    // Load cached bookings if available
     final prefs = await SharedPreferences.getInstance();
     final cachedBookingsStr = prefs.getString('super_admin_cached_bookings');
     if (cachedBookingsStr != null) {
@@ -110,7 +131,6 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         final cached = json.decode(cachedBookingsStr);
         if (cached is List && cached.isNotEmpty) {
           _allBookings = cached;
-          _processCalculations();
           setState(() => _isLoading = false);
         }
       } catch (_) {}
@@ -122,16 +142,15 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         _apiService.fetchRawServices(),
       ]);
 
-      final freshBookings = results[0] as List<dynamic>;
-      final rawServices = results[1] as List<Map<String, dynamic>>;
+      final List fetchedBookings = results[0] as List;
+      final List rawServices = results[1] as List;
 
-      if (freshBookings.isNotEmpty) {
-        _allBookings = freshBookings;
-        await prefs.setString('super_admin_cached_bookings', json.encode(freshBookings));
+      if (fetchedBookings.isNotEmpty) {
+        _allBookings = fetchedBookings;
+        await prefs.setString('super_admin_cached_bookings', json.encode(fetchedBookings));
       }
       
       _allCourts = rawServices;
-      _processCalculations();
     } catch (e) {
       print('Super Dashboard fetch error: $e');
     } finally {
@@ -141,186 +160,29 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }
   }
 
-  void _processCalculations() {
-    List<dynamic> filtered = _getFilteredBookings();
-
-    // Group raw booking slot items into consolidated checkout sessions (matching Court Owner Dashboard)
-    Map<String, Map<String, dynamic>> sessionMap = {};
-
-    for (var b in filtered) {
-      final status = (b['status'] ?? '').toString().toLowerCase();
-      if (status == 'cancelled' || status == 'blocked' || status == 'rejected') continue;
-
-      String player = (b['player_name'] ?? b['full_name'] ?? 'Player').toString().trim();
-      String court = (b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? b['service_title'] ?? 'Court').toString().trim();
-      String ownerEmail = (b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? '').toString().trim();
-
-      // Normalize court & owner email against registered courts list if missing or mismatched
-      for (var c in _allCourts) {
-        String cName = (c['name'] ?? c['venue_name'] ?? '').toString().trim();
-        String cEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
-        if (cName.isNotEmpty && cEmail.isNotEmpty) {
-          if (court.toLowerCase() == cName.toLowerCase() ||
-              court.toLowerCase().contains(cName.toLowerCase()) ||
-              cName.toLowerCase().contains(court.toLowerCase())) {
-            court = cName;
-            if (ownerEmail.isEmpty || ownerEmail == 'Unknown Owner') {
-              ownerEmail = cEmail;
-            }
-            break;
-          }
-        }
-      }
-      if (ownerEmail.isEmpty || ownerEmail == 'Unknown Owner') {
-        ownerEmail = 'rodge1109@yahoo.com';
-      }
-
-      String date = (b['preferred_date'] ?? b['appointment_date'] ?? b['date'] ?? '').toString().trim();
-      String createdAt = (b['created_at'] ?? '').toString().trim();
-      String createdMinute = createdAt.length >= 16 ? createdAt.substring(0, 16) : createdAt;
-
-      String sessionKey = '${player}_${court}_${date}_$createdMinute';
-
-      if (!sessionMap.containsKey(sessionKey)) {
-        sessionMap[sessionKey] = {
-          'court_id': b['court_id'] ?? b['service_id'] ?? b['specialist_id'] ?? 0,
-          'court_name': court,
-          'owner_email': ownerEmail,
-          'player_name': player,
-          'time_list': <String>[],
-          'courtAmount': 0.0,
-          'booking_type': b['booking_type'],
-        };
-      }
-
-      double slotAmount = 0;
-      if (b['total_amount'] != null) {
-        slotAmount = (b['total_amount'] is num) ? (b['total_amount'] as num).toDouble() : (double.tryParse(b['total_amount'].toString()) ?? 0);
-      } else if (b['total_price'] != null) {
-        slotAmount = (b['total_price'] is num) ? (b['total_price'] as num).toDouble() : (double.tryParse(b['total_price'].toString()) ?? 0);
-      } else if (b['amount'] != null) {
-        slotAmount = (b['amount'] is num) ? (b['amount'] as num).toDouble() : (double.tryParse(b['amount'].toString()) ?? 0);
-      } else if (b['price'] != null) {
-        slotAmount = (b['price'] is num) ? (b['price'] as num).toDouble() : (double.tryParse(b['price'].toString()) ?? 0);
-      }
-
-      sessionMap[sessionKey]!['courtAmount'] = (sessionMap[sessionKey]!['courtAmount'] as double) + slotAmount;
-
-      String slotTime = (b['preferred_time'] ?? b['appointment_time'] ?? b['time'] ?? b['timeslot'] ?? '').toString().trim();
-      if (slotTime.isNotEmpty && !(sessionMap[sessionKey]!['time_list'] as List<String>).contains(slotTime)) {
-        (sessionMap[sessionKey]!['time_list'] as List<String>).add(slotTime);
-      }
-    }
-
-    double totalGross = 0;
-    double totalAppFee = 0;
-    double totalNetOwners = 0;
-
-    Map<String, Map<String, dynamic>> summaries = {};
-
-    // First populate all registered courts from raw services
-    for (var c in _allCourts) {
-      String vName = c['name'] ?? c['venue_name'] ?? c['service_title'] ?? 'Court Venue';
-      String oEmail = c['owner_email'] ?? c['ownerEmail'] ?? c['owner'] ?? '';
-      String groupKey = '$vName (${oEmail.isNotEmpty ? oEmail : "rodge1109@yahoo.com"})';
-
-      summaries[groupKey] = {
-        'courtId': c['id'],
-        'venueName': vName,
-        'ownerEmail': oEmail.isNotEmpty ? oEmail : 'rodge1109@yahoo.com',
-        'bookingsCount': 0,
-        'grossVolume': 0.0,
-        'appServiceFee': 0.0,
-        'netOwnerPayout': 0.0,
-      };
-    }
-
-    for (var session in sessionMap.values) {
-      List<String> times = List<String>.from(session['time_list']);
-      int hours = times.isNotEmpty ? times.length : 1;
-
-      // Fee rule identical to Court Owner Dashboard: ₱15 per 5-hour checkout block
-      double fee = (hours / 5.0).ceil() * 15.0;
-      double courtAmount = (session['courtAmount'] as double);
-
-      // Gross = total received (Court Amount + ₱15 Service Fee)
-      double gross = courtAmount + fee;
-      // Net = court owner payout (Court Amount)
-      double net = courtAmount;
-
-      totalGross += gross;
-      totalAppFee += fee;
-      totalNetOwners += net;
-
-      String venueName = session['court_name'];
-      String ownerEmail = session['owner_email'];
-      String groupKey = '$venueName ($ownerEmail)';
-
-      if (!summaries.containsKey(groupKey)) {
-        summaries[groupKey] = {
-          'courtId': session['court_id'],
-          'venueName': venueName,
-          'ownerEmail': ownerEmail,
-          'bookingsCount': 0,
-          'grossVolume': 0.0,
-          'appServiceFee': 0.0,
-          'netOwnerPayout': 0.0,
-        };
-      }
-
-      summaries[groupKey]!['bookingsCount'] = (summaries[groupKey]!['bookingsCount'] as int) + 1;
-      summaries[groupKey]!['grossVolume'] = (summaries[groupKey]!['grossVolume'] as double) + gross;
-      summaries[groupKey]!['appServiceFee'] = (summaries[groupKey]!['appServiceFee'] as double) + fee;
-      summaries[groupKey]!['netOwnerPayout'] = (summaries[groupKey]!['netOwnerPayout'] as double) + net;
-    }
-
-    _platformGrossVolume = totalGross;
-    _totalAppServiceFee = totalAppFee;
-    _totalNetToOwners = totalNetOwners;
-    _totalBookingsCount = sessionMap.length;
-    _venueSummaries = summaries;
-    _totalVenuesCount = summaries.keys.length;
-  }
-
+  // Filter Bookings by Selected Venue Dropdown and Search Query
   List<dynamic> _getFilteredBookings() {
     return _allBookings.where((b) {
+      final status = (b['status'] ?? '').toString().toLowerCase();
+      if (status == 'cancelled' || status == 'blocked' || status == 'rejected') return false;
+
       // Status Filter
       if (_selectedStatus != 'ALL') {
-        String status = (b['status'] ?? 'confirmed').toString().toUpperCase();
-        if (status != _selectedStatus) return false;
+        String bStatus = (b['status'] ?? 'confirmed').toString().toUpperCase();
+        if (bStatus != _selectedStatus) return false;
       }
 
-      // Venue Filter
-      if (_selectedVenue != 'ALL') {
-        String venueName = b['court_name'] ?? b['venue_name'] ?? b['service_title'] ?? '';
-        String ownerEmail = b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? '';
-        String key = '$venueName ($ownerEmail)';
-        if (key != _selectedVenue && venueName != _selectedVenue) return false;
-      }
-
-      // Date Range Filter
-      if (b['appointment_date'] != null || b['preferred_date'] != null || b['created_at'] != null) {
-        String? dateStr = b['appointment_date'] ?? b['preferred_date'] ?? b['created_at'];
-        if (dateStr != null) {
-          try {
-            DateTime bookingDate = DateTime.parse(dateStr.split('T')[0]);
-            DateTime now = DateTime.now();
-            DateTime today = DateTime(now.year, now.month, now.day);
-
-            if (_datePreset == 'TODAY') {
-              if (bookingDate.isBefore(today)) return false;
-            } else if (_datePreset == 'WEEK') {
-              DateTime startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-              if (bookingDate.isBefore(startOfWeek)) return false;
-            } else if (_datePreset == 'MONTH') {
-              DateTime startOfMonth = DateTime(now.year, now.month, 1);
-              if (bookingDate.isBefore(startOfMonth)) return false;
-            } else if (_datePreset == 'CUSTOM' && _customDateRange != null) {
-              if (bookingDate.isBefore(_customDateRange!.start) || bookingDate.isAfter(_customDateRange!.end.add(const Duration(days: 1)))) {
-                return false;
-              }
-            }
-          } catch (_) {}
+      // Venue Dropdown Filter
+      if (_selectedVenueKey != 'ALL') {
+        String venue = (b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? '').toString().trim();
+        String owner = (b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? '').toString().trim();
+        String key = '$venue ($owner)';
+        if (key != _selectedVenueKey && venue != _selectedVenueKey) {
+          // Check substring match
+          if (!key.toLowerCase().contains(_selectedVenueKey.toLowerCase()) &&
+              !_selectedVenueKey.toLowerCase().contains(venue.toLowerCase())) {
+            return false;
+          }
         }
       }
 
@@ -329,7 +191,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         String query = _searchQuery.toLowerCase().trim();
         String venue = (b['court_name'] ?? b['venue_name'] ?? '').toString().toLowerCase();
         String owner = (b['owner_email'] ?? b['court_owner'] ?? '').toString().toLowerCase();
-        String customer = (b['user_name'] ?? b['user_email'] ?? b['name'] ?? '').toString().toLowerCase();
+        String customer = (b['player_name'] ?? b['full_name'] ?? b['user_email'] ?? '').toString().toLowerCase();
         String id = (b['id'] ?? '').toString().toLowerCase();
 
         if (!venue.contains(query) && !owner.contains(query) && !customer.contains(query) && !id.contains(query)) {
@@ -341,657 +203,690 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }).toList();
   }
 
-  String _formatCurrency(double amount) {
-    final format = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
-    return format.format(amount);
+  // Group Bookings into Checkout Sessions for Platform Fee Calculation
+  Map<String, double> _calculateFinancials() {
+    List<dynamic> filtered = _getFilteredBookings();
+    Map<String, Map<String, dynamic>> sessionMap = {};
+
+    for (var b in filtered) {
+      String player = (b['player_name'] ?? b['full_name'] ?? 'Player').toString().trim();
+      String court = (b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? 'Court').toString().trim();
+      String date = (b['preferred_date'] ?? b['appointment_date'] ?? b['date'] ?? '').toString().trim();
+      String createdAt = (b['created_at'] ?? '').toString().trim();
+      String createdMinute = createdAt.length >= 16 ? createdAt.substring(0, 16) : createdAt;
+
+      String sessionKey = '${player}_${court}_${date}_$createdMinute';
+
+      if (!sessionMap.containsKey(sessionKey)) {
+        sessionMap[sessionKey] = {
+          'courtAmount': 0.0,
+          'time_list': <String>[],
+        };
+      }
+
+      double slotAmount = 0;
+      if (b['total_amount'] != null) {
+        slotAmount = (b['total_amount'] is num) ? (b['total_amount'] as num).toDouble() : (double.tryParse(b['total_amount'].toString()) ?? 0);
+      } else if (b['amount'] != null) {
+        slotAmount = (b['amount'] is num) ? (b['amount'] as num).toDouble() : (double.tryParse(b['amount'].toString()) ?? 0);
+      }
+
+      sessionMap[sessionKey]!['courtAmount'] = (sessionMap[sessionKey]!['courtAmount'] as double) + slotAmount;
+
+      String slotTime = (b['preferred_time'] ?? b['appointment_time'] ?? '').toString().trim();
+      if (slotTime.isNotEmpty && !(sessionMap[sessionKey]!['time_list'] as List<String>).contains(slotTime)) {
+        (sessionMap[sessionKey]!['time_list'] as List<String>).add(slotTime);
+      }
+    }
+
+    double totalGross = 0;
+    double totalAppFee = 0;
+    double totalNetOwners = 0;
+
+    for (var session in sessionMap.values) {
+      List<String> times = List<String>.from(session['time_list']);
+      int hours = times.isNotEmpty ? times.length : 1;
+
+      // ₱15 per 5-hour checkout block rule
+      double fee = (hours / 5.0).ceil() * 15.0;
+      double courtAmount = (session['courtAmount'] as double);
+
+      totalGross += courtAmount + fee;
+      totalAppFee += fee;
+      totalNetOwners += courtAmount;
+    }
+
+    return {
+      'gross': totalGross,
+      'appFee': totalAppFee,
+      'net': totalNetOwners,
+      'sessions': sessionMap.length.toDouble(),
+    };
   }
 
-  String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return 'N/A';
+  // Calendar Event Loader
+  List<dynamic> _getBookingsForDay(DateTime day) {
+    String dayString = DateFormat('yyyy-MM-dd').format(day);
+    List<dynamic> filtered = _getFilteredBookings();
+
+    return filtered.where((b) {
+      String? dateStr = b['preferred_date'] ?? b['appointment_date'] ?? b['date'];
+      if (dateStr == null) return false;
+      try {
+        String formatted = dateStr.toString().split('T')[0].trim();
+        return formatted == dayString;
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+  }
+
+  DateTime _parseTime(String timeString) {
+    if (timeString.isEmpty) return DateTime(2000);
     try {
-      final dt = DateTime.parse(dateStr.split('T')[0]);
-      return DateFormat('MMM dd, yyyy').format(dt);
+      int hour = int.parse(timeString.split(':')[0]);
+      int minute = int.parse(timeString.split(':')[1].substring(0, 2));
+      bool isPM = timeString.toUpperCase().contains('PM');
+      
+      if (isPM && hour < 12) hour += 12;
+      if (!isPM && hour == 12) hour = 0;
+      
+      return DateTime(2000, 1, 1, hour, minute);
     } catch (_) {
-      return dateStr;
+      return DateTime(2000);
     }
+  }
+
+  String _formatDateCreated(dynamic dateInput) {
+    if (dateInput == null || dateInput.toString().trim().isEmpty) return 'N/A';
+    try {
+      String raw = dateInput.toString().trim();
+      raw = raw.replaceAll(RegExp(r'Z$', caseSensitive: false), '');
+      final parsed = DateTime.parse(raw);
+      return DateFormat('MMM d, yyyy • h:mm a').format(parsed);
+    } catch (_) {
+      return dateInput.toString();
+    }
+  }
+
+  String _toTitleCase(String text) {
+    if (text.isEmpty) return text;
+    return text.toLowerCase().split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredBookings = _getFilteredBookings();
+    final financials = _calculateFinancials();
+    final double appFeeEarnings = financials['appFee']!;
+    final List<dynamic> filteredBookings = _getFilteredBookings();
+
+    // Prepare Venue Dropdown Items
+    Set<String> venueOptions = {'ALL'};
+    for (var c in _allCourts) {
+      String vName = (c['name'] ?? c['venue_name'] ?? 'Court Venue').toString().trim();
+      String oEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
+      venueOptions.add('$vName (${oEmail.isNotEmpty ? oEmail : "rodge1109@yahoo.com"})');
+    }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: AppColors.primaryGreen,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Super Dashboard',
-          style: GoogleFonts.outfit(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: false,
+        title: SizedBox(
+          height: 32,
+          child: Image.asset(
+            'assets/logo_small.png',
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+            isAntiAlias: true,
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Refresh Data',
-            onPressed: _loadDashboardData,
+          Badge(
+            isLabelVisible: _unreadMessageCount > 0,
+            label: Text(_unreadMessageCount.toString()),
+            offset: const Offset(-8, 8),
+            backgroundColor: Colors.redAccent,
+            child: IconButton(
+              icon: Icon(Icons.chat_bubble_outline, color: AppColors.richBlack, size: 24),
+              onPressed: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => InboxScreen()));
+              },
+            ),
           ),
+          Badge(
+            isLabelVisible: _unreadCount > 0,
+            label: Text(_unreadCount.toString()),
+            offset: const Offset(-8, 8),
+            child: IconButton(
+              icon: Icon(Icons.notifications_outlined, color: AppColors.richBlack),
+              onPressed: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationsScreen()));
+              },
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.person_outline, color: AppColors.richBlack),
+            onPressed: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen()));
+              _loadUserData();
+            },
+          ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
-          : RefreshIndicator(
-              color: AppColors.primaryGreen,
-              onRefresh: _loadDashboardData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // --- APP OWNER HERO EARNINGS BANNER ---
-                    _buildAppOwnerEarningsCard(),
+      body: _isLoading 
+        ? Center(child: CircularProgressIndicator(color: AppColors.richBlack))
+        : RefreshIndicator(
+            color: AppColors.primaryGreen,
+            onRefresh: () => _loadDashboardData(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  // Top Header & Earnings Card (Identical Layout to Court Owner Dashboard)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + kToolbarHeight + 16.0, 
+                      bottom: 12.0
+                    ),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // User Name & Role Dropdown Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Hi, ${_toTitleCase(_userName)}',
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.richBlack,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryGreen.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(14),
+                                            border: Border.all(color: AppColors.primaryGreen, width: 1),
+                                          ),
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<String>(
+                                              value: 'super_admin',
+                                              dropdownColor: Colors.white,
+                                              icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryGreen, size: 16),
+                                              isDense: true,
+                                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontFamily: 'Poppins'),
+                                              onChanged: (val) async {
+                                                if (val == 'signout') {
+                                                  final prefs = await SharedPreferences.getInstance();
+                                                  await prefs.remove('user');
+                                                  if (!mounted) return;
+                                                  Navigator.of(context).pushAndRemoveUntil(
+                                                    MaterialPageRoute(builder: (context) => LoginScreen()),
+                                                    (Route<dynamic> route) => false,
+                                                  );
+                                                }
+                                              },
+                                              items: const [
+                                                DropdownMenuItem(
+                                                  value: 'super_admin',
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(Icons.admin_panel_settings_rounded, size: 12, color: AppColors.primaryGreen),
+                                                      SizedBox(width: 3),
+                                                      Text('Super Admin', style: TextStyle(color: AppColors.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold)),
+                                                    ],
+                                                  ),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: 'signout',
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(Icons.logout_rounded, size: 12, color: Colors.redAccent),
+                                                      SizedBox(width: 3),
+                                                      Text('Sign Out', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Super Admin Dashboard',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Platform Fee Earnings Counter
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => EarningsScreen()),
+                                  );
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'App Fee Income',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.richBlack,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.arrow_forward_ios, size: 10, color: AppColors.richBlack),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '₱${appFeeEarnings.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primaryGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
 
-                    const SizedBox(height: 16),
+                          const SizedBox(height: 14),
+                          Divider(color: AppColors.primaryGreen.withOpacity(0.15), height: 1),
+                          const SizedBox(height: 14),
 
-                    // --- KPI METRICS GRID ---
-                    _buildKpiMetricsGrid(),
+                          // VENUE SELECTOR DROPDOWN
+                          Row(
+                            children: [
+                              Icon(Icons.storefront_rounded, size: 18, color: AppColors.primaryGreen),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Venue:',
+                                style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppColors.primaryGreen.withOpacity(0.4)),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: venueOptions.contains(_selectedVenueKey) ? _selectedVenueKey : 'ALL',
+                                      isExpanded: true,
+                                      icon: Icon(Icons.arrow_drop_down_circle_outlined, color: AppColors.primaryGreen, size: 20),
+                                      style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.richBlack),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          setState(() {
+                                            _selectedVenueKey = val;
+                                          });
+                                        }
+                                      },
+                                      items: venueOptions.map((vKey) {
+                                        String label = vKey == 'ALL' ? '🌐 ALL VENUES (All Court Owners)' : vKey;
+                                        return DropdownMenuItem<String>(
+                                          value: vKey,
+                                          child: Text(
+                                            label,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
 
-                    const SizedBox(height: 20),
-
-                    // --- SEARCH & DATE FILTER BAR ---
-                    _buildFiltersSection(),
-
-                    const SizedBox(height: 20),
-
-                    // --- VENUE / COURT OWNER SEGREGATION CARDS ---
-                    _buildSegregatedVenuesSection(),
-
-                    const SizedBox(height: 24),
-
-                    // --- ITEMIZATION HEADER & BOOKINGS STREAM ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // Navigation Tabs Row (Identical to Court Owner Dashboard)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Text(
-                          'Itemized Platform Bookings (${filteredBookings.length})',
-                          style: GoogleFonts.outfit(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.richBlack,
-                          ),
+                        _buildNavButton(
+                          icon: Icons.calendar_month, 
+                          label: 'Calendar', 
+                          isSelected: _currentTab == 'calendar',
+                          onTap: () => setState(() => _currentTab = 'calendar'),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryGreen.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '₱15 App Fee / Booking',
-                            style: GoogleFonts.outfit(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
+                        _buildNavButton(
+                          icon: Icons.list_alt, 
+                          label: 'Bookings (${filteredBookings.length})', 
+                          isSelected: _currentTab == 'upcoming',
+                          onTap: () => setState(() => _currentTab = 'upcoming'),
+                        ),
+                        _buildNavButton(
+                          icon: Icons.sports_tennis, 
+                          label: 'Venues (${_allCourts.length})', 
+                          isSelected: _currentTab == 'courts',
+                          onTap: () => setState(() => _currentTab = 'courts'),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 12),
-
-                    if (filteredBookings.isEmpty)
-                      _buildEmptyState()
-                    else
-                      Column(
-                        children: filteredBookings.map((booking) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: _buildBookingItemCard(booking),
-                          );
-                        }).toList(),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
-
-  // APP OWNER EARNINGS HERO BANNER
-  Widget _buildAppOwnerEarningsCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primaryGreen,
-            const Color(0xFF0F382A),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryGreen.withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentLime.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.account_balance_wallet, color: AppColors.accentLime, size: 20),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'App Owner Platform Earnings',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+
+                  const SizedBox(height: 16),
+                  _buildTabContent(filteredBookings),
+                  const SizedBox(height: 32),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.accentLime,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Service Fee: ₱15/Booking',
-                  style: GoogleFonts.outfit(
-                    color: AppColors.richBlack,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _formatCurrency(_totalAppServiceFee),
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Total net income earned from court owner service fees',
-            style: GoogleFonts.outfit(
-              color: Colors.white60,
-              fontSize: 12,
+    );
+  }
+
+  Widget _buildNavButton({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryGreen : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected
+              ? [BoxShadow(color: AppColors.primaryGreen.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))]
+              : [],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: isSelected ? AppColors.softWhite : AppColors.richBlack),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? AppColors.softWhite : AppColors.richBlack,
+              ),
             ),
-          ),
-          const Divider(color: Colors.white12, height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Platform Gross Volume',
-                      style: GoogleFonts.outfit(color: Colors.white60, fontSize: 11),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _formatCurrency(_platformGrossVolume),
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(height: 24, width: 1, color: Colors.white24),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Net Court Owner Payouts',
-                        style: GoogleFonts.outfit(color: Colors.white60, fontSize: 11),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _formatCurrency(_totalNetToOwners),
-                        style: GoogleFonts.outfit(
-                          color: AppColors.accentLime,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // KPI METRICS GRID
-  Widget _buildKpiMetricsGrid() {
-    return Row(
+  Widget _buildTabContent(List<dynamic> filteredBookings) {
+    if (_currentTab == 'calendar') {
+      return _buildCalendarView();
+    } else if (_currentTab == 'upcoming') {
+      return _buildUpcomingView(filteredBookings);
+    } else {
+      return _buildCourtsView();
+    }
+  }
+
+  // 📅 CALENDAR VIEW
+  Widget _buildCalendarView() {
+    final selectedBookings = _selectedDay != null ? _getBookingsForDay(_selectedDay!) : [];
+    selectedBookings.sort((a, b) {
+      final timeA = _parseTime((a['preferred_time'] ?? a['appointment_time'] ?? '').toString());
+      final timeB = _parseTime((b['preferred_time'] ?? b['appointment_time'] ?? '').toString());
+      return timeA.compareTo(timeB);
+    });
+    
+    return Column(
       children: [
-        Expanded(
-          child: _buildMetricTile(
-            title: 'Total Bookings',
-            value: _totalBookingsCount.toString(),
-            icon: Icons.confirmation_number_outlined,
-            color: Colors.blue.shade700,
-            bgColor: Colors.blue.shade50,
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: AppColors.softWhite,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TableCalendar(
+            firstDay: DateTime.utc(2020, 10, 16),
+            lastDay: DateTime.utc(2030, 3, 14),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            onPageChanged: (focusedDay) {
+              setState(() {
+                _focusedDay = focusedDay;
+              });
+            },
+            eventLoader: _getBookingsForDay,
+            calendarBuilders: CalendarBuilders(
+              markerBuilder: (context, date, events) {
+                if (events.isNotEmpty) {
+                  return Positioned(
+                    bottom: 1,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primaryGreen.withOpacity(0.12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${events.length}',
+                          style: TextStyle(fontSize: 9, color: AppColors.primaryGreen, fontWeight: FontWeight.bold, height: 1.0),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return null;
+              },
+            ),
+            calendarStyle: CalendarStyle(
+              selectedDecoration: const BoxDecoration(
+                color: Color(0xFFE2F999),
+                shape: BoxShape.circle,
+              ),
+              selectedTextStyle: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold),
+              todayDecoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                shape: BoxShape.circle,
+              ),
+              todayTextStyle: TextStyle(color: AppColors.richBlack),
+              markerDecoration: BoxDecoration(
+                color: AppColors.richBlack,
+                shape: BoxShape.circle,
+              ),
+            ),
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+            ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricTile(
-            title: 'Active Venues',
-            value: _totalVenuesCount.toString(),
-            icon: Icons.storefront_outlined,
-            color: Colors.purple.shade700,
-            bgColor: Colors.purple.shade50,
+        const SizedBox(height: 16),
+        if (selectedBookings.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: Text("No bookings for this date", style: TextStyle(color: Colors.grey.shade600))),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: selectedBookings.map((booking) => _buildBookingCard(booking)).toList(),
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMetricTile(
-            title: 'Avg. Booking',
-            value: _totalBookingsCount > 0 ? _formatCurrency(_platformGrossVolume / _totalBookingsCount) : '₱0.00',
-            icon: Icons.trending_up,
-            color: Colors.teal.shade700,
-            bgColor: Colors.teal.shade50,
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildMetricTile({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-    required Color bgColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
+  // 📋 UPCOMING & ALL BOOKINGS VIEW
+  Widget _buildUpcomingView(List<dynamic> filteredBookings) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: AppColors.richBlack,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            title,
-            style: GoogleFonts.outfit(
-              fontSize: 10,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // SEARCH AND FILTERS SECTION
-  Widget _buildFiltersSection() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Search Input
+          // Search Bar
           TextField(
             controller: _searchController,
-            onChanged: (val) {
-              setState(() {
-                _searchQuery = val;
-                _processCalculations();
-              });
-            },
             decoration: InputDecoration(
-              hintText: 'Search venue, owner email, customer, ID...',
-              hintStyle: GoogleFonts.outfit(fontSize: 13, color: Colors.grey),
-              prefixIcon: const Icon(Icons.search, color: AppColors.primaryGreen, size: 20),
+              hintText: 'Search player, venue, owner email, ID...',
+              hintStyle: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade500),
+              prefixIcon: Icon(Icons.search, color: AppColors.primaryGreen),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
+                      icon: const Icon(Icons.clear, size: 18),
                       onPressed: () {
-                        _searchController.clear();
                         setState(() {
+                          _searchController.clear();
                           _searchQuery = '';
-                          _processCalculations();
                         });
                       },
                     )
                   : null,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              fillColor: const Color(0xFFF7F9FC),
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppColors.primaryGreen, width: 1.5)),
             ),
+            onChanged: (val) => setState(() => _searchQuery = val),
           ),
-
           const SizedBox(height: 12),
 
-          // Date Presets & Status Chips Row
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildDateFilterChip('Month', 'MONTH'),
-                _buildDateFilterChip('Week', 'WEEK'),
-                _buildDateFilterChip('Today', 'TODAY'),
-                _buildDateFilterChip('All-Time', 'ALL'),
-                const SizedBox(width: 12),
-                Container(height: 20, width: 1, color: Colors.grey.shade300),
-                const SizedBox(width: 12),
-                _buildStatusChip('All Status', 'ALL'),
-                _buildStatusChip('Confirmed', 'CONFIRMED'),
-                _buildStatusChip('Completed', 'COMPLETED'),
-                _buildStatusChip('Pending', 'PENDING'),
-              ],
+          if (filteredBookings.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text("No bookings found matching filters", style: TextStyle(color: Colors.grey.shade600))),
+            )
+          else
+            Column(
+              children: filteredBookings.map((b) => _buildBookingCard(b)).toList(),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildDateFilterChip(String label, String presetKey) {
-    bool isSelected = _datePreset == presetKey;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6.0),
-      child: ChoiceChip(
-        label: Text(label),
-        labelStyle: GoogleFonts.outfit(
-          fontSize: 11,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          color: isSelected ? Colors.white : AppColors.richBlack,
-        ),
-        selected: isSelected,
-        selectedColor: AppColors.primaryGreen,
-        backgroundColor: Colors.grey.shade100,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onSelected: (selected) {
-          if (selected) {
-            setState(() {
-              _datePreset = presetKey;
-              _processCalculations();
-            });
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(String label, String statusKey) {
-    bool isSelected = _selectedStatus == statusKey;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6.0),
-      child: ChoiceChip(
-        label: Text(label),
-        labelStyle: GoogleFonts.outfit(
-          fontSize: 11,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          color: isSelected ? Colors.white : AppColors.richBlack,
-        ),
-        selected: isSelected,
-        selectedColor: Colors.black87,
-        backgroundColor: Colors.grey.shade100,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onSelected: (selected) {
-          if (selected) {
-            setState(() {
-              _selectedStatus = statusKey;
-              _processCalculations();
-            });
-          }
-        },
-      ),
-    );
-  }
-
-  // SEGREGATED VENUE & COURT OWNER CARDS SECTION
-  Widget _buildSegregatedVenuesSection() {
-    if (_venueSummaries.isEmpty) return const SizedBox.shrink();
-
+  // 🏟️ COURTS & VENUES VIEW (WITH COURT ACTIVATION TOGGLE)
+  Widget _buildCourtsView() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Segregated by Court Owner / Venue',
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.richBlack,
-              ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2F999).withOpacity(0.5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
             ),
-            Row(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ElevatedButton.icon(
-                  onPressed: _showVenueActivationManager,
-                  icon: const Icon(Icons.power_settings_new, size: 14, color: AppColors.richBlack),
-                  label: Text(
-                    'Court Activation',
-                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                Row(
+                  children: [
+                    Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Registered Venues', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accentLime,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    elevation: 0,
+                  child: Text(
+                    '${_allCourts.length} ${_allCourts.length == 1 ? 'Venue' : 'Venues'}',
+                    style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
-                if (_selectedVenue != 'ALL') ...[
-                  const SizedBox(width: 6),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _selectedVenue = 'ALL';
-                        _processCalculations();
-                      });
-                    },
-                    child: Text('Reset', style: GoogleFonts.outfit(fontSize: 12, color: AppColors.primaryGreen)),
-                  ),
-                ],
               ],
             ),
-          ],
+          ),
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 175,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _venueSummaries.keys.length + 1,
-            separatorBuilder: (context, index) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                // "All Venues" Overview Card
-                bool isSelected = _selectedVenue == 'ALL';
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedVenue = 'ALL';
-                      _processCalculations();
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: 220,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primaryGreen : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? AppColors.primaryGreen : Colors.grey.shade300,
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'ALL VENUES',
-                              style: GoogleFonts.outfit(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : AppColors.richBlack,
-                              ),
-                            ),
-                            Icon(Icons.border_all, color: isSelected ? AppColors.accentLime : AppColors.primaryGreen, size: 18),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _formatCurrency(_totalAppServiceFee),
-                              style: GoogleFonts.outfit(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : AppColors.primaryGreen,
-                              ),
-                            ),
-                            Text(
-                              'App Fee Earnings (${_totalBookingsCount} bookings)',
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                color: isSelected ? Colors.white70 : Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white12,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'All Venues Default Active 🟢',
-                            style: GoogleFonts.outfit(fontSize: 10, color: isSelected ? Colors.white : Colors.grey.shade700),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
+        const SizedBox(height: 8),
 
-              String key = _venueSummaries.keys.elementAt(index - 1);
-              final item = _venueSummaries[key]!;
-              bool isSelected = _selectedVenue == key;
-              bool isActive = _isVenueCurrentlyActive(item['venueName'], item['ownerEmail']);
+        if (_allCourts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: Text("No registered venues found", style: TextStyle(color: Colors.grey.shade600))),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: _allCourts.map((c) {
+                String vName = (c['name'] ?? c['venue_name'] ?? 'Court Venue').toString().trim();
+                String oEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
+                bool isActive = _isVenueCurrentlyActive(vName, oEmail);
+                dynamic courtId = c['id'];
 
-              return InkWell(
-                onTap: () {
-                  setState(() {
-                    _selectedVenue = isSelected ? 'ALL' : key;
-                    _processCalculations();
-                  });
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 230,
-                  padding: const EdgeInsets.all(14),
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primaryGreen : Colors.white,
+                    color: AppColors.softWhite,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.primaryGreen
-                          : (isActive ? Colors.grey.shade200 : Colors.red.shade300),
-                      width: isSelected ? 2 : 1,
-                    ),
+                    border: Border.all(color: isActive ? AppColors.primaryGreen.withOpacity(0.3) : Colors.grey.shade300),
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
+                      BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Venue title & status badge
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1000,441 +895,230 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item['venueName'],
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected ? Colors.white : AppColors.richBlack,
-                                  ),
-                                  maxLines: 1,
+                                  vName,
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack),
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                Text(
-                                  item['ownerEmail'],
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 10,
-                                    color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                                if (oEmail.isNotEmpty)
+                                  Text(
+                                    oEmail,
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
                               ],
                             ),
                           ),
-                          Switch(
-                            value: isActive,
-                            activeColor: AppColors.accentLime,
-                            inactiveThumbColor: Colors.redAccent,
-                            onChanged: (val) {
-                              _handleToggleVenueActivation(item['venueName'], item['ownerEmail'], item['courtId'], isActive);
-                            },
-                          ),
-                        ],
-                      ),
-
-                      // Status Badge Tag
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? (isSelected ? Colors.white24 : Colors.green.shade50)
-                              : Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          isActive ? '🟢 ACTIVATED' : '🔴 DEACTIVATED (Hidden in Nearby)',
-                          style: GoogleFonts.outfit(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: isActive
-                                ? (isSelected ? Colors.white : Colors.green.shade800)
-                                : Colors.red.shade800,
-                          ),
-                        ),
-                      ),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+                          
+                          // COURT ACTIVATION TOGGLE BUTTON
                           Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                'App Fee (₱15)',
+                                isActive ? 'ACTIVATED' : 'DEACTIVATED',
                                 style: GoogleFonts.outfit(
-                                  fontSize: 9,
-                                  color: isSelected ? Colors.white60 : Colors.grey.shade600,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: isActive ? AppColors.primaryGreen : Colors.redAccent,
                                 ),
                               ),
-                              Text(
-                                _formatCurrency(item['appServiceFee']),
-                                style: GoogleFonts.outfit(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: isSelected ? AppColors.accentLime : AppColors.primaryGreen,
-                                ),
+                              Switch(
+                                value: isActive,
+                                activeColor: AppColors.primaryGreen,
+                                inactiveThumbColor: Colors.grey,
+                                onChanged: (val) {
+                                  _handleToggleVenueActivation(vName, oEmail, courtId, isActive);
+                                },
                               ),
                             ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isSelected ? Colors.white24 : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${item['bookingsCount']} bks',
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : AppColors.richBlack,
-                              ),
-                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.monetization_on_outlined, size: 15, color: Colors.grey.shade700),
+                          const SizedBox(width: 6),
+                          Text(
+                            'App Fee: ₱15 / checkout session',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
-              );
-            },
+                );
+              }).toList(),
+            ),
           ),
-        ),
       ],
     );
   }
 
-  // BOOKING CARD ITEM
-  Widget _buildBookingItemCard(dynamic booking) {
-    String venueName = booking['court_name'] ?? booking['venue_name'] ?? booking['service_title'] ?? 'Court Booking';
-    String ownerEmail = booking['owner_email'] ?? booking['court_owner'] ?? booking['owner'] ?? 'rodge1109@yahoo.com';
-    String customerName = booking['user_name'] ?? booking['name'] ?? booking['customer_name'] ?? 'Customer';
-    String customerEmail = booking['user_email'] ?? booking['email'] ?? '';
-    String date = _formatDate(booking['appointment_date'] ?? booking['preferred_date'] ?? booking['created_at']);
-    String time = booking['appointment_time'] ?? booking['preferred_time'] ?? booking['time'] ?? 'Full Day';
-    String status = (booking['status'] ?? 'CONFIRMED').toString().toUpperCase();
+  // 🎴 DETAILED BOOKING CARD (With Payment Ref No, Date Created, Proof of Payment)
+  Widget _buildBookingCard(dynamic booking) {
+    String player = (booking['player_name'] ?? booking['full_name'] ?? 'Player').toString().trim();
+    String court = (booking['court_name'] ?? booking['venue_name'] ?? booking['service_type'] ?? 'Court').toString().trim();
+    String date = (booking['preferred_date'] ?? booking['appointment_date'] ?? 'N/A').toString().split('T')[0];
+    String time = (booking['preferred_time'] ?? booking['appointment_time'] ?? 'Full Day').toString();
+    String status = (booking['status'] ?? 'confirmed').toString().toUpperCase();
+    String paymentMethod = (booking['payment_method'] ?? 'GCASH').toString().toUpperCase();
+    String ownerEmail = (booking['owner_email'] ?? booking['court_owner'] ?? '').toString();
 
-    double totalPrice = 0;
-    if (booking['total_price'] != null) {
-      totalPrice = (booking['total_price'] is num) ? (booking['total_price'] as num).toDouble() : (double.tryParse(booking['total_price'].toString()) ?? 0);
-    } else if (booking['amount'] != null) {
-      totalPrice = (booking['amount'] is num) ? (booking['amount'] as num).toDouble() : (double.tryParse(booking['amount'].toString()) ?? 0);
+    double amount = 0;
+    if (booking['total_amount'] != null) {
+      amount = (booking['total_amount'] is num) ? (booking['total_amount'] as num).toDouble() : (double.tryParse(booking['total_amount'].toString()) ?? 0);
     }
 
-    double appFee = 15.00;
-    double netOwner = totalPrice - appFee;
-    if (netOwner < 0) netOwner = 0;
+    String firstNonEmpty(List<dynamic> candidates) {
+      for (var c in candidates) {
+        if (c != null) {
+          String s = c.toString().trim();
+          if (s.isNotEmpty && s != 'null') {
+            return s;
+          }
+        }
+      }
+      return '';
+    }
 
-    Color statusColor = Colors.green;
-    if (status == 'PENDING') statusColor = Colors.orange;
-    if (status == 'CANCELLED') statusColor = Colors.red;
+    String payRef = firstNonEmpty([
+      booking['payment_reference'],
+      booking['ref_no'],
+      booking['payment_ref'],
+      booking['proof_of_payment'],
+      booking['agent_code'],
+    ]).replaceAll(RegExp(r'^REF:\s*', caseSensitive: false), '');
 
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.softWhite,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Venue & Status
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 16),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        venueName,
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.richBlack,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  court,
+                  style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 17, letterSpacing: -0.5),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  color: status == 'COMPLETED' ? Colors.blue.shade700 : AppColors.primaryGreen,
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   status,
-                  style: GoogleFonts.outfit(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
-                  ),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.softWhite),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 8),
 
-          const SizedBox(height: 10),
-          Divider(color: Colors.grey.shade100, height: 1),
-          const SizedBox(height: 10),
-
-          // Details grid
           Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Court Owner:', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey.shade600)),
-                    Text(
-                      ownerEmail,
-                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.richBlack),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Text('Customer:', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey.shade600)),
-                    Text(
-                      '$customerName (${customerEmail.isNotEmpty ? customerEmail : "Guest"})',
-                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade800),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('Schedule:', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey.shade600)),
-                  Text(
-                    date,
-                    style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
-                  ),
-                  Text(
-                    time,
-                    style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700),
-                  ),
-                ],
+              Icon(Icons.person, size: 16, color: Colors.grey.shade700),
+              const SizedBox(width: 8),
+              Text(
+                player,
+                style: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.w600, fontSize: 13),
               ),
             ],
           ),
+          const SizedBox(height: 6),
 
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 16, color: Colors.grey.shade700),
+              const SizedBox(width: 8),
+              Text(
+                '$date at $time',
+                style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          if (booking['id'] != null) ...[
+            Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Gross Total', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey.shade600)),
-                    Text(
-                      _formatCurrency(totalPrice),
-                      style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.richBlack),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text('App Fee (15.00)', style: GoogleFonts.outfit(fontSize: 10, color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
-                    Text(
-                      _formatCurrency(appFee),
-                      style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('Net to Owner', style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey.shade600)),
-                    Text(
-                      _formatCurrency(netOwner),
-                      style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.indigo),
-                    ),
-                  ],
+                Icon(Icons.receipt, size: 16, color: Colors.grey.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Ref #: ${booking['id']}',
+                    style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+          ],
+
+          if (booking['created_at'] != null && booking['created_at'].toString().trim().isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Date Created: ${_formatDateCreated(booking['created_at'])}',
+                    style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+          ],
+
+          if (payRef.isNotEmpty && !payRef.startsWith('data:')) ...[
+            Row(
+              children: [
+                Icon(Icons.payment, size: 16, color: Colors.grey.shade700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Payment Ref No: $payRef',
+                    style: TextStyle(color: Colors.grey.shade800, fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+          ],
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Amount: ₱${amount.toStringAsFixed(2)} ($paymentMethod)',
+                style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 14),
+              ),
+              if (ownerEmail.isNotEmpty)
+                Text(
+                  ownerEmail,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+            ],
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.inbox_outlined, size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text(
-            'No Bookings Found',
-            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.richBlack),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Try adjusting your search query or date/venue filters.',
-            style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showVenueActivationManager() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final keys = _venueSummaries.keys.toList();
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.75,
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Court Venue Status & Activation',
-                              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack),
-                            ),
-                            Text(
-                              'Default status is ACTIVATED. Deactivated venues are hidden from Courts Nearby.',
-                              style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade600),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: keys.isEmpty
-                        ? Center(child: Text('No registered court venues found', style: GoogleFonts.outfit(color: Colors.grey)))
-                        : ListView.separated(
-                            itemCount: keys.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              String key = keys[index];
-                              final item = _venueSummaries[key]!;
-                              bool isActive = _isVenueCurrentlyActive(item['venueName'], item['ownerEmail']);
-
-                              return ListTile(
-                                contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                                leading: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: isActive ? Colors.green.shade50 : Colors.red.shade50,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    isActive ? Icons.check_circle : Icons.pause_circle_filled,
-                                    color: isActive ? Colors.green.shade700 : Colors.red.shade700,
-                                  ),
-                                ),
-                                title: Text(
-                                  item['venueName'],
-                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                                subtitle: Text(
-                                  'Owner: ${item['ownerEmail']} • ${item['bookingsCount']} bookings',
-                                  style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade600),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: isActive ? Colors.green.shade100 : Colors.red.shade100,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        isActive ? 'Active 🟢' : 'Deactivated 🔴',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: isActive ? Colors.green.shade900 : Colors.red.shade900,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Switch(
-                                      value: isActive,
-                                      activeColor: AppColors.primaryGreen,
-                                      inactiveThumbColor: Colors.redAccent,
-                                      onChanged: (val) async {
-                                        await _handleToggleVenueActivation(item['venueName'], item['ownerEmail'], item['courtId'], isActive);
-                                        setModalState(() {});
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }
