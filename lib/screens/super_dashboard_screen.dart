@@ -160,7 +160,49 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }
   }
 
-  // Filter Bookings by Selected Venue Dropdown and Search Query
+  // Precise Venue Matching Helper
+  bool _isBookingForSelectedVenue(dynamic b) {
+    if (_selectedVenueKey == 'ALL') return true;
+
+    String venueName = (b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? '').toString().trim().toLowerCase();
+    String ownerEmail = (b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? '').toString().trim().toLowerCase();
+
+    String targetVenue = _selectedVenueKey;
+    String targetEmail = '';
+    if (_selectedVenueKey.contains('(') && _selectedVenueKey.endsWith(')')) {
+      int openParen = _selectedVenueKey.lastIndexOf('(');
+      targetVenue = _selectedVenueKey.substring(0, openParen).trim().toLowerCase();
+      targetEmail = _selectedVenueKey.substring(openParen + 1, _selectedVenueKey.length - 1).trim().toLowerCase();
+    } else {
+      targetVenue = _selectedVenueKey.trim().toLowerCase();
+    }
+
+    // 1. Email Match (highest confidence)
+    if (targetEmail.isNotEmpty && ownerEmail.isNotEmpty && targetEmail == ownerEmail) {
+      return true;
+    }
+
+    // 2. Venue Name / Service Type Overlap Match
+    if (venueName.isNotEmpty && targetVenue.isNotEmpty) {
+      if (venueName == targetVenue ||
+          venueName.contains(targetVenue) ||
+          targetVenue.contains(venueName)) {
+        return true;
+      }
+      // Strip court suffixes like "- Court 1"
+      String cleanVenueName = venueName.split('-')[0].trim();
+      String cleanTargetVenue = targetVenue.split('-')[0].trim();
+      if (cleanVenueName == cleanTargetVenue ||
+          cleanVenueName.contains(cleanTargetVenue) ||
+          cleanTargetVenue.contains(cleanVenueName)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Filter Bookings by Selected Venue Dropdown, Status, and Search Query
   List<dynamic> _getFilteredBookings() {
     return _allBookings.where((b) {
       final status = (b['status'] ?? '').toString().toLowerCase();
@@ -173,23 +215,12 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       }
 
       // Venue Dropdown Filter
-      if (_selectedVenueKey != 'ALL') {
-        String venue = (b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? '').toString().trim();
-        String owner = (b['owner_email'] ?? b['court_owner'] ?? b['owner'] ?? '').toString().trim();
-        String key = '$venue ($owner)';
-        if (key != _selectedVenueKey && venue != _selectedVenueKey) {
-          // Check substring match
-          if (!key.toLowerCase().contains(_selectedVenueKey.toLowerCase()) &&
-              !_selectedVenueKey.toLowerCase().contains(venue.toLowerCase())) {
-            return false;
-          }
-        }
-      }
+      if (!_isBookingForSelectedVenue(b)) return false;
 
       // Search Query
       if (_searchQuery.trim().isNotEmpty) {
         String query = _searchQuery.toLowerCase().trim();
-        String venue = (b['court_name'] ?? b['venue_name'] ?? '').toString().toLowerCase();
+        String venue = (b['court_name'] ?? b['venue_name'] ?? b['service_type'] ?? '').toString().toLowerCase();
         String owner = (b['owner_email'] ?? b['court_owner'] ?? '').toString().toLowerCase();
         String customer = (b['player_name'] ?? b['full_name'] ?? b['user_email'] ?? '').toString().toLowerCase();
         String id = (b['id'] ?? '').toString().toLowerCase();
@@ -200,6 +231,29 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       }
 
       return true;
+    }).toList();
+  }
+
+  // Filter Registered Courts for Venues Tab
+  List<dynamic> _getFilteredCourts() {
+    if (_selectedVenueKey == 'ALL') return _allCourts;
+    
+    return _allCourts.where((c) {
+      String vName = (c['name'] ?? c['venue_name'] ?? '').toString().trim();
+      String oEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
+      String key = '$vName (${oEmail.isNotEmpty ? oEmail : "rodge1109@yahoo.com"})';
+      
+      if (key == _selectedVenueKey || vName == _selectedVenueKey) return true;
+      
+      if (_selectedVenueKey.contains('(') && _selectedVenueKey.endsWith(')')) {
+        int openParen = _selectedVenueKey.lastIndexOf('(');
+        String targetVenue = _selectedVenueKey.substring(0, openParen).trim().toLowerCase();
+        String targetEmail = _selectedVenueKey.substring(openParen + 1, _selectedVenueKey.length - 1).trim().toLowerCase();
+        
+        if (oEmail.isNotEmpty && oEmail.toLowerCase() == targetEmail) return true;
+        if (vName.isNotEmpty && (vName.toLowerCase().contains(targetVenue) || targetVenue.contains(vName.toLowerCase()))) return true;
+      }
+      return false;
     }).toList();
   }
 
@@ -322,6 +376,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     final financials = _calculateFinancials();
     final double appFeeEarnings = financials['appFee']!;
     final List<dynamic> filteredBookings = _getFilteredBookings();
+    final List<dynamic> filteredCourts = _getFilteredCourts();
 
     // Prepare Venue Dropdown Items
     Set<String> venueOptions = {'ALL'};
@@ -491,7 +546,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                                   ],
                                 ),
                               ),
-                              // Platform Fee Earnings Counter
+                              // Platform Fee Earnings Counter (Follows Selected Venue)
                               GestureDetector(
                                 onTap: () {
                                   Navigator.push(
@@ -590,7 +645,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                     ),
                   ),
 
-                  // Navigation Tabs Row (Identical to Court Owner Dashboard)
+                  // Navigation Tabs Row (Follows Selected Venue)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Row(
@@ -610,7 +665,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                         ),
                         _buildNavButton(
                           icon: Icons.sports_tennis, 
-                          label: 'Venues (${_allCourts.length})', 
+                          label: 'Venues (${filteredCourts.length})', 
                           isSelected: _currentTab == 'courts',
                           onTap: () => setState(() => _currentTab = 'courts'),
                         ),
@@ -619,7 +674,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                   ),
 
                   const SizedBox(height: 16),
-                  _buildTabContent(filteredBookings),
+                  _buildTabContent(filteredBookings, filteredCourts),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -663,13 +718,13 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     );
   }
 
-  Widget _buildTabContent(List<dynamic> filteredBookings) {
+  Widget _buildTabContent(List<dynamic> filteredBookings, List<dynamic> filteredCourts) {
     if (_currentTab == 'calendar') {
       return _buildCalendarView();
     } else if (_currentTab == 'upcoming') {
       return _buildUpcomingView(filteredBookings);
     } else {
-      return _buildCourtsView();
+      return _buildCourtsView(filteredCourts);
     }
   }
 
@@ -807,7 +862,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
           if (filteredBookings.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: Text("No bookings found matching filters", style: TextStyle(color: Colors.grey.shade600))),
+              child: Center(child: Text("No bookings found for selected venue", style: TextStyle(color: Colors.grey.shade600))),
             )
           else
             Column(
@@ -819,7 +874,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   }
 
   // 🏟️ COURTS & VENUES VIEW (WITH COURT ACTIVATION TOGGLE)
-  Widget _buildCourtsView() {
+  Widget _buildCourtsView(List<dynamic> filteredCourts) {
     return Column(
       children: [
         Padding(
@@ -848,7 +903,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${_allCourts.length} ${_allCourts.length == 1 ? 'Venue' : 'Venues'}',
+                    '${filteredCourts.length} ${filteredCourts.length == 1 ? 'Venue' : 'Venues'}',
                     style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -858,16 +913,16 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         ),
         const SizedBox(height: 8),
 
-        if (_allCourts.isEmpty)
+        if (filteredCourts.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: Text("No registered venues found", style: TextStyle(color: Colors.grey.shade600))),
+            child: Center(child: Text("No registered venues found for selection", style: TextStyle(color: Colors.grey.shade600))),
           )
         else
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
-              children: _allCourts.map((c) {
+              children: filteredCourts.map((c) {
                 String vName = (c['name'] ?? c['venue_name'] ?? 'Court Venue').toString().trim();
                 String oEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
                 bool isActive = _isVenueCurrentlyActive(vName, oEmail);
