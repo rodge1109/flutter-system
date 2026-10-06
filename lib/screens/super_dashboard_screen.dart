@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../models/customer_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import 'earnings_screen.dart';
@@ -23,9 +24,10 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
 
   List<dynamic> _allBookings = [];
   List<dynamic> _allCourts = [];
+  List<CustomerModel> _allCustomers = [];
   
   // Navigation & Filter States
-  String _currentTab = 'calendar'; // 'calendar', 'upcoming', 'courts'
+  String _currentTab = 'calendar'; // 'calendar', 'upcoming', 'courts', 'loyalty'
   String _selectedVenueKey = 'ALL'; // 'ALL' or 'VenueName (owner_email)'
   String _selectedStatus = 'ALL';
   String _searchQuery = '';
@@ -151,6 +153,23 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       }
       
       _allCourts = rawServices;
+
+      // Fetch member loyalty customers across all registered court owners
+      Set<String> ownerEmails = rawServices
+          .map((c) => (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+
+      List<CustomerModel> combinedCustomers = [];
+      for (var email in ownerEmails) {
+        try {
+          final custs = await _apiService.fetchOwnerCustomers(email);
+          combinedCustomers.addAll(custs);
+        } catch (err) {
+          print('Error fetching customers for $email: $err');
+        }
+      }
+      _allCustomers = combinedCustomers;
     } catch (e) {
       print('Super Dashboard fetch error: $e');
     } finally {
@@ -263,6 +282,33 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       }
       return false;
     }).toList();
+  }
+
+  // Filter Customers by Selected Venue Dropdown and Search Query
+  List<CustomerModel> _getFilteredCustomers() {
+    List<CustomerModel> list = List.from(_allCustomers);
+
+    if (_selectedVenueKey != 'ALL') {
+      String targetEmail = '';
+      if (_selectedVenueKey.contains('(') && _selectedVenueKey.endsWith(')')) {
+        int openParen = _selectedVenueKey.lastIndexOf('(');
+        targetEmail = _selectedVenueKey.substring(openParen + 1, _selectedVenueKey.length - 1).trim().toLowerCase();
+      }
+      if (targetEmail.isNotEmpty) {
+        list = list.where((c) => c.ownerEmail.trim().toLowerCase() == targetEmail).toList();
+      }
+    }
+
+    if (_searchQuery.trim().isNotEmpty) {
+      String q = _searchQuery.trim().toLowerCase();
+      list = list.where((c) =>
+        c.fullName.toLowerCase().contains(q) ||
+        c.email.toLowerCase().contains(q) ||
+        (c.phone != null && c.phone!.toLowerCase().contains(q))
+      ).toList();
+    }
+
+    return list;
   }
 
   // Group Bookings into Checkout Sessions for Platform Fee Calculation
@@ -385,6 +431,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     final double appFeeEarnings = financials['appFee']!;
     final List<dynamic> filteredBookings = _getFilteredBookings();
     final List<dynamic> filteredCourts = _getFilteredCourts();
+    final List<CustomerModel> filteredCustomers = _getFilteredCustomers();
 
     // Prepare Venue Dropdown Items
     Set<String> venueOptions = {'ALL'};
@@ -667,34 +714,45 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
 
                   // Navigation Tabs Row (Follows Selected Venue)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildNavButton(
-                          icon: Icons.calendar_month, 
-                          label: 'Calendar', 
-                          isSelected: _currentTab == 'calendar',
-                          onTap: () => setState(() => _currentTab = 'calendar'),
-                        ),
-                        _buildNavButton(
-                          icon: Icons.list_alt, 
-                          label: 'Bookings (${filteredBookings.length})', 
-                          isSelected: _currentTab == 'upcoming',
-                          onTap: () => setState(() => _currentTab = 'upcoming'),
-                        ),
-                        _buildNavButton(
-                          icon: Icons.sports_tennis, 
-                          label: 'Venues (${filteredCourts.length})', 
-                          isSelected: _currentTab == 'courts',
-                          onTap: () => setState(() => _currentTab = 'courts'),
-                        ),
-                      ],
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildNavButton(
+                            icon: Icons.calendar_month, 
+                            label: 'Calendar', 
+                            isSelected: _currentTab == 'calendar',
+                            onTap: () => setState(() => _currentTab = 'calendar'),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildNavButton(
+                            icon: Icons.list_alt, 
+                            label: 'Bookings (${filteredBookings.length})', 
+                            isSelected: _currentTab == 'upcoming',
+                            onTap: () => setState(() => _currentTab = 'upcoming'),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildNavButton(
+                            icon: Icons.sports_tennis, 
+                            label: 'Venues (${filteredCourts.length})', 
+                            isSelected: _currentTab == 'courts',
+                            onTap: () => setState(() => _currentTab = 'courts'),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildNavButton(
+                            icon: Icons.card_membership_rounded, 
+                            label: 'Loyalty (${filteredCustomers.length})', 
+                            isSelected: _currentTab == 'loyalty',
+                            onTap: () => setState(() => _currentTab = 'loyalty'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 16),
-                  _buildTabContent(filteredBookings, filteredCourts),
+                  _buildTabContent(filteredBookings, filteredCourts, filteredCustomers),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -738,13 +796,15 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     );
   }
 
-  Widget _buildTabContent(List<dynamic> filteredBookings, List<dynamic> filteredCourts) {
+  Widget _buildTabContent(List<dynamic> filteredBookings, List<dynamic> filteredCourts, List<CustomerModel> filteredCustomers) {
     if (_currentTab == 'calendar') {
       return _buildCalendarView();
     } else if (_currentTab == 'upcoming') {
       return _buildUpcomingView(filteredBookings);
-    } else {
+    } else if (_currentTab == 'courts') {
       return _buildCourtsView(filteredCourts);
+    } else {
+      return _buildLoyaltyView(filteredCustomers);
     }
   }
 
@@ -1191,6 +1251,322 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 👑 MEMBER LOYALTY & CUSTOMERS VIEW
+  Widget _buildLoyaltyView(List<CustomerModel> filteredCustomers) {
+    int totalCount = filteredCustomers.length;
+    int vipCount = filteredCustomers.where((c) => c.isMember).length;
+    int freeCount = filteredCustomers.where((c) => c.stampCount >= 9).length;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Stat Summary Cards Row
+          Row(
+            children: [
+              Expanded(
+                child: _buildLoyaltyStatCard(
+                  title: 'Total Customers',
+                  count: totalCount.toString(),
+                  icon: Icons.people_outline,
+                  color: Colors.grey.shade100,
+                  textColor: AppColors.richBlack,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildLoyaltyStatCard(
+                  title: 'VIP Members',
+                  count: vipCount.toString(),
+                  icon: Icons.verified_user_outlined,
+                  color: Colors.lightBlue.shade50,
+                  textColor: Colors.lightBlue.shade900,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildLoyaltyStatCard(
+                  title: 'Ready for Free 10th',
+                  count: freeCount.toString(),
+                  icon: Icons.card_giftcard_outlined,
+                  color: Colors.orange.shade50,
+                  textColor: Colors.deepOrange.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Search Input Bar
+          TextField(
+            controller: _searchController,
+            onChanged: (val) => setState(() => _searchQuery = val),
+            decoration: InputDecoration(
+              hintText: 'Search customer name or email...',
+              hintStyle: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade500),
+              prefixIcon: Icon(Icons.search, size: 20, color: AppColors.primaryGreen),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: AppColors.primaryGreen),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          if (filteredCustomers.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              alignment: Alignment.center,
+              child: Column(
+                children: [
+                  Icon(Icons.people_outline, size: 48, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No customer loyalty records found for this venue.',
+                    style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: filteredCustomers.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final c = filteredCustomers[index];
+                String initial = c.fullName.isNotEmpty ? c.fullName[0].toUpperCase() : 'C';
+
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppColors.primaryGreen.withOpacity(0.12),
+                            child: Text(
+                              initial,
+                              style: GoogleFonts.outfit(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryGreen,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        c.fullName,
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.richBlack,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: c.isMember ? Colors.amber.shade100 : Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: c.isMember ? Colors.amber.shade600 : Colors.grey.shade300),
+                                      ),
+                                      child: Text(
+                                        c.isMember ? '👑 VIP Member' : 'Regular',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: c.isMember ? Colors.amber.shade900 : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  c.email,
+                                  style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey.shade600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+
+                      // Stamp Counter Progress
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.stars_rounded, size: 16, color: AppColors.primaryGreen),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Loyalty Stamps: ${c.stampCount} / 10',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.richBlack,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'Bookings: ${c.totalCompletedBookings}',
+                            style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: (c.stampCount / 10.0).clamp(0.0, 1.0),
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            c.stampCount >= 9 ? Colors.orangeAccent : AppColors.primaryGreen,
+                          ),
+                          minHeight: 6,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Owner: ${c.ownerEmail}',
+                              style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () async {
+                              bool nextMember = !c.isMember;
+                              bool success = await _apiService.addOrUpdateCustomer(
+                                ownerEmail: c.ownerEmail,
+                                fullName: c.fullName,
+                                email: c.email,
+                                phone: c.phone,
+                                isMember: nextMember,
+                              );
+                              if (success) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(nextMember ? 'Granted VIP Status to ${c.fullName}' : 'Revoked VIP Status for ${c.fullName}'),
+                                    backgroundColor: nextMember ? AppColors.primaryGreen : Colors.grey.shade700,
+                                  ),
+                                );
+                                _loadDashboardData();
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryGreen.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(c.isMember ? Icons.star_border : Icons.star, size: 12, color: AppColors.primaryGreen),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    c.isMember ? 'Demote Regular' : 'Make VIP',
+                                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoyaltyStatCard({
+    required String title,
+    required String count,
+    required IconData icon,
+    required Color color,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: textColor.withOpacity(0.15)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 20, color: textColor),
+          const SizedBox(height: 6),
+          Text(
+            count,
+            style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.bold, color: textColor),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: textColor.withOpacity(0.85)),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
