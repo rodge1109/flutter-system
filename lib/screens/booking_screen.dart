@@ -1098,6 +1098,8 @@ class _BookingScreenState extends State<BookingScreen> {
 
   List<String> _getDisplayTimeSlots({ServiceModel? service}) {
     final s = service ?? _selectedService;
+    List<String> slots = [];
+
     if (s != null && s.variablePrices != null && s.variablePrices!.isNotEmpty) {
       List<String> definedSlots = [];
       for (var vp in s.variablePrices!) {
@@ -1107,7 +1109,13 @@ class _BookingScreenState extends State<BookingScreen> {
           definedSlots.add(_normalizeTime(vp['hour'].toString()));
         }
       }
-      if (definedSlots.isNotEmpty) return definedSlots;
+      if (definedSlots.isNotEmpty) {
+        slots = definedSlots;
+      }
+    }
+
+    if (slots.isEmpty) {
+      slots = List.from(_allTimeSlots);
     }
 
     // Filter time slots according to court operating hours (openTime & closeTime)
@@ -1117,24 +1125,25 @@ class _BookingScreenState extends State<BookingScreen> {
       if (closeHour == 0) closeHour = 24;
 
       if (openHour > 0 || closeHour < 24) {
-        List<String> slotsInHours = [];
-        for (int i = 0; i < 24; i++) {
+        slots = slots.where((t) {
+          int h = _allTimeSlots.indexOf(t);
+          if (h == -1) {
+            h = parseHourValue(t, -1);
+          }
+          if (h == -1) return true;
+
           if (closeHour > openHour) {
-            if (i >= openHour && i < closeHour) {
-              slotsInHours.add(_allTimeSlots[i]);
-            }
+            return h >= openHour && h < closeHour;
           } else if (closeHour < openHour) {
             // Overnight operating hours (e.g. 6 PM to 2 AM)
-            if (i >= openHour || i < closeHour) {
-              slotsInHours.add(_allTimeSlots[i]);
-            }
+            return h >= openHour || h < closeHour;
           }
-        }
-        if (slotsInHours.isNotEmpty) return slotsInHours;
+          return true;
+        }).toList();
       }
     }
 
-    return _allTimeSlots;
+    return slots;
   }
 
   Widget _buildIcon(String iconString) {
