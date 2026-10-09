@@ -1122,6 +1122,13 @@ class _BookingScreenState extends State<BookingScreen> {
     if (s != null && (s.openTime != null || s.closeTime != null)) {
       int openHour = parseHourValue(s.openTime, 0);
       int closeHour = parseHourValue(s.closeTime, 24);
+      if (s.closeTime != null && s.closeTime.toString().contains(':')) {
+        final parts = s.closeTime.toString().split(':');
+        if (parts.length >= 2) {
+          int min = int.tryParse(parts[1].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          if (min > 0 && closeHour < 24) closeHour += 1;
+        }
+      }
       if (closeHour == 0) closeHour = 24;
 
       if (openHour > 0 || closeHour < 24) {
@@ -1763,6 +1770,13 @@ class _BookingScreenState extends State<BookingScreen> {
                             }
                             if (court.closeTime != null && court.closeTime.toString().trim().isNotEmpty) {
                               int closeHour = parseHourValue(court.closeTime, 24);
+                              if (court.closeTime.toString().contains(':')) {
+                                final parts = court.closeTime.toString().split(':');
+                                if (parts.length >= 2) {
+                                  int min = int.tryParse(parts[1].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                                  if (min > 0 && closeHour < 24) closeHour += 1;
+                                }
+                              }
                               if (closeHour == 0) closeHour = 24;
                               int openHour = parseHourValue(court.openTime, 0);
 
