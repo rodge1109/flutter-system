@@ -1109,6 +1109,31 @@ class _BookingScreenState extends State<BookingScreen> {
       }
       if (definedSlots.isNotEmpty) return definedSlots;
     }
+
+    // Filter time slots according to court operating hours (openTime & closeTime)
+    if (s != null && (s.openTime != null || s.closeTime != null)) {
+      int openHour = parseHourValue(s.openTime, 0);
+      int closeHour = parseHourValue(s.closeTime, 24);
+      if (closeHour == 0) closeHour = 24;
+
+      if (openHour > 0 || closeHour < 24) {
+        List<String> slotsInHours = [];
+        for (int i = 0; i < 24; i++) {
+          if (closeHour > openHour) {
+            if (i >= openHour && i < closeHour) {
+              slotsInHours.add(_allTimeSlots[i]);
+            }
+          } else if (closeHour < openHour) {
+            // Overnight operating hours (e.g. 6 PM to 2 AM)
+            if (i >= openHour || i < closeHour) {
+              slotsInHours.add(_allTimeSlots[i]);
+            }
+          }
+        }
+        if (slotsInHours.isNotEmpty) return slotsInHours;
+      }
+    }
+
     return _allTimeSlots;
   }
 
@@ -1723,13 +1748,21 @@ class _BookingScreenState extends State<BookingScreen> {
                               }
                             }
 
-                            if (court.openTime != null && court.openTime!.contains(':')) {
-                              int openHour = int.tryParse(court.openTime!.split(':')[0]) ?? 0;
+                            if (court.openTime != null && court.openTime.toString().trim().isNotEmpty) {
+                              int openHour = parseHourValue(court.openTime, 0);
                               if (slotHour < openHour) isOutsideHours = true;
                             }
-                            if (court.closeTime != null && court.closeTime!.contains(':')) {
-                              int closeHour = int.tryParse(court.closeTime!.split(':')[0]) ?? 24;
-                              if (slotHour >= closeHour) isOutsideHours = true;
+                            if (court.closeTime != null && court.closeTime.toString().trim().isNotEmpty) {
+                              int closeHour = parseHourValue(court.closeTime, 24);
+                              if (closeHour == 0) closeHour = 24;
+                              int openHour = parseHourValue(court.openTime, 0);
+
+                              if (closeHour > openHour) {
+                                if (slotHour >= closeHour) isOutsideHours = true;
+                              } else if (closeHour < openHour) {
+                                // Overnight operating hours
+                                if (slotHour < openHour && slotHour >= closeHour) isOutsideHours = true;
+                              }
                             }
 
                             final bool isDisabled = isBooked || isPast || isOutsideHours;
