@@ -88,8 +88,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       _descCtrl.text = widget.court!['description'] ?? 'Enjoy a fun and active game on our well-maintained pickleball court, perfect for players of all skill levels.';
       _dayRateCtrl.text = widget.court!['base_price']?.toString() ?? '';
       _nightRateCtrl.text = widget.court!['base_price']?.toString() ?? '';
-      _openTimeCtrl.text = widget.court!['open_time'] ?? '00:00';
-      _closeTimeCtrl.text = widget.court!['close_time'] ?? '23:59';
+      _openTimeCtrl.text = widget.court!['open_time'] ?? widget.court!['openTime'] ?? '00:00';
+      _closeTimeCtrl.text = widget.court!['close_time'] ?? widget.court!['closeTime'] ?? '23:59';
       _logoUrlCtrl.text = widget.court!['logo_url'] ?? widget.court!['logo'] ?? '';
 
       final rawPrices = widget.court!['hourly_prices'] ?? widget.court!['hourlyPrices'] ?? widget.court!['variable_prices'] ?? widget.court!['variablePrices'];
