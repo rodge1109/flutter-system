@@ -1,10 +1,10 @@
 import 'package:flutter_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'package:intl/intl.dart';
+import 'statement_of_account_screen.dart';
 
 class EarningsScreen extends StatefulWidget {
   final String? ownerEmail;
@@ -60,8 +60,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
       if (data['success'] == true) {
         final List rawTransactions = data['transactions'] ?? [];
 
-        // Filter transactions to selected venueName if provided
+        // Filter transactions to selected venueName if provided, and exclude cancelled bookings
         final List filteredRaw = rawTransactions.where((tx) {
+          final status = (tx['status'] ?? '').toString().toLowerCase().trim();
+          if (status == 'cancelled') return false;
+
           if (widget.venueName == null || widget.venueName!.trim().isEmpty) return true;
           String txVenue = (tx['court_name'] ?? tx['service_type'] ?? tx['venue_name'] ?? '').toString().trim().toLowerCase();
           String targetV = widget.venueName!.trim().toLowerCase();
@@ -93,6 +96,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
               'preferred_date': tx['preferred_date'] ?? tx['appointment_date'] ?? tx['date'],
               'time_list': <String>[],
               'amount': 0.0,
+              'total_amount': tx['total_amount'],
               'is_open_play': tx['is_open_play'] == true,
               'payment_reference': tx['payment_reference'],
               'proof_of_payment': tx['proof_of_payment'],
@@ -101,9 +105,12 @@ class _EarningsScreenState extends State<EarningsScreen> {
               'agent_code': tx['agent_code'],
               'order_number': tx['order_number'],
               'booking_type': tx['booking_type'],
+              'status': tx['status'],
+              'payment_method': tx['payment_method'],
+              'payment_type': tx['payment_type'],
             };
           } else {
-            for (var key in ['payment_reference', 'proof_of_payment', 'payment_ref', 'ref_no', 'agent_code', 'order_number', 'booking_type']) {
+            for (var key in ['payment_reference', 'proof_of_payment', 'payment_ref', 'ref_no', 'agent_code', 'order_number', 'booking_type', 'status', 'payment_method', 'payment_type', 'total_amount']) {
               if (tx[key] != null && tx[key].toString().trim().isNotEmpty) {
                 if ((groupedMap[groupKey]![key] ?? '').toString().trim().isEmpty) {
                   groupedMap[groupKey]![key] = tx[key];
@@ -117,7 +124,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
             ids.add(tx['id']);
           }
 
-          double slotAmount = (tx['amount'] ?? tx['gross'] ?? tx['price'] ?? 0).toDouble();
+          double slotAmount = (tx['total_amount'] != null && tx['total_amount'].toString().trim().isNotEmpty)
+              ? (double.tryParse(tx['total_amount'].toString()) ?? 0.0)
+              : (tx['amount'] ?? tx['gross'] ?? tx['price'] ?? 0).toDouble();
           groupedMap[groupKey]!['amount'] = (groupedMap[groupKey]!['amount'] as double) + slotAmount;
 
           String slotTime = (tx['preferred_time'] ?? tx['time'] ?? tx['timeslot'] ?? tx['slot'] ?? '').toString().trim();
@@ -138,15 +147,60 @@ class _EarningsScreenState extends State<EarningsScreen> {
           // Fee rule: ₱15 per 5-hour block for the consolidated booking checkout transaction
           double fee = (hours / 5.0).ceil() * 15.0;
           double courtAmount = (groupedTx['amount'] as double);
-          
-          // Gross = total amount received from player (Court Amount + ₱15 Service Fee = e.g. ₱215.00)
-          double gross = courtAmount + fee;
-          // Net = net payout to court owner (e.g. ₱200.00)
-          double net = courtAmount;
+
+          final bType = (groupedTx['booking_type'] ?? '').toString().toLowerCase().trim();
+          final status = (groupedTx['status'] ?? '').toString().toLowerCase().trim();
+          final pName = (groupedTx['player_name'] ?? groupedTx['full_name'] ?? '').toString().toLowerCase().trim();
+          final pMethod = (groupedTx['payment_method'] ?? groupedTx['payment_type'] ?? '').toString().toLowerCase().trim();
+          final pRef = (groupedTx['payment_reference'] ?? groupedTx['payment_ref'] ?? groupedTx['ref_no'] ?? '').toString().toLowerCase().trim();
+
+          bool isOfflineBlock = bType == 'owner_block' ||
+              bType == 'offline' ||
+              bType == 'walkin' ||
+              bType == 'walk-in' ||
+              bType == 'maintenance' ||
+              bType == 'maintenance_block' ||
+              bType == 'block' ||
+              bType.contains('offline') ||
+              bType.contains('block') ||
+              bType.contains('maintenance') ||
+              bType.contains('walk') ||
+              status == 'blocked' ||
+              status == 'maintenance' ||
+              status.contains('block') ||
+              status.contains('maintenance') ||
+              pName.contains('offline') ||
+              pName.contains('walk-in') ||
+              pName.contains('walkin') ||
+              pName.contains('maintenance') ||
+              pName.contains('block') ||
+              pMethod == 'cash' ||
+              pMethod == 'offline' ||
+              pRef == 'offline';
+
+          double gross;
+          double net;
+
+          if (isOfflineBlock) {
+            // Offline booking or maintenance block: gross and net are zero
+            gross = 0.0;
+            net = 0.0;
+            groupedTx['amount'] = 0.0;
+            groupedTx['booking_type'] = 'owner_block';
+          } else {
+            // Gross = total amount received from player (Court Amount + ₱15 Service Fee = e.g. ₱215.00 / ₱815.00)
+            gross = courtAmount + fee;
+            // Net = net payout to court owner (e.g. ₱200.00 / ₱800.00)
+            net = courtAmount;
+          }
 
           groupedTx['grossAmount'] = gross;
+          groupedTx['gross_amount'] = gross;
           groupedTx['serviceFee'] = fee;
+          groupedTx['service_fee'] = fee;
           groupedTx['netEarnings'] = net;
+          groupedTx['net_amount'] = net;
+          groupedTx['court_net'] = net;
           groupedTx['hours'] = hours;
 
           if (times.isNotEmpty) {
@@ -167,9 +221,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
         }
 
         setState(() {
-          _grossEarnings = grossSum > 0 ? grossSum : (data['grossEarnings'] ?? 0).toDouble();
+          _grossEarnings = processedTransactions.isNotEmpty ? grossSum : (data['grossEarnings'] ?? 0).toDouble();
           _totalServiceFee = feeSum;
-          _totalNetEarnings = grossSum > 0 ? netSum : (data['totalNetEarnings'] ?? 0).toDouble();
+          _totalNetEarnings = processedTransactions.isNotEmpty ? netSum : (data['totalNetEarnings'] ?? 0).toDouble();
           _transactions = processedTransactions;
           
           _transactions.sort((a, b) {
@@ -268,6 +322,26 @@ class _EarningsScreenState extends State<EarningsScreen> {
         elevation: 0,
         iconTheme: IconThemeData(color: AppColors.richBlack),
         actions: [
+          IconButton(
+            tooltip: 'Statement of Account',
+            icon: const Icon(Icons.receipt_long_rounded, color: AppColors.primaryGreen),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StatementOfAccountScreen(
+                    venueName: widget.venueName,
+                    ownerEmail: widget.ownerEmail,
+                    dateRange: _selectedDateRange,
+                    grossEarnings: _grossEarnings,
+                    totalServiceFee: _totalServiceFee,
+                    totalNetEarnings: _totalNetEarnings,
+                    transactions: _transactions,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(Icons.date_range, color: AppColors.primaryGreen),
             onPressed: () async {

@@ -133,7 +133,12 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                           }
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 16)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        foregroundColor: AppColors.softWhite,
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                       child: Text('Submit Request', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                 ],
@@ -148,7 +153,7 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.creamWhite,
+      backgroundColor: AppColors.softWhite,
       appBar: AppBar(
         title: Text('Pasalo Courts', style: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.softWhite,
@@ -156,11 +161,11 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
         iconTheme: IconThemeData(color: AppColors.richBlack),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: AppColors.accentLime))
+          ? Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
@@ -184,19 +189,20 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                 ),
                 Expanded(
                   child: _filteredCourts.isEmpty
-                      ? Center(child: Text('No courts available for pasalo.', style: TextStyle(color: Colors.grey)))
-                      : ListView.separated(
-                          padding: EdgeInsets.all(16),
+                      ? Center(child: Text('No courts available for pasalo.', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)))
+                      : ListView.builder(
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           itemCount: _filteredCourts.length,
-                          separatorBuilder: (context, index) => SizedBox(height: 16),
                           itemBuilder: (context, index) {
                             final court = _filteredCourts[index];
                             final date = court['preferred_date']?.split('T')[0] ?? '';
                             final time = court['preferred_time'] ?? '';
                             
                             return Card(
-                              elevation: 2,
+                              elevation: 4,
+                              margin: EdgeInsets.only(bottom: 16),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              color: Colors.white,
                               child: Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Column(
@@ -204,15 +210,24 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                                   children: [
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Expanded(child: Text(court['court_name'] ?? 'Court', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.deepTeal))),
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.accentLime,
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            'PASALO',
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack),
+                                          ),
+                                        ),
                                         Row(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Container(
-                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                                              child: Text('P${court['assume_price'] ?? '0'}', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                                            Text(
+                                              date,
+                                              style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold),
                                             ),
                                             SizedBox(width: 8),
                                             InkWell(
@@ -223,10 +238,10 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                                               child: Container(
                                                 padding: EdgeInsets.all(6),
                                                 decoration: BoxDecoration(
-                                                  color: AppColors.primaryGreen.withOpacity(0.1),
+                                                  color: AppColors.primaryGreen.withOpacity(0.08),
                                                   shape: BoxShape.circle,
                                                 ),
-                                                child: Icon(Icons.share, size: 18, color: AppColors.primaryGreen),
+                                                child: Icon(Icons.share, size: 16, color: AppColors.primaryGreen),
                                               ),
                                             ),
                                           ],
@@ -234,50 +249,50 @@ class _PasaloCourtsScreenState extends State<PasaloCourtsScreen> {
                                       ],
                                     ),
                                     SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                                        SizedBox(width: 8),
-                                        Text(date, style: TextStyle(color: Colors.grey.shade800)),
-                                      ],
+                                    Text(
+                                      'Host: ${court['current_owner_name'] ?? 'Unknown'}',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack),
                                     ),
                                     SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Icon(Icons.access_time, size: 16, color: Colors.grey),
-                                        SizedBox(width: 8),
-                                        Text(time, style: TextStyle(color: Colors.grey.shade800)),
-                                      ],
+                                    Text(
+                                      'Court: ${court['court_name'] ?? 'Court'}',
+                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                                     ),
-                                    SizedBox(height: 4),
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(Icons.location_on, size: 16, color: Colors.grey),
-                                        SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            court['court_address'] != null && court['court_address'].isNotEmpty ? court['court_address'] : 'Address not provided', 
-                                            style: TextStyle(color: Colors.grey.shade800),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          )
-                                        ),
-                                      ],
+                                    Text(
+                                      'Time: $time',
+                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                                     ),
-                                    SizedBox(height: 12),
-                                    Text('Owner: ${court['current_owner_name'] ?? 'Unknown'}', style: TextStyle(color: Colors.grey.shade600)),
+                                    Text(
+                                      'Price: ₱${court['assume_price'] ?? '0'}',
+                                      style: TextStyle(color: Colors.grey.shade800, fontSize: 14, fontWeight: FontWeight.w600),
+                                    ),
+                                    if (court['court_address'] != null && court['court_address'].toString().isNotEmpty) ...[
+                                      Text(
+                                        'Location: ${court['court_address']}',
+                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                    if (court['assume_notes'] != null && court['assume_notes'].toString().isNotEmpty) ...[
+                                      SizedBox(height: 8),
+                                      Text(
+                                        'Details: ${court['assume_notes']}',
+                                        style: TextStyle(color: Colors.grey.shade800, fontSize: 14, fontStyle: FontStyle.italic),
+                                      ),
+                                    ],
                                     SizedBox(height: 16),
                                     SizedBox(
                                       width: double.infinity,
                                       child: ElevatedButton(
                                         onPressed: () => _showAcceptPasaloDialog(court),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.orange,
-                                          foregroundColor: Colors.white,
+                                          backgroundColor: AppColors.primaryGreen,
+                                          foregroundColor: AppColors.softWhite,
+                                          padding: EdgeInsets.symmetric(vertical: 12),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         ),
-                                        child: Text('Assume Court', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        child: Text('Assume Court', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                       ),
                                     ),
                                   ],

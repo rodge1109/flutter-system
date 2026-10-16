@@ -362,6 +362,32 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       extendBodyBehindAppBar: true,
+      floatingActionButton: SizedBox(
+        height: 44,
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SuperDashboardScreen()),
+            );
+          },
+          backgroundColor: AppColors.primaryGreen,
+          elevation: 6,
+          extendedPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          icon: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
+          label: Text(
+            'Admin',
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -586,73 +612,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     padding: EdgeInsets.only(bottom: 32),
                     child: Column(
                       children: [
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => SuperDashboardScreen()),
-                            );
-                          },
-                          child: Container(
-                            margin: EdgeInsets.symmetric(horizontal: 24),
-                            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF0F382A), AppColors.primaryGreen],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primaryGreen.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.accentLime.withOpacity(0.25),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(Icons.dashboard_customize_outlined, color: AppColors.accentLime, size: 20),
-                                    ),
-                                    SizedBox(width: 14),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Super Dashboard (App Owner)',
-                                          style: GoogleFonts.outfit(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          'All bookings by court owner & ₱15 fee earnings',
-                                          style: GoogleFonts.outfit(
-                                            color: Colors.white70,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                Icon(Icons.arrow_forward_ios, color: AppColors.accentLime, size: 14),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 12),
+
                         GestureDetector(
                           onTap: () {
                             Navigator.push(

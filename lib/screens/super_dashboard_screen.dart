@@ -7,6 +7,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../models/customer_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import 'add_court_screen.dart';
 import 'earnings_screen.dart';
 import 'inbox_screen.dart';
 import 'login_screen.dart';
@@ -118,6 +119,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -196,29 +198,30 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       targetVenue = _selectedVenueKey.trim().toLowerCase();
     }
 
-    // 1. If owner email is present and DOES NOT match target owner email, it is NOT a match
+    // 1. If target email matches owner email -> TRUE!
+    if (targetEmail.isNotEmpty && ownerEmail.isNotEmpty && targetEmail == ownerEmail) {
+      return true;
+    }
+
+    // 2. If target email is specified but owner email exists and is different -> FALSE
     if (targetEmail.isNotEmpty && ownerEmail.isNotEmpty && targetEmail != ownerEmail) {
       return false;
     }
 
-    // 2. Exact or clean venue name match
+    // 3. Match venue names flexibly
     if (venueName.isNotEmpty && targetVenue.isNotEmpty) {
       String cleanVenueName = venueName.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
       String cleanTargetVenue = targetVenue.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
 
       if (venueName == targetVenue ||
           cleanVenueName == cleanTargetVenue ||
-          venueName.contains(targetVenue) ||
-          targetVenue.contains(venueName) ||
-          cleanVenueName.contains(cleanTargetVenue) ||
+          venueName.contains(cleanTargetVenue) ||
           cleanTargetVenue.contains(cleanVenueName)) {
         return true;
       }
-      return false;
     }
 
-    // Fallback if booking venue name is empty but email matches
-    if (venueName.isEmpty && targetEmail.isNotEmpty && ownerEmail == targetEmail) {
+    if (targetEmail.isNotEmpty && (ownerEmail.isEmpty || ownerEmail == targetEmail)) {
       return true;
     }
 
@@ -329,6 +332,10 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         sessionMap[sessionKey] = {
           'courtAmount': 0.0,
           'time_list': <String>[],
+          'booking_type': b['booking_type'],
+          'status': b['status'],
+          'player_name': player,
+          'payment_method': b['payment_method'] ?? b['payment_type'],
         };
       }
 
@@ -359,9 +366,42 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       double fee = (hours / 5.0).ceil() * 15.0;
       double courtAmount = (session['courtAmount'] as double);
 
-      totalGross += courtAmount + fee;
+      final bType = (session['booking_type'] ?? '').toString().toLowerCase().trim();
+      final status = (session['status'] ?? '').toString().toLowerCase().trim();
+      final pName = (session['player_name'] ?? '').toString().toLowerCase().trim();
+      final pMethod = (session['payment_method'] ?? '').toString().toLowerCase().trim();
+
+      bool isOfflineBlock = bType == 'owner_block' ||
+          bType == 'offline' ||
+          bType == 'walkin' ||
+          bType == 'walk-in' ||
+          bType == 'maintenance' ||
+          bType == 'maintenance_block' ||
+          bType == 'block' ||
+          bType.contains('offline') ||
+          bType.contains('block') ||
+          bType.contains('maintenance') ||
+          bType.contains('walk') ||
+          status == 'blocked' ||
+          status == 'maintenance' ||
+          status.contains('block') ||
+          status.contains('maintenance') ||
+          pName.contains('offline') ||
+          pName.contains('walk-in') ||
+          pName.contains('walkin') ||
+          pName.contains('maintenance') ||
+          pName.contains('block') ||
+          pMethod == 'cash' ||
+          pMethod == 'offline';
+
+      if (isOfflineBlock) {
+        totalGross += 0.0;
+        totalNetOwners += 0.0;
+      } else {
+        totalGross += courtAmount + fee;
+        totalNetOwners += courtAmount;
+      }
       totalAppFee += fee;
-      totalNetOwners += courtAmount;
     }
 
     return {
@@ -425,8 +465,239 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }).join(' ');
   }
 
+  // Security PIN Verification State
+  bool _isPinVerified = false;
+  final TextEditingController _pinController = TextEditingController();
+  bool _pinError = false;
+  String _pinErrorMessage = '';
+  bool _obscurePin = true;
+
+
+  void _verifyPin() {
+    final enteredPin = _pinController.text.trim();
+    if (enteredPin == '110911') {
+      setState(() {
+        _isPinVerified = true;
+        _pinError = false;
+        _pinErrorMessage = '';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚡ Super Admin PIN Verified. Access Granted!'),
+          backgroundColor: AppColors.primaryGreen,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      setState(() {
+        _pinError = true;
+        _pinErrorMessage = 'Invalid Security PIN. Access Denied.';
+        _pinController.clear();
+      });
+    }
+  }
+
+  Widget _buildPinVerificationScreen() {
+    return Scaffold(
+      backgroundColor: AppColors.creamWhite,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: AppColors.richBlack),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Super Admin Security Gate',
+          style: GoogleFonts.outfit(
+            color: AppColors.richBlack,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.shield,
+                  size: 56,
+                  color: AppColors.primaryGreen,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Security PIN Required',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.richBlack,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Enter the 6-digit Super Admin Security PIN to access management options.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade700,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // PIN Input Container
+              Container(
+                width: 300,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _pinError ? Colors.redAccent : AppColors.primaryGreen.withOpacity(0.4),
+                    width: _pinError ? 2 : 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.richBlack.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _pinController,
+                  keyboardType: TextInputType.number,
+                  obscureText: _obscurePin,
+                  maxLength: 6,
+                  textAlign: TextAlign.center,
+                  autofocus: true,
+                  style: GoogleFonts.outfit(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 10,
+                    color: AppColors.richBlack,
+                  ),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: '••••••',
+                    hintStyle: TextStyle(
+                      letterSpacing: 8,
+                      color: Colors.grey.shade400,
+                      fontSize: 24,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePin ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey.shade600,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePin = !_obscurePin;
+                        });
+                      },
+                    ),
+                  ),
+                  onChanged: (val) {
+                    if (_pinError) {
+                      setState(() {
+                        _pinError = false;
+                        _pinErrorMessage = '';
+                      });
+                    }
+                    if (val.trim().length == 6) {
+                      _verifyPin();
+                    }
+                  },
+                ),
+              ),
+
+              if (_pinError) ...[
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      _pinErrorMessage,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // Verify Button
+              SizedBox(
+                width: 300,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: _verifyPin,
+                  icon: const Icon(Icons.lock_open, color: Colors.white, size: 18),
+                  label: Text(
+                    'Unlock Super Admin',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancel & Go Back',
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_isPinVerified) {
+      return _buildPinVerificationScreen();
+    }
+
     final financials = _calculateFinancials();
     final double appFeeEarnings = financials['appFee']!;
     final List<dynamic> filteredBookings = _getFilteredBookings();
@@ -434,9 +705,11 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     final List<CustomerModel> filteredCustomers = _getFilteredCustomers();
 
     // Prepare Venue Dropdown Items
-    Set<String> venueOptions = {'ALL'};
+    Set<String> venueOptions = {'ALL', 'Court 1 (rodge1109@yahoo.com)'};
     for (var c in _allCourts) {
-      String vName = (c['name'] ?? c['venue_name'] ?? 'Court Venue').toString().trim();
+      String rawV = (c['venue_name'] ?? c['venue'] ?? c['name'] ?? 'Court Venue').toString().trim();
+      String cleanV = rawV.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
+      String vName = cleanV.isNotEmpty ? cleanV : rawV;
       String oEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
       venueOptions.add('$vName (${oEmail.isNotEmpty ? oEmail : "rodge1109@yahoo.com"})');
     }
@@ -608,7 +881,9 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                                   String? targetVenue;
                                   if (_selectedVenueKey != 'ALL' && _selectedVenueKey.contains('(') && _selectedVenueKey.endsWith(')')) {
                                     int openParen = _selectedVenueKey.lastIndexOf('(');
-                                    targetVenue = _selectedVenueKey.substring(0, openParen).trim();
+                                    String rawTarget = _selectedVenueKey.substring(0, openParen).trim();
+                                    targetVenue = rawTarget.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
+                                    if (targetVenue.isEmpty) targetVenue = rawTarget;
                                     targetEmail = _selectedVenueKey.substring(openParen + 1, _selectedVenueKey.length - 1).trim();
                                   }
                                   Navigator.push(
@@ -976,16 +1251,57 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                     Text('Registered Venues', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryGreen,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${filteredCourts.length} ${filteredCourts.length == 1 ? 'Venue' : 'Venues'}',
-                    style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${filteredCourts.length} ${filteredCourts.length == 1 ? 'Venue' : 'Venues'}',
+                        style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () async {
+                        String defaultOwner = 'rodge1109@yahoo.com';
+                        if (_selectedVenueKey != 'ALL' && _selectedVenueKey.contains('(')) {
+                          final match = RegExp(r'\(([^)]+)\)').firstMatch(_selectedVenueKey);
+                          if (match != null && match.group(1) != null) {
+                            defaultOwner = match.group(1)!;
+                          }
+                        }
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddCourtScreen(userEmail: defaultOwner),
+                          ),
+                        );
+                        _loadDashboardData();
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.richBlack,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.add, size: 14, color: Colors.white),
+                            const SizedBox(width: 2),
+                            Text(
+                              'Add Venue',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1068,14 +1384,70 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
+                      Divider(height: 1, color: Colors.grey.shade200),
+                      const SizedBox(height: 10),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(Icons.monetization_on_outlined, size: 15, color: Colors.grey.shade700),
-                          const SizedBox(width: 6),
-                          Text(
-                            'App Fee: ₱15 / checkout session',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                          Row(
+                            children: [
+                              Icon(Icons.monetization_on_outlined, size: 15, color: Colors.grey.shade700),
+                              const SizedBox(width: 6),
+                              Text(
+                                'App Fee: ₱15 / checkout session',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          InkWell(
+                            onTap: () async {
+                              Map<String, dynamic> courtData = Map<String, dynamic>.from(c is Map ? c : {});
+                              if (courtData['owner_email'] == null && oEmail.isNotEmpty) {
+                                courtData['owner_email'] = oEmail;
+                              }
+                              if ((courtData['court_number'] == null || courtData['court_number'].toString().isEmpty) && courtData['name'] != null) {
+                                final match = RegExp(r'(\d+)\s*$').firstMatch(courtData['name'].toString().trim());
+                                if (match != null) {
+                                  courtData['court_number'] = match.group(1)!;
+                                  courtData['courtNumber'] = match.group(1)!;
+                                }
+                              }
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AddCourtScreen(
+                                    userEmail: oEmail.isNotEmpty ? oEmail : 'rodge1109@yahoo.com',
+                                    court: courtData,
+                                  ),
+                                ),
+                              );
+                              _loadDashboardData();
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryGreen.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.tune, size: 14, color: AppColors.primaryGreen),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Edit Details',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryGreen,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),

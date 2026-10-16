@@ -88,7 +88,7 @@ class _AllOpenPlaysScreenState extends State<AllOpenPlaysScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: AppColors.deepTeal,
+              color: AppColors.richBlack,
               letterSpacing: -0.5,
             ),
           ),
@@ -119,7 +119,7 @@ class _AllOpenPlaysScreenState extends State<AllOpenPlaysScreen> {
                   child: Container(
                     width: 55,
                     decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primaryGreen : AppColors.softWhite,
+                      color: isSelected ? AppColors.primaryGreen : Colors.white,
                       borderRadius: BorderRadius.circular(40), // Pill shape
                       border: Border.all(color: isSelected ? Colors.transparent : Colors.grey.shade300),
                       boxShadow: isSelected ? [BoxShadow(color: AppColors.primaryGreen.withOpacity(0.3), blurRadius: 8, offset: Offset(0, 4))] : null,
@@ -144,7 +144,7 @@ class _AllOpenPlaysScreenState extends State<AllOpenPlaysScreen> {
                   width: 55,
                   padding: EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primaryGreen : AppColors.softWhite,
+                    color: isSelected ? AppColors.primaryGreen : Colors.white,
                     borderRadius: BorderRadius.circular(40), // Pill shape
                     border: Border.all(color: isSelected ? Colors.transparent : Colors.grey.shade300),
                     boxShadow: isSelected ? [BoxShadow(color: AppColors.primaryGreen.withOpacity(0.3), blurRadius: 8, offset: Offset(0, 4))] : null,
@@ -180,10 +180,10 @@ class _AllOpenPlaysScreenState extends State<AllOpenPlaysScreen> {
     final displayedPlays = _filteredPlays;
 
     return Scaffold(
-      backgroundColor: AppColors.creamWhite,
+      backgroundColor: AppColors.softWhite,
       appBar: AppBar(
-        title: Text('All Open Plays', style: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
+        title: Text('Open Plays', style: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold)),
+        backgroundColor: AppColors.softWhite,
         elevation: 0,
         iconTheme: IconThemeData(color: AppColors.richBlack),
       ),
@@ -198,170 +198,142 @@ class _AllOpenPlaysScreenState extends State<AllOpenPlaysScreen> {
                       style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
                     ),
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: displayedPlays.length,
-                    separatorBuilder: (context, index) => Divider(
-                      indent: 72,
-                      height: 1,
-                      thickness: 0.5,
-                      color: Colors.grey.shade300,
-                    ),
                     itemBuilder: (context, index) {
                       final play = displayedPlays[index];
                       final bool isFull = (play['spots_left'] ?? 0) <= 0;
                       final String rawTimeStr = _normalizeTime(play['preferred_time'] ?? '');
                       final String timeStr = rawTimeStr.replaceAll(':00', '').replaceAll(' AM', 'AM').replaceAll(' PM', 'PM');
                       
-                      String month = '';
-                      String day = '';
-                      try {
-                        final date = DateTime.parse(play['preferred_date']?.split('T')[0] ?? '');
-                        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                        month = months[date.month - 1];
-                        day = date.day.toString();
-                      } catch(e) {
-                        month = 'TBA';
-                        day = '-';
-                      }
+                      final dateStr = play['preferred_date']?.split('T')[0] ?? '';
+                      int maxP = int.tryParse(play['open_play_max_players']?.toString() ?? '4') ?? 4;
+                      int spotsL = int.tryParse(play['spots_left']?.toString() ?? '0') ?? 0;
+                      int joinedP = maxP - spotsL;
+                      if (joinedP < 0) joinedP = 0;
 
-                      final content = Container(
-                        color: Colors.grey.shade50,
-                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryGreen.withOpacity(0.08),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: CustomPaddleIcon(color: AppColors.deepTeal, size: 22),
-                                ),
-                                if (!isFull)
-                                  Positioned(
-                                    top: -4,
-                                    left: -4,
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.accentLime,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text('NEW', style: TextStyle(color: AppColors.richBlack, fontSize: 8, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ),
-                                if (isFull)
-                                  Positioned(
-                                    top: -4,
-                                    left: -4,
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.redAccent,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text('FULL', style: TextStyle(color: AppColors.softWhite, fontSize: 8, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      final typeText = isFull 
+                          ? 'FULL' 
+                          : (play['open_play_type'] != null && play['open_play_type'].toString().isNotEmpty 
+                              ? play['open_play_type'].toString().toUpperCase() 
+                              : 'OPEN PLAY');
+
+                      return Card(
+                        elevation: 4,
+                        margin: EdgeInsets.only(bottom: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        color: Colors.white,
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(play['service_type'] ?? 'Court', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey.shade800), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isFull ? Colors.red.shade100 : AppColors.accentLime,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      typeText,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: isFull ? Colors.red.shade900 : AppColors.richBlack,
                                       ),
-                                      Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: [
-                                          Icon(Icons.person, size: 14, color: AppColors.richBlack),
-                                          SizedBox(height: 2),
-                                          Builder(
-                                            builder: (context) {
-                                              int maxP = int.tryParse(play['open_play_max_players']?.toString() ?? '4') ?? 4;
-                                              int spotsL = int.tryParse(play['spots_left']?.toString() ?? '0') ?? 0;
-                                              int joinedP = maxP - spotsL;
-                                              if (joinedP < 0) joinedP = 0;
-                                              return Text(isFull ? 'FULL' : '$joinedP/$maxP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12));
-                                            }
-                                          ),
-                                        ],
+                                    ),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        dateStr,
+                                        style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold),
                                       ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text('Host: ${play['host_name'] ?? 'Unknown'}', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                                  SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade600),
-                                      SizedBox(width: 4),
-                                      Text('$month $day at $timeStr', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                    ],
-                                  ),
-                                  SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      if (play['open_play_type'] != null && play['open_play_type'].toString().isNotEmpty)
-                                        Container(
-                                          margin: EdgeInsets.only(right: 8),
-                                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primaryGreen.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(play['open_play_type'].toString().toUpperCase(), style: TextStyle(color: AppColors.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold)),
-                                        ),
-                                      Icon(Icons.location_on, size: 12, color: Colors.grey.shade600),
-                                      SizedBox(width: 4),
-                                      Expanded(child: Text(play['address'] ?? 'Cayang', style: TextStyle(color: Colors.grey.shade600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                                      // Share button
-                                      GestureDetector(
+                                      SizedBox(width: 8),
+                                      InkWell(
                                         onTap: () {
                                           final String playId = play['id'].toString().split(',').first;
                                           final String url = '${Uri.base.toString().split('?')[0]}?openplay=$playId';
                                           Clipboard.setData(ClipboardData(text: url));
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Share link copied to clipboard!'), backgroundColor: AppColors.primaryGreen, duration: Duration(seconds: 3)),
+                                            SnackBar(
+                                              content: Text('Share link copied to clipboard!'),
+                                              backgroundColor: AppColors.primaryGreen,
+                                              duration: Duration(seconds: 3),
+                                            ),
                                           );
                                         },
                                         child: Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.share, color: Colors.grey.shade600, size: 12),
-                                              SizedBox(width: 4),
-                                              Text('Share', style: TextStyle(color: Colors.grey.shade600, fontSize: 10, fontWeight: FontWeight.bold)),
-                                            ],
+                                          padding: EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryGreen.withOpacity(0.08),
+                                            shape: BoxShape.circle,
                                           ),
+                                          child: Icon(Icons.share, size: 16, color: AppColors.primaryGreen),
                                         ),
                                       ),
                                     ],
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
+                              SizedBox(height: 12),
+                              Text(
+                                'Host: ${play['host_name'] ?? 'Unknown'}',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Court: ${play['service_type'] ?? 'Pickleball Court'}',
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                              ),
+                              Text(
+                                'Time: $timeStr',
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                              ),
+                              Text(
+                                'Spots: $joinedP / $maxP Players',
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                              ),
+                              if (play['address'] != null && play['address'].toString().isNotEmpty) ...[
+                                Text(
+                                  'Location: ${play['address']}',
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              if (play['notes'] != null && play['notes'].toString().isNotEmpty) ...[
+                                SizedBox(height: 8),
+                                Text(
+                                  'Details: ${play['notes']}',
+                                  style: TextStyle(color: Colors.grey.shade800, fontSize: 14, fontStyle: FontStyle.italic),
+                                ),
+                              ],
+                              SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isFull ? Colors.grey.shade400 : AppColors.primaryGreen,
+                                    foregroundColor: AppColors.softWhite,
+                                    padding: EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  onPressed: () => widget.onViewJoiners(play),
+                                  child: Text(
+                                    isFull ? 'View Joiners (Full)' : 'Join Open Play',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      );
-                      
-                      return GestureDetector(
-                        onTap: () {
-                          widget.onViewJoiners(play);
-                        },
-                        child: content,
                       );
                     },
                   ),

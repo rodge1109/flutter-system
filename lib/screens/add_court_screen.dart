@@ -81,13 +81,34 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     if (widget.court != null) {
       _venueNameCtrl.text = widget.court!['venue_name'] ?? widget.court!['venueName'] ?? widget.court!['venue'] ?? '';
       _nameCtrl.text = widget.court!['name'] ?? '';
-      _numberCtrl.text = widget.court!['court_number']?.toString() ?? '';
+
+      String courtNum = widget.court!['court_number']?.toString() ?? widget.court!['courtNumber']?.toString() ?? '';
+      if (courtNum.isEmpty && _nameCtrl.text.isNotEmpty) {
+        final match = RegExp(r'(\d+)\s*$').firstMatch(_nameCtrl.text.trim());
+        if (match != null) {
+          courtNum = match.group(1)!;
+        }
+      }
+      _numberCtrl.text = courtNum;
+
       _addressCtrl.text = widget.court!['address'] ?? '';
       _latCtrl.text = widget.court!['latitude']?.toString() ?? '';
       _lngCtrl.text = widget.court!['longitude']?.toString() ?? '';
       _descCtrl.text = widget.court!['description'] ?? 'Enjoy a fun and active game on our well-maintained pickleball court, perfect for players of all skill levels.';
-      _dayRateCtrl.text = widget.court!['base_price']?.toString() ?? '';
-      _nightRateCtrl.text = widget.court!['base_price']?.toString() ?? '';
+
+      String rawPrice = '';
+      if (widget.court!['base_price'] != null && widget.court!['base_price'].toString().isNotEmpty && widget.court!['base_price'].toString() != '0') {
+        rawPrice = widget.court!['base_price'].toString().replaceAll(RegExp(r'[^0-9.]'), '');
+      } else if (widget.court!['basePrice'] != null && widget.court!['basePrice'].toString().isNotEmpty && widget.court!['basePrice'].toString() != '0') {
+        rawPrice = widget.court!['basePrice'].toString().replaceAll(RegExp(r'[^0-9.]'), '');
+      } else if (widget.court!['price'] != null && widget.court!['price'].toString().isNotEmpty) {
+        rawPrice = widget.court!['price'].toString().replaceAll(RegExp(r'[^0-9.]'), '');
+      }
+      if (rawPrice.isEmpty || rawPrice == '0') {
+        rawPrice = '300';
+      }
+      _dayRateCtrl.text = rawPrice;
+      _nightRateCtrl.text = rawPrice;
       _openTimeCtrl.text = widget.court!['open_time'] ?? widget.court!['openTime'] ?? '00:00';
       _closeTimeCtrl.text = widget.court!['close_time'] ?? widget.court!['closeTime'] ?? '23:59';
       _logoUrlCtrl.text = widget.court!['logo_url'] ?? widget.court!['logo'] ?? '';
@@ -491,13 +512,22 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
     ownerPaymentMap['night_start_hour'] = _nightStartHour;
     ownerPaymentMap['nightStartHour'] = _nightStartHour;
 
+    String courtNumberVal = _numberCtrl.text.trim();
+    if (courtNumberVal.isEmpty && _nameCtrl.text.trim().isNotEmpty) {
+      final match = RegExp(r'(\d+)\s*$').firstMatch(_nameCtrl.text.trim());
+      if (match != null) {
+        courtNumberVal = match.group(1)!;
+      }
+    }
+
     final courtData = {
       'ownerEmail': widget.userEmail,
       'venue_name': _venueNameCtrl.text.trim(),
       'venueName': _venueNameCtrl.text.trim(),
       'venue': _venueNameCtrl.text.trim(),
       'name': _nameCtrl.text,
-      'courtNumber': _numberCtrl.text,
+      'courtNumber': courtNumberVal,
+      'court_number': courtNumberVal,
       'address': _addressCtrl.text,
       'latitude': double.tryParse(_latCtrl.text),
       'longitude': double.tryParse(_lngCtrl.text),
@@ -605,7 +635,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                       children: [
                         Expanded(flex: 3, child: _buildTextField('Court Name (e.g. Court 1)', _nameCtrl, required: true)),
                         SizedBox(width: 16),
-                        Expanded(flex: 2, child: _buildTextField('Court #', _numberCtrl, required: true, isNumber: true)),
+                        Expanded(flex: 2, child: _buildTextField('Court #', _numberCtrl, required: false, isNumber: true)),
                       ],
                     ),
                     SizedBox(height: 16),

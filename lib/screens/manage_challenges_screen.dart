@@ -180,11 +180,61 @@ class _ManageChallengesScreenState extends State<ManageChallengesScreen> {
                   itemBuilder: (context, index) {
                     final challenge = _myChallenges[index];
                     return Card(
-                      child: ListTile(
-                        title: Text('${challenge['service_type']} - ${challenge['challenge_type']}'),
-                        subtitle: Text('${challenge['preferred_date']} at ${challenge['preferred_time']}'),
-                        trailing: Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: () => _viewRequests(challenge),
+                      elevation: 4,
+                      margin: EdgeInsets.only(bottom: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      color: Colors.white,
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentLime,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    (challenge['challenge_type'] ?? 'singles').toUpperCase(),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack),
+                                  ),
+                                ),
+                                Text(
+                                  challenge['preferred_date'] ?? '',
+                                  style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Court: ${challenge['service_type']}',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Time: ${challenge['preferred_time']}',
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                            ),
+                            SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryGreen,
+                                  foregroundColor: AppColors.softWhite,
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => _viewRequests(challenge),
+                                child: Text('View Challengers', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },

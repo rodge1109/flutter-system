@@ -443,8 +443,8 @@ class _BookingScreenState extends State<BookingScreen> {
           variablePrices: parsedVar,
           hourlyPrices: parsedVar,
           ownerPayment: cPayment.isNotEmpty ? cPayment : null,
-          openTime: c['open_time'] ?? c['openTime'] ?? (widget.venue != null ? (widget.venue!['open_time'] ?? widget.venue!['openTime']) : null),
-          closeTime: c['close_time'] ?? c['closeTime'] ?? (widget.venue != null ? (widget.venue!['close_time'] ?? widget.venue!['closeTime']) : null),
+          openTime: c['open_time'] ?? c['openTime'] ?? (widget.venue != null ? (widget.venue!['open_time'] ?? widget.venue!['openTime']) : null) ?? '08:00',
+          closeTime: c['close_time'] ?? c['closeTime'] ?? (widget.venue != null ? (widget.venue!['close_time'] ?? widget.venue!['closeTime']) : null) ?? '23:59',
           latitude: c['latitude'] != null ? double.tryParse(c['latitude'].toString()) : null,
           longitude: c['longitude'] != null ? double.tryParse(c['longitude'].toString()) : null,
           aboutVenue: c['about_venue'] ?? c['aboutVenue'] ?? widget.venue!['aboutVenue'],
@@ -1119,36 +1119,35 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     // Filter time slots according to court operating hours (openTime & closeTime)
-    if (s != null && (s.openTime != null || s.closeTime != null)) {
-      int openHour = parseHourValue(s.openTime, 0);
-      int closeHour = parseHourValue(s.closeTime, 24);
-      if (s.closeTime != null && s.closeTime.toString().contains(':')) {
-        final parts = s.closeTime.toString().split(':');
-        if (parts.length >= 2) {
-          int min = int.tryParse(parts[1].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-          if (min > 0 && closeHour < 24) closeHour += 1;
-        }
-      }
-      if (closeHour == 0) closeHour = 24;
-
-      if (openHour > 0 || closeHour < 24) {
-        slots = slots.where((t) {
-          int h = _allTimeSlots.indexOf(t);
-          if (h == -1) {
-            h = parseHourValue(t, -1);
-          }
-          if (h == -1) return true;
-
-          if (closeHour > openHour) {
-            return h >= openHour && h < closeHour;
-          } else if (closeHour < openHour) {
-            // Overnight operating hours (e.g. 6 PM to 2 AM)
-            return h >= openHour || h < closeHour;
-          }
-          return true;
-        }).toList();
+    String? courtOpen = s?.openTime ?? widget.venue?['open_time'] ?? widget.venue?['openTime'] ?? '08:00';
+    String? courtClose = s?.closeTime ?? widget.venue?['close_time'] ?? widget.venue?['closeTime'] ?? '23:59';
+    
+    int openHour = parseHourValue(courtOpen, 8);
+    int closeHour = parseHourValue(courtClose, 24);
+    if (courtClose != null && courtClose.toString().contains(':')) {
+      final parts = courtClose.toString().split(':');
+      if (parts.length >= 2) {
+        int min = int.tryParse(parts[1].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        if (min > 0 && closeHour < 24) closeHour += 1;
       }
     }
+    if (closeHour == 0) closeHour = 24;
+
+    slots = slots.where((t) {
+      int h = _allTimeSlots.indexOf(t);
+      if (h == -1) {
+        h = parseHourValue(t, -1);
+      }
+      if (h == -1) return true;
+
+      if (closeHour > openHour) {
+        return h >= openHour && h < closeHour;
+      } else if (closeHour < openHour) {
+        // Overnight operating hours (e.g. 6 PM to 2 AM)
+        return h >= openHour || h < closeHour;
+      }
+      return true;
+    }).toList();
 
     return slots;
   }
@@ -1789,6 +1788,10 @@ class _BookingScreenState extends State<BookingScreen> {
                             }
 
                             final bool isDisabled = isBooked || isPast || isOutsideHours;
+
+                            if (isOutsideHours) {
+                              return const SizedBox.shrink();
+                            }
 
                             String getEndStr(String t) {
                               final parts = t.split(RegExp(r'[:\s]'));
@@ -2740,6 +2743,7 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _showFullQrCodeModal(String qrUrl) {
+    final bool isNetwork = qrUrl.isNotEmpty && (qrUrl.startsWith('http') || qrUrl.startsWith('/uploads'));
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -2761,9 +2765,9 @@ class _BookingScreenState extends State<BookingScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.download_rounded, color: AppColors.primaryGreen),
+                        icon: Icon(Icons.download_rounded, color: AppColors.richBlack),
                         tooltip: 'Download QR Code',
-                        onPressed: () => downloadImage(qrUrl),
+                        onPressed: () => downloadImage(isNetwork ? qrUrl : 'assets/qr-code.PNG'),
                       ),
                       IconButton(
                         icon: Icon(Icons.close, color: AppColors.richBlack),
@@ -2777,11 +2781,16 @@ class _BookingScreenState extends State<BookingScreen> {
               InteractiveViewer(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    qrUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                  ),
+                  child: isNetwork
+                      ? Image.network(
+                          qrUrl,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Image.asset('assets/qr-code.PNG', fit: BoxFit.contain),
+                        )
+                      : Image.asset(
+                          'assets/qr-code.PNG',
+                          fit: BoxFit.contain,
+                        ),
                 ),
               ),
               SizedBox(height: 12),
@@ -2819,6 +2828,11 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
+    // Always ensure GCash fallback so GCash details never disappear
+    if (gcashNum.isEmpty) {
+      gcashNum = '09276230491';
+    }
+
     final bool hasCloudinaryQr = qrUrl.trim().isNotEmpty && (qrUrl.startsWith('http') || qrUrl.startsWith('/uploads'));
 
     return Column(
@@ -2831,24 +2845,24 @@ class _BookingScreenState extends State<BookingScreen> {
           width: double.infinity,
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFDDF7E8),
+            color: const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+            border: Border.all(color: Colors.grey.shade300),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.payment_outlined, color: AppColors.primaryGreen, size: 20),
+                  Icon(Icons.payment_outlined, color: AppColors.richBlack, size: 20),
                   SizedBox(width: 8),
-                  Text('Payment Summary', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 15)),
+                  Text('Payment Summary', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.richBlack, fontSize: 15)),
                 ],
               ),
               SizedBox(height: 8),
               RichText(
                 text: TextSpan(
-                  style: TextStyle(color: AppColors.primaryGreen, height: 1.5, fontSize: 13, fontFamily: 'Poppins'),
+                  style: TextStyle(color: AppColors.richBlack, height: 1.5, fontSize: 13, fontFamily: 'Poppins'),
                   children: [
                     TextSpan(text: 'Court Fee: ${_getTotalAmount()}\n'),
                     TextSpan(text: 'Service Charge: PHP ${_getServiceFee().toStringAsFixed(2)}\n'),
@@ -2862,7 +2876,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryGreen,
+                    color: AppColors.richBlack,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
@@ -2872,7 +2886,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       SizedBox(width: 6),
                       Text(
                         'VIP Member Discount Applied (${_loyaltySettings!.memberDiscountType == "PERCENTAGE" ? "${_loyaltySettings!.memberDiscountValue.toInt()}% OFF" : "Special Member Price"})',
-                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -2884,23 +2898,71 @@ class _BookingScreenState extends State<BookingScreen> {
 
         SizedBox(height: 16),
 
+        // Important Reminder Banner
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade100,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.amber.shade400, width: 1.2),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 22),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'IMPORTANT REMINDER',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppColors.richBlack,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'You need to click Continue and wait for the CONFIRMATION screen to appear to complete your booking.',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 12.5,
+                        color: AppColors.richBlack,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(height: 14),
+
         // Step-by-Step Payment Instructions Banner
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
+            color: const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.blue.shade200),
+            border: Border.all(color: Colors.grey.shade300),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.blue.shade800, size: 22),
+                  Icon(Icons.info_outline, color: AppColors.richBlack, size: 22),
                   SizedBox(width: 8),
-                  Text('How to Pay (Step-by-Step)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue.shade900)),
+                  Text('How to Pay (Step-by-Step)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
                 ],
               ),
               SizedBox(height: 10),
@@ -2908,23 +2970,24 @@ class _BookingScreenState extends State<BookingScreen> {
                 '1. Open your GCash, Maya, or Online Banking App.\n'
                 '2. Scan the Payment QR Code below OR copy the account number.\n'
                 '3. Send the exact total amount due: ${_getTotalDue()}.\n'
-                '4. Copy your Payment Reference No. from your app and paste it below.',
-                style: TextStyle(fontSize: 12.5, color: Colors.blue.shade900, height: 1.5),
+                '4. Copy your Payment Reference No. from your app and paste it below.\n'
+                '5. Click Continue and wait for the CONFIRMATION screen to appear.',
+                style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, color: AppColors.richBlack, height: 1.5),
               ),
               if (customInstructions.isNotEmpty) ...[
-                Divider(height: 20, color: Colors.blue.shade200),
+                Divider(height: 20, color: Colors.grey.shade300),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.speaker_notes, color: Colors.amber.shade900, size: 18),
+                    Icon(Icons.speaker_notes_outlined, color: AppColors.richBlack, size: 18),
                     SizedBox(width: 6),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Owner Payment Instructions:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900)),
+                          Text('Owner Payment Instructions:', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack)),
                           SizedBox(height: 2),
-                          Text(customInstructions, style: TextStyle(fontSize: 12, color: Colors.amber.shade900, height: 1.3)),
+                          Text(customInstructions, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack, height: 1.3)),
                         ],
                       ),
                     ),
@@ -2937,94 +3000,112 @@ class _BookingScreenState extends State<BookingScreen> {
 
         SizedBox(height: 20),
 
-        // QR Code Display Card (Only show if owner uploaded official QR code)
-        if (hasCloudinaryQr) ...[
-          Center(
-            child: Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.softWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade300),
-                boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+        // QR Code Display Card (Shows owner official QR code if uploaded, otherwise falls back to official GCash QR code)
+        Center(
+          child: Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade300),
+              boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 10, offset: Offset(0, 4))],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.qr_code_2, color: AppColors.richBlack, size: 22),
+                    SizedBox(width: 6),
+                    Text(
+                      hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Official GCash Payment QR Code',
+                      style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
+                    ),
+                    SizedBox(width: 4),
+                    IconButton(
+                      constraints: BoxConstraints(),
+                      padding: EdgeInsets.all(4),
+                      icon: Icon(Icons.file_download_outlined, color: AppColors.richBlack, size: 22),
+                      tooltip: 'Download QR Code',
+                      onPressed: () => downloadImage(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => _showFullQrCodeModal(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Icon(Icons.qr_code_2, color: AppColors.primaryGreen, size: 22),
-                      SizedBox(width: 6),
-                      Text(
-                        'Official Owner Payment QR Code',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: hasCloudinaryQr
+                              ? Image.network(
+                                  qrUrl,
+                                  height: 220,
+                                  width: 220,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      height: 220,
+                                      width: 220,
+                                      color: Colors.grey.shade100,
+                                      child: Center(child: CircularProgressIndicator(color: AppColors.richBlack)),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => Image.asset(
+                                    'assets/qr-code.PNG',
+                                    height: 220,
+                                    width: 220,
+                                    fit: BoxFit.contain,
+                                  ),
+                                )
+                              : Image.asset(
+                                  'assets/qr-code.PNG',
+                                  height: 220,
+                                  width: 220,
+                                  fit: BoxFit.contain,
+                                ),
+                        ),
                       ),
-                      SizedBox(width: 4),
-                      IconButton(
-                        constraints: BoxConstraints(),
-                        padding: EdgeInsets.all(4),
-                        icon: Icon(Icons.file_download_outlined, color: AppColors.primaryGreen, size: 22),
-                        tooltip: 'Download QR Code',
-                        onPressed: () => downloadImage(qrUrl),
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                              SizedBox(width: 4),
+                              Text('Tap to expand', style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: () => _showFullQrCodeModal(qrUrl),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            qrUrl,
-                            height: 220,
-                            width: 220,
-                            fit: BoxFit.contain,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
-                                height: 220,
-                                width: 220,
-                                color: Colors.grey.shade100,
-                                child: Center(child: CircularProgressIndicator(color: AppColors.primaryGreen)),
-                              );
-                            },
-                            errorBuilder: (_, __, ___) => SizedBox.shrink(),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 8,
-                          right: 8,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                                SizedBox(width: 4),
-                                Text('Tap to expand', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 20),
-        ],
+        ),
+        SizedBox(height: 20),
 
         // Available Payment Options Header
-        Text('Owner Payment Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
+        Text('Owner Payment Accounts', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
         SizedBox(height: 10),
 
         // GCash Container
@@ -3033,28 +3114,37 @@ class _BookingScreenState extends State<BookingScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade200),
+              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
               children: [
-                Icon(Icons.account_balance_wallet, color: Colors.blue.shade700, size: 24),
+                Icon(Icons.account_balance_wallet_outlined, color: AppColors.richBlack, size: 24),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('GCash Number', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue.shade900)),
-                      Text(gcashNum, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
+                      Row(
+                        children: [
+                          Text('GCash Number', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
+                          if (gcashNum == '09276230491') ...[
+                            SizedBox(width: 6),
+                            Text('(Roger Tonacao)', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
+                          ],
+                        ],
+                      ),
+                      Text(gcashNum, style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
                     ],
                   ),
                 ),
                 OutlinedButton.icon(
-                  icon: Icon(Icons.copy, size: 14, color: Colors.blue.shade800),
-                  label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.blue.shade800)),
+                  icon: Icon(Icons.copy, size: 14, color: AppColors.richBlack),
+                  label: Text('Copy', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack)),
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.blue.shade400),
+                    backgroundColor: Colors.white,
+                    side: BorderSide(color: Colors.grey.shade400),
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   ),
                   onPressed: () => _copyToClipboard(gcashNum, 'GCash Number'),
@@ -3070,28 +3160,29 @@ class _BookingScreenState extends State<BookingScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
+              color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.green.shade200),
+              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
               children: [
-                Icon(Icons.account_balance_wallet, color: Colors.green.shade700, size: 24),
+                Icon(Icons.account_balance_wallet_outlined, color: AppColors.richBlack, size: 24),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('PayMaya / Maya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900)),
-                      Text(mayaNum, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green.shade900)),
+                      Text('PayMaya / Maya', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
+                      Text(mayaNum, style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
                     ],
                   ),
                 ),
                 OutlinedButton.icon(
-                  icon: Icon(Icons.copy, size: 14, color: Colors.green.shade800),
-                  label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.green.shade800)),
+                  icon: Icon(Icons.copy, size: 14, color: AppColors.richBlack),
+                  label: Text('Copy', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack)),
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.green.shade400),
+                    backgroundColor: Colors.white,
+                    side: BorderSide(color: Colors.grey.shade400),
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   ),
                   onPressed: () => _copyToClipboard(mayaNum, 'PayMaya Number'),
@@ -3107,13 +3198,13 @@ class _BookingScreenState extends State<BookingScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.purple.shade50,
+              color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.purple.shade200),
+              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
               children: [
-                Icon(Icons.account_balance, color: Colors.purple.shade700, size: 24),
+                Icon(Icons.account_balance_outlined, color: AppColors.richBlack, size: 24),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -3121,21 +3212,22 @@ class _BookingScreenState extends State<BookingScreen> {
                     children: [
                       Text(
                         bankName.isNotEmpty ? 'Bank Transfer ($bankName)' : (bankAccountName.isNotEmpty ? 'Bank Transfer ($bankAccountName)' : 'Bank Transfer'),
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.purple.shade900),
+                        style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack),
                       ),
                       if (bankAccountName.isNotEmpty && bankName.isNotEmpty && bankAccountName != bankName)
-                        Text('Account Name: $bankAccountName', style: TextStyle(fontSize: 12, color: Colors.purple.shade900)),
+                        Text('Account Name: $bankAccountName', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack)),
                       if (bankAccount.isNotEmpty)
-                        Text('Account No: $bankAccount', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purple.shade900)),
+                        Text('Account No: $bankAccount', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
                     ],
                   ),
                 ),
                 if (bankAccount.isNotEmpty)
                   OutlinedButton.icon(
-                    icon: Icon(Icons.copy, size: 14, color: Colors.purple.shade800),
-                    label: Text('Copy', style: TextStyle(fontSize: 12, color: Colors.purple.shade800)),
+                    icon: Icon(Icons.copy, size: 14, color: AppColors.richBlack),
+                    label: Text('Copy', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack)),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.purple.shade400),
+                      backgroundColor: Colors.white,
+                      side: BorderSide(color: Colors.grey.shade400),
                       padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     ),
                     onPressed: () => _copyToClipboard(bankAccount, 'Bank Account Number'),

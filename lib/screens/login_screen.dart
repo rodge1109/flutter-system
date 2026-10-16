@@ -8,6 +8,7 @@ import 'registration_screen.dart';
 import 'forgot_password_screen.dart';
 import 'dashboard_screen.dart';
 import 'owner_dashboard_screen.dart';
+import 'super_dashboard_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import '../services/fcm_service.dart';
@@ -184,9 +185,16 @@ class _LoginScreenState extends State<LoginScreen> {
       FcmService().init(_emailController.text.trim());
 
       final userRole = result['user']?['role'];
+      final isSuperAdmin = userRole == 'super_admin';
       final isOwner = userRole == 'court_owner' || userRole == 'owner';
 
-      if (isOwner) {
+      if (isSuperAdmin) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => SuperDashboardScreen()),
+          (route) => false,
+        );
+      } else if (isOwner) {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => OwnerDashboardScreen()),

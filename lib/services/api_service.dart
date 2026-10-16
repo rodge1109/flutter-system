@@ -230,58 +230,67 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchOwnerEarnings(String email, {String? startDate, String? endDate}) async {
-    try {
-      String cleanEmail = email.trim();
-      String url = '$baseUrl/owner-earnings/${Uri.encodeComponent(cleanEmail)}';
-      if (startDate != null && endDate != null) {
-        url += '?startDate=$startDate&endDate=$endDate';
+    String cleanEmail = email.trim();
+    String url = '$baseUrl/owner-earnings/${Uri.encodeComponent(cleanEmail)}';
+    if (startDate != null && endDate != null) {
+      url += '?startDate=$startDate&endDate=$endDate';
+    }
+
+    http.Response? response;
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      try {
+        response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+        if (response.statusCode == 200) break;
+      } catch (e) {
+        if (attempt == 2) {
+          print('Fetch owner earnings exception: $e');
+        }
       }
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
-      
-      List<dynamic> allTransactions = [];
-      
-      if (response.statusCode == 200) {
+    }
+    
+    List<dynamic> allTransactions = [];
+    
+    if (response != null && response.statusCode == 200) {
+      try {
         final data = json.decode(response.body);
         if (data['success'] == true && data['transactions'] != null) {
           allTransactions = List.from(data['transactions']);
         }
+      } catch (e) {
+        print('Error decoding owner earnings response: $e');
       }
+    }
 
-      // Merge from owner bookings to ensure offline blocks and proof_of_payment references are included
-      try {
-        final bookingsUrl = '$baseUrl/owner/bookings/${Uri.encodeComponent(cleanEmail)}';
-        final bResponse = await http.get(Uri.parse(bookingsUrl)).timeout(const Duration(seconds: 6));
-        if (bResponse.statusCode == 200) {
-          final bData = json.decode(bResponse.body);
-          if (bData['success'] == true && bData['bookings'] != null) {
-            final List bList = bData['bookings'];
-            for (var b in bList) {
-              if (b['id'] != null) {
-                var idx = allTransactions.indexWhere((t) => t['id']?.toString() == b['id']?.toString());
-                if (idx != -1) {
-                  if (b['proof_of_payment'] != null) allTransactions[idx]['proof_of_payment'] = b['proof_of_payment'];
-                  if (b['agent_code'] != null) allTransactions[idx]['agent_code'] = b['agent_code'];
-                  if (b['payment_reference'] != null) allTransactions[idx]['payment_reference'] = b['payment_reference'];
-                } else {
-                  allTransactions.add(b);
-                }
+    // Merge from owner bookings to ensure offline blocks and proof_of_payment references are included
+    try {
+      final bookingsUrl = '$baseUrl/owner/bookings/${Uri.encodeComponent(cleanEmail)}';
+      final bResponse = await http.get(Uri.parse(bookingsUrl)).timeout(const Duration(seconds: 25));
+      if (bResponse.statusCode == 200) {
+        final bData = json.decode(bResponse.body);
+        if (bData['success'] == true && bData['bookings'] != null) {
+          final List bList = bData['bookings'];
+          for (var b in bList) {
+            if (b['id'] != null) {
+              final status = (b['status'] ?? '').toString().toLowerCase().trim();
+              if (status == 'cancelled') continue;
+              var idx = allTransactions.indexWhere((t) => t['id']?.toString() == b['id']?.toString());
+              if (idx != -1) {
+                if (b['proof_of_payment'] != null) allTransactions[idx]['proof_of_payment'] = b['proof_of_payment'];
+                if (b['agent_code'] != null) allTransactions[idx]['agent_code'] = b['agent_code'];
+                if (b['payment_reference'] != null) allTransactions[idx]['payment_reference'] = b['payment_reference'];
+              } else {
+                allTransactions.add(b);
               }
             }
           }
         }
-      } catch (_) {}
+      }
+    } catch (_) {}
 
-      return {
-        'success': true,
-        'transactions': allTransactions,
-      };
-    } catch (e) {
-      print('Fetch owner earnings exception: $e');
-      return {
-        'success': true,
-        'transactions': [],
-      };
-    }
+    return {
+      'success': true,
+      'transactions': allTransactions,
+    };
   }
 
   // ==================== PASALO ENDPOINTS ====================
@@ -1414,61 +1423,96 @@ class ApiService {
   Future<List<dynamic>> fetchSuperAdminBookings() async {
     try {
       final t = DateTime.now().millisecondsSinceEpoch;
-      final response = await http
-          .get(Uri.parse('$baseUrl/admin/all-bookings?t=$t'))
-          .timeout(const Duration(seconds: 8));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['bookings'] != null && (data['bookings'] as List).isNotEmpty) {
-          return data['bookings'];
-        }
-      }
+      List<dynamic> allFetchedBookings = [];
+      Set<String> seenIds = {};
 
-      // Dynamic Fallback: fetch bookings across all registered court owners if dedicated route is loading
+      // 1. Fetch raw services to get court metadata and owner emails
+      Map<String, String> courtOwnerMap = {};
+      Set<String> ownerEmails = {'rodge1109@yahoo.com'};
+
       try {
-        final courtsResponse = await http.get(Uri.parse('$baseUrl/raw-services?t=$t')).timeout(const Duration(seconds: 5));
+        final courtsResponse = await http
+            .get(Uri.parse('$baseUrl/raw-services?t=$t'))
+            .timeout(const Duration(seconds: 5));
         if (courtsResponse.statusCode == 200) {
           final List rawCourts = json.decode(courtsResponse.body);
-          final Set<String> ownerEmails = rawCourts
-              .map((c) => (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim())
-              .where((e) => e.isNotEmpty)
-              .toSet();
-
-          List<dynamic> allFetchedBookings = [];
-          Set<dynamic> seenIds = {};
-
-          for (var email in ownerEmails) {
-            try {
-              final bResponse = await http
-                  .get(Uri.parse('$baseUrl/owner/bookings/${Uri.encodeComponent(email)}?t=$t'))
-                  .timeout(const Duration(seconds: 4));
-              if (bResponse.statusCode == 200) {
-                final bData = json.decode(bResponse.body);
-                if (bData['success'] == true && bData['bookings'] != null) {
-                  for (var b in bData['bookings']) {
-                    final idStr = b['id']?.toString();
-                    if (idStr != null && !seenIds.contains(idStr)) {
-                      seenIds.add(idStr);
-                      if (b['owner_email'] == null || b['owner_email'].toString().trim().isEmpty) {
-                        b['owner_email'] = email;
-                      }
-                      allFetchedBookings.add(b);
-                    }
-                  }
-                }
-              }
-            } catch (_) {}
-          }
-          if (allFetchedBookings.isNotEmpty) {
-            return allFetchedBookings;
+          for (var c in rawCourts) {
+            final email = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().toLowerCase().trim();
+            if (email.isNotEmpty) {
+              ownerEmails.add(email);
+              if (c['id'] != null) courtOwnerMap[c['id'].toString()] = email;
+              if (c['name'] != null) courtOwnerMap[c['name'].toString().toLowerCase().trim()] = email;
+            }
           }
         }
       } catch (_) {}
 
-      return [];
+      // 2. Fetch main all-bookings endpoint
+      try {
+        final response = await http
+            .get(Uri.parse('$baseUrl/admin/all-bookings?t=$t'))
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['success'] == true && data['bookings'] != null) {
+            for (var b in (data['bookings'] as List)) {
+              final idStr = b['id']?.toString();
+              if (idStr != null && !seenIds.contains(idStr)) {
+                seenIds.add(idStr);
+
+                String owner = (b['owner_email'] ?? b['court_owner'] ?? '').toString().toLowerCase().trim();
+                if (owner.isEmpty && b['specialist_id'] != null && courtOwnerMap.containsKey(b['specialist_id'].toString())) {
+                  owner = courtOwnerMap[b['specialist_id'].toString()]!;
+                }
+                if (owner.isEmpty) {
+                  String cName = (b['court_name'] ?? b['service_type'] ?? '').toString().toLowerCase().trim();
+                  if (courtOwnerMap.containsKey(cName)) {
+                    owner = courtOwnerMap[cName]!;
+                  }
+                }
+                b['owner_email'] = owner;
+                allFetchedBookings.add(b);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+
+      // 3. Fetch owner-specific bookings endpoints to ensure no owner's bookings are missed
+      for (var email in ownerEmails) {
+        try {
+          final bResponse = await http
+              .get(Uri.parse('$baseUrl/owner/bookings/${Uri.encodeComponent(email)}?t=$t'))
+              .timeout(const Duration(seconds: 5));
+          if (bResponse.statusCode == 200) {
+            final bData = json.decode(bResponse.body);
+            if (bData['success'] == true && bData['bookings'] != null) {
+              for (var b in bData['bookings']) {
+                final idStr = b['id']?.toString();
+                if (idStr != null && !seenIds.contains(idStr)) {
+                  seenIds.add(idStr);
+                  b['owner_email'] = email;
+                  allFetchedBookings.add(b);
+                } else if (idStr != null) {
+                  final existing = allFetchedBookings.firstWhere(
+                    (item) => item['id']?.toString() == idStr,
+                    orElse: () => null,
+                  );
+                  if (existing != null && (existing['owner_email'] == null || existing['owner_email'].toString().isEmpty)) {
+                    existing['owner_email'] = email;
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      return allFetchedBookings;
     } catch (e) {
-      print('Fetch super admin bookings error: $e');
+      print('Super Admin fetch error: $e');
       return [];
     }
   }
@@ -1479,7 +1523,7 @@ class ApiService {
       if (startDate != null && endDate != null) {
         url += '?startDate=$startDate&endDate=$endDate';
       }
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {

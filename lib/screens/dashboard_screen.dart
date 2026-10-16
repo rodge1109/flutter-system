@@ -1,5 +1,6 @@
 import 'package:flutter_project/theme/app_colors.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'dart:typed_data';
@@ -313,6 +314,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'image': 'https://res.cloudinary.com/doxih7ab3/image/upload/v1784821555/queuing-system-uploads/1784821552618-505155.jpg',
       'slots': ['8:00 AM', '10:00 AM', '1:00 PM', '4:00 PM'],
       'selectedSlot': '8:00 AM',
+      'open_time': '08:00',
+      'openTime': '08:00',
+      'close_time': '23:59',
+      'closeTime': '23:59',
     },
     {
       'id': '15',
@@ -324,6 +329,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'image': 'https://res.cloudinary.com/doxih7ab3/image/upload/v1784821986/queuing-system-uploads/1784821985216-132187.jpg',
       'slots': ['9:00 AM', '11:00 AM', '2:00 PM', '5:00 PM'],
       'selectedSlot': '9:00 AM',
+      'open_time': '08:00',
+      'openTime': '08:00',
+      'close_time': '23:59',
+      'closeTime': '23:59',
     },
     {
       'id': '13',
@@ -335,6 +344,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'image': 'https://res.cloudinary.com/doxih7ab3/image/upload/v1784904651/queuing-system-uploads/1784904649498-925226.jpg',
       'slots': ['7:00 AM', '10:00 AM', '1:00 PM', '3:00 PM'],
       'selectedSlot': '7:00 AM',
+      'open_time': '08:00',
+      'openTime': '08:00',
+      'close_time': '23:59',
+      'closeTime': '23:59',
     },
   ];
 
@@ -760,6 +773,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
               });
             }
 
+            // Filter backendAvailable by court operating hours
+            if (s.openTime != null || s.closeTime != null) {
+              int openH = parseHourValue(s.openTime, 0);
+              int closeH = parseHourValue(s.closeTime, 24);
+              if (s.closeTime != null && s.closeTime.toString().contains(':')) {
+                final parts = s.closeTime.toString().split(':');
+                if (parts.length >= 2) {
+                  int min = int.tryParse(parts[1].replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                  if (min > 0 && closeH < 24) closeH += 1;
+                }
+              }
+              if (closeH == 0) closeH = 24;
+
+              if (openH > 0 || closeH < 24) {
+                backendAvailable.removeWhere((timeStr) {
+                  int h = parseHourValue(timeStr, -1);
+                  if (h == -1) return false;
+                  if (closeH > openH) {
+                    return h < openH || h >= closeH;
+                  } else if (closeH < openH) {
+                    return h < openH && h >= closeH;
+                  }
+                  return false;
+                });
+              }
+            }
+
             // Extract defined slot times for the court
             List<String> definedSlots = [];
             if (s.variablePrices != null && s.variablePrices!.isNotEmpty) {
@@ -935,6 +975,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBodyBehindAppBar: true,
+        floatingActionButton: SizedBox(
+          height: 44,
+          child: FloatingActionButton.extended(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SuperDashboardScreen()),
+              );
+            },
+            backgroundColor: AppColors.primaryGreen,
+            elevation: 6,
+            extendedPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            icon: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
+            label: Text(
+              'Admin',
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
       appBar: _buildAppBar(),
       drawer: Drawer(
         child: ListView(
@@ -1051,14 +1117,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen())).then((_) => _loadUserData());
               },
             ),
-            ListTile(
-              leading: Icon(Icons.dashboard_customize, color: AppColors.primaryGreen),
-              title: Text('Super Dashboard (App Owner)', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => SuperDashboardScreen()));
-              },
-            ),
+
             ListTile(
               leading: Icon(Icons.person),
               title: Text('Profile'),
@@ -1123,8 +1182,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
       ),
-      centerTitle: false,
-      title: isMain ? Text('PICKLEBOOK', style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.deepTeal, letterSpacing: -0.5)) : null,
+      title: isMain 
+          ? Text('PICKLEBOOK', style: TextStyle(fontFamily: 'Poppins', fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.deepTeal, letterSpacing: -0.5)) 
+          : (_selectedNavIndex == 2 
+              ? Text('My Bookings', style: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 20))
+              : (_selectedNavIndex == 1 
+                  ? Text('Courts', style: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 20)) 
+                  : null)),
       actions: [
         Stack(
           alignment: Alignment.center,
@@ -1296,12 +1360,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // My Next Booking Card
-            _buildNextBookingCard(),
+            // Horizontal Circular Quick Action Buttons (My Bookings, Open Plays, Open Challenges, Pasalo Courts)
+            _buildHorizontalCircleActions(),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 20),
+
+            // Cloudinary Photo Carousel Banner
+            _buildCloudinaryBannerCarousel(),
+
+            const SizedBox(height: 20),
           ],
         ),
         Expanded(
@@ -1387,18 +1456,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           },
                         ),
                 ),
-
-          SizedBox(height: 24),
-
-          // Open Plays Section
-          _buildOpenPlaysSection(),
-          
-          SizedBox(height: 24),
-          _buildOpenChallengesSection(),
-          
-          SizedBox(height: 24),
-          _buildPasaloCourtsSection(),
-          
+                
           if (_outgoingPasaloRequests.isNotEmpty) ...[
             SizedBox(height: 24),
             _buildMyPasaloRequestsSection(),
@@ -3033,6 +3091,255 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildHorizontalCircleActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildCircleActionButton(
+            label: 'My Bookings',
+            icon: Icons.confirmation_number_outlined,
+            badgeCount: _upcomingBookings.length,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => _StandaloneBookingsScreen(dashboardState: this),
+                ),
+              );
+            },
+          ),
+          _buildCircleActionButton(
+            label: 'Open Plays',
+            icon: Icons.sports_tennis,
+            badgeCount: _openPlays.length,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AllOpenPlaysScreen(
+                    openPlays: _openPlays,
+                    onJoinPlay: _showJoinOpenPlayDialog,
+                    onViewJoiners: _showJoinersListBottomSheet,
+                  ),
+                ),
+              );
+            },
+          ),
+          _buildCircleActionButton(
+            label: 'Challenges',
+            icon: Icons.emoji_events,
+            badgeCount: _openChallenges.length,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OpenChallengesScreen(),
+                ),
+              );
+            },
+          ),
+          _buildCircleActionButton(
+            label: 'Pasalo',
+            icon: Icons.swap_horiz,
+            badgeCount: _pasaloCourts.length,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PasaloCourtsScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCircleActionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    int badgeCount = 0,
+    Color? badgeColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.richBlack,
+                ),
+                child: Center(
+                  child: Icon(
+                    icon,
+                    color: AppColors.accentLime,
+                    size: 24,
+                  ),
+                ),
+              ),
+              if (badgeCount > 0)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: badgeColor ?? Colors.redAccent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    child: Center(
+                      child: Text(
+                        badgeCount > 9 ? '9+' : '$badgeCount',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.richBlack,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMyUpcomingBookingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
+          ),
+          padding: const EdgeInsets.only(top: 16, bottom: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'My Upcoming Bookings',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.richBlack,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => _StandaloneBookingsScreen(dashboardState: this),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'View All',
+                        style: TextStyle(
+                          color: AppColors.primaryGreen,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (_upcomingBookings.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 36),
+                  child: Center(
+                    child: Text(
+                      'No upcoming bookings found.',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                    ),
+                  ),
+                )
+              else
+                _NextBookingCarousel(
+                  bookings: _upcomingBookings,
+                  onView: (b) {
+                    Navigator.pop(context);
+                    _showBookingDetailDialog(b);
+                  },
+                  onGetDirection: (b) {
+                    Navigator.pop(context);
+                    _handleGetDirection(b);
+                  },
+                  onPasalo: (b) {
+                    Navigator.pop(context);
+                    _showPostPasaloDialog(b);
+                  },
+                  getWeekday: _getWeekdayAbbr,
+                  getMonth: _getMonthAbbr,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCloudinaryBannerCarousel() {
+    const String promoUrl =
+        'https://res.cloudinary.com/doxih7ab3/image/upload/v1791726379/Green_and_White_Modern_Matcha_Latte_Promotion_Facebook_Post_1400_x_630_px_1600_x_630_px_a07ynb.png';
+
+    return _CloudinaryBannerCarousel(banners: const [
+      {
+        'image': promoUrl,
+        'title': '',
+        'subtitle': '',
+      },
+    ]);
+  }
+
   Widget _buildNextBookingCard() {
     if (_upcomingBookings.isEmpty) {
       return Container(
@@ -3823,7 +4130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildBookingList(List<dynamic> bookings, {required bool isUpcoming}) {
+  Widget _buildBookingList(List<dynamic> bookings, {required bool isUpcoming, VoidCallback? onStateChanged}) {
     if (bookings.isEmpty) {
       return Center(
         child: Column(
@@ -3841,118 +4148,159 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return ListView.builder(
-      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: EdgeInsets.all(16),
       itemCount: bookings.length,
       itemBuilder: (context, index) {
         final b = bookings[index];
-        return Container(
-          margin: EdgeInsets.only(bottom: 12),
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.primaryGreen.withOpacity(0.08), // Soft Sage Light Green (#EDF1EF)
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(color: AppColors.richBlack.withOpacity(0.03), blurRadius: 6, offset: Offset(0, 2)),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryGreen,
-                  shape: BoxShape.circle,
-                ),
-                child: CustomPaddleIcon(color: AppColors.softWhite, size: 20),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        String displayDate = b['appointment_date'] ?? '';
+        try {
+          if (displayDate.isNotEmpty) {
+            final parsedUtc = DateTime.parse(displayDate);
+            final local = parsedUtc.toLocal();
+            displayDate = '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
+          }
+        } catch (_) {}
+
+        bool isOpenPlay = b['is_open_play'] == true || b['is_open_play'] == 'true' || b['is_open_play'] == 1 || b['is_open_play'] == '1';
+        bool isAssume = b['is_assume'] == true || b['is_assume'] == 'true' || b['is_assume'] == 1 || b['is_assume'] == '1';
+        bool isOpenChallenge = b['is_open_challenge'] == true || b['is_open_challenge'] == 'true' || b['is_open_challenge'] == 1 || b['is_open_challenge'] == '1';
+        String bStatus = (b['status'] ?? '').toString().toLowerCase();
+
+        String tagLabel = isUpcoming ? 'UPCOMING' : 'COMPLETED';
+        if (isOpenPlay) tagLabel = 'OPEN PLAY';
+        else if (isOpenChallenge) tagLabel = 'CHALLENGE';
+        else if (isAssume) tagLabel = 'PASALO';
+
+        return Card(
+          elevation: 4,
+          margin: EdgeInsets.only(bottom: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          color: Colors.white,
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(b['service_type'] ?? 'Pickleball Court', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey.shade800)),
-                    SizedBox(height: 8),
-                    Builder(
-                      builder: (context) {
-                        String displayDate = b['appointment_date'] ?? '';
-                        try {
-                          if (displayDate.isNotEmpty) {
-                            final parsedUtc = DateTime.parse(displayDate);
-                            final local = parsedUtc.toLocal();
-                            displayDate = '${_getMonthAbbr(local.month)} ${local.day}';
-                          }
-                        } catch (_) {}
-                        return Text('$displayDate at ${b['appointment_time'] ?? ''}', style: TextStyle(color: Colors.grey.shade600, fontSize: 13));
-                      }
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isUpcoming ? AppColors.accentLime : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        tagLabel,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: isUpcoming ? AppColors.richBlack : Colors.grey.shade700,
+                        ),
+                      ),
                     ),
-                    if (b['court_address'] != null && b['court_address'].toString().isNotEmpty) ...[
-                      SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, size: 12, color: Colors.grey.shade500),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              b['court_address'],
-                              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                    Text(
+                      displayDate,
+                      style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Text(
+                  b['service_type'] ?? 'Pickleball Court',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Time: ${b['appointment_time'] ?? ''}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                ),
+                if (b['court_address'] != null && b['court_address'].toString().isNotEmpty) ...[
+                  Text(
+                    'Location: ${b['court_address']}',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                Text(
+                  'Amount Paid: ₱${b['total_amount'] ?? b['amount'] ?? '0'}',
+                  style: TextStyle(color: Colors.grey.shade800, fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                if (b['notes'] != null && b['notes'].toString().isNotEmpty) ...[
+                  SizedBox(height: 8),
+                  Text(
+                    'Details: ${b['notes']}',
+                    style: TextStyle(color: Colors.grey.shade800, fontSize: 14, fontStyle: FontStyle.italic),
+                  ),
+                ],
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryGreen,
+                          foregroundColor: AppColors.softWhite,
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => _showBookingDetailDialog(b),
+                        child: Text('View Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      ),
+                    ),
+                    if (isUpcoming && b['id'] != null) ...[
+                      if (!isOpenPlay && !isAssume && !isOpenChallenge && bStatus != 'cancelled' && bStatus != 'completed') ...[
+                        SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentLime,
+                            foregroundColor: AppColors.richBlack,
+                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                        ],
+                          onPressed: () {
+                            _showPostPasaloDialog(b);
+                            onStateChanged?.call();
+                          },
+                          child: Text('Pasalo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        ),
+                      ],
+                      if (isAssume) ...[
+                        SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentLime,
+                            foregroundColor: AppColors.richBlack,
+                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () {
+                            _showPasaloRequestsDialog(b);
+                            onStateChanged?.call();
+                          },
+                          child: Text('Requests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        ),
+                      ],
+                      SizedBox(width: 8),
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                          side: BorderSide(color: Colors.red.shade300),
+                          padding: EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () async {
+                          await _confirmCancelBooking(b['id']);
+                          onStateChanged?.call();
+                        },
+                        child: Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
                     ],
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('P${b['total_amount'] ?? b['amount'] ?? '0'}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
-                  if (isUpcoming && b['id'] != null)
-                    Builder(builder: (context) {
-                      bool isOpenPlay = b['is_open_play'] == true || b['is_open_play'] == 'true' || b['is_open_play'] == 1 || b['is_open_play'] == '1';
-                      bool isAssume = b['is_assume'] == true || b['is_assume'] == 'true' || b['is_assume'] == 1 || b['is_assume'] == '1';
-                      bool isOpenChallenge = b['is_open_challenge'] == true || b['is_open_challenge'] == 'true' || b['is_open_challenge'] == 1 || b['is_open_challenge'] == '1';
-                      
-                      return Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!isOpenPlay && !isAssume && !isOpenChallenge && b['status'] != 'cancelled' && b['status'] != 'completed')
-                            TextButton(
-                              onPressed: () => _showPostPasaloDialog(b),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.only(right: 8),
-                                minimumSize: Size(0, 0),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text('Pasalo', style: TextStyle(color: Colors.deepOrange.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
-                            ),
-                          if (isAssume)
-                            TextButton(
-                              onPressed: () => _showPasaloRequestsDialog(b),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.only(right: 8),
-                                minimumSize: Size(0, 0),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text('Pasalo Requests', style: TextStyle(color: Colors.deepOrange.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
-                            ),
-                          TextButton(
-                            onPressed: () => _confirmCancelBooking(b['id']),
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size(0, 0),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12)),
-                          ),
-                        ],
-                      );
-                    }),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -4611,6 +4959,222 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+class _CloudinaryBannerCarousel extends StatefulWidget {
+  final List<Map<String, String>> banners;
+
+  const _CloudinaryBannerCarousel({
+    required this.banners,
+  });
+
+  @override
+  State<_CloudinaryBannerCarousel> createState() => _CloudinaryBannerCarouselState();
+}
+
+class _CloudinaryBannerCarouselState extends State<_CloudinaryBannerCarousel> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _pageController.addListener(() {
+      final page = _pageController.page?.round() ?? 0;
+      if (page != _currentPage && mounted) {
+        setState(() => _currentPage = page);
+      }
+    });
+
+    if (widget.banners.length > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+        if (!mounted || !_pageController.hasClients) return;
+        int nextPage = (_currentPage + 1) % widget.banners.length;
+        _pageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.banners.isEmpty) return const SizedBox.shrink();
+
+    if (widget.banners.length == 1) {
+      final banner = widget.banners.first;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: AspectRatio(
+            aspectRatio: 1600 / 630,
+            child: Image.network(
+              banner['image']!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: AppColors.primaryGreen.withOpacity(0.12),
+                child: const Center(
+                  child: Icon(Icons.sports_tennis, size: 48, color: AppColors.primaryGreen),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 165,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.banners.length,
+            itemBuilder: (context, index) {
+              final banner = widget.banners[index];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Image.network(
+                          banner['image']!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.primaryGreen.withOpacity(0.12),
+                            child: const Center(
+                              child: Icon(Icons.sports_tennis, size: 48, color: AppColors.primaryGreen),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Dark gradient overlay (only if title is present)
+                      if ((banner['title'] ?? '').isNotEmpty)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black.withOpacity(0.05),
+                                  Colors.black.withOpacity(0.70),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                            ),
+                          ),
+                        ),
+                      // Top Pill Badge
+                      if ((banner['badge'] ?? '').isNotEmpty)
+                        Positioned(
+                          top: 12,
+                          left: 14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.richBlack.withOpacity(0.65),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.stars, color: Colors.amber, size: 12),
+                                const SizedBox(width: 4),
+                                Text(
+                                  banner['badge']!,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      // Bottom Details
+                      if ((banner['title'] ?? '').isNotEmpty)
+                        Positioned(
+                          bottom: 14,
+                          left: 16,
+                          right: 60,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                banner['title']!,
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (banner['subtitle'] != null && banner['subtitle']!.isNotEmpty)
+                                Text(
+                                  banner['subtitle']!,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          // Page Indicator Dots
+          if (widget.banners.length > 1)
+            Positioned(
+              bottom: 12,
+              right: 32,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(widget.banners.length, (idx) {
+                  final isActive = idx == _currentPage;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                    width: isActive ? 16 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isActive ? Colors.white : Colors.white.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  );
+                }),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NextBookingCarousel extends StatefulWidget {
   final List<dynamic> bookings;
   final Function(dynamic) onView;
@@ -4691,147 +5255,143 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
                 // Card body
                 Container(
                   decoration: BoxDecoration(
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-
+                    boxShadow: [
+                      BoxShadow(color: AppColors.richBlack.withOpacity(0.06), blurRadius: 10, offset: Offset(0, 4)),
+                    ],
                   ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Top row: badge + ID
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.richBlack.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(Icons.calendar_today, size: 10, color: AppColors.richBlack),
-                                          const SizedBox(width: 4),
-                                          Text(isOpenPlay ? 'Open Play' : (isOpenChallenge ? 'Open Challenge' : 'My Booking'), style: const TextStyle(fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.richBlack)),
-                                        ],
-                                      ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Top row: badge + ID
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accentLime,
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
-                                    Row(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        if (isAssume)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                            margin: const EdgeInsets.only(right: 6),
-                                            decoration: BoxDecoration(
-                                              color: Colors.orange.shade900,
-                                              borderRadius: BorderRadius.circular(10),
-                                            ),
-                                            child: const Text('PASALO POSTED', style: TextStyle(fontFamily: 'Poppins', fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
-                                          ),
-                                        if (booking['id'] != null)
-                                          Text(
-                                            '#${booking['id']}',
-                                            style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.richBlack.withOpacity(0.7)),
-                                          ),
+                                        const Icon(Icons.calendar_today, size: 10, color: AppColors.richBlack),
+                                        const SizedBox(width: 4),
+                                        Text(isOpenPlay ? 'Open Play' : (isOpenChallenge ? 'Open Challenge' : 'My Booking'), style: const TextStyle(fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
                                       ],
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                // Service name
-                                Text(
-                                  booking['service_type'] ?? 'Court Booking',
-                                  style: const TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.richBlack, letterSpacing: -0.3),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  booking['court_address'] ?? '',
-                                  style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack.withOpacity(0.8)),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 6),
-                                // Date & time
-                                Row(
-                                  children: [
-                                    const Icon(Icons.event, size: 13, color: AppColors.richBlack),
-                                    const SizedBox(width: 4),
-                                    Text(dateStr, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.richBlack)),
-                                    const SizedBox(width: 12),
-                                    Icon(Icons.access_time, size: 13, color: AppColors.richBlack.withOpacity(0.70)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      booking['appointment_time'] ?? 'N/A',
-                                      style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.richBlack.withOpacity(0.85)),
+                                  ),
+                                  Row(
+                                    children: [
+                                      if (isAssume)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                          margin: const EdgeInsets.only(right: 6),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.accentLime,
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: const Text('PASALO POSTED', style: TextStyle(fontFamily: 'Poppins', fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
+                                        ),
+                                      if (booking['id'] != null)
+                                        Text(
+                                          '#${booking['id']}',
+                                          style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // Service name
+                              Text(
+                                booking['service_type'] ?? 'Court Booking',
+                                style: const TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.richBlack, letterSpacing: -0.3),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                booking['court_address'] ?? '',
+                                style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.grey.shade600),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              // Date & time
+                              Row(
+                                children: [
+                                  const Icon(Icons.event, size: 13, color: AppColors.primaryGreen),
+                                  const SizedBox(width: 4),
+                                  Text(dateStr, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                                  const SizedBox(width: 12),
+                                  Icon(Icons.access_time, size: 13, color: Colors.grey.shade600),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    booking['appointment_time'] ?? 'N/A',
+                                    style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                              const Spacer(),
+                              // Buttons
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => widget.onView(booking),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryGreen,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Text('View Details', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.softWhite)),
                                     ),
-                                  ],
-                                ),
-                                const Spacer(),
-                                // Buttons
-                                const SizedBox(height: 10),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
+                                  ),
+                                  const SizedBox(width: 6),
+                                  GestureDetector(
+                                    onTap: () => widget.onGetDirection(booking),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: AppColors.richBlack.withOpacity(0.3)),
+                                      ),
+                                      child: const Text('Directions', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.richBlack)),
+                                    ),
+                                  ),
+                                  if (showPasalo) ...[
+                                    const SizedBox(width: 6),
                                     GestureDetector(
-                                      onTap: () => widget.onView(booking),
+                                      onTap: () => widget.onPasalo(booking),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                         decoration: BoxDecoration(
-                                          color: AppColors.richBlack,
+                                          color: AppColors.accentLime,
                                           borderRadius: BorderRadius.circular(20),
                                         ),
-                                        child: const Text('View Details', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.softWhite)),
+                                        child: const Text('Pasalo', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    GestureDetector(
-                                      onTap: () => widget.onGetDirection(booking),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.transparent,
-                                          borderRadius: BorderRadius.circular(20),
-                                          border: Border.all(color: AppColors.richBlack.withOpacity(0.3)),
-                                        ),
-                                        child: const Text('Directions', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.richBlack)),
-                                      ),
-                                    ),
-                                    if (showPasalo) ...[
-                                      const SizedBox(width: 6),
-                                      GestureDetector(
-                                        onTap: () => widget.onPasalo(booking),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.deepOrange.shade700,
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: const Text('Pasalo', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                                        ),
-                                      ),
-                                    ],
                                   ],
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ), // closes inner Container
+                      ),
+                    ],
+                  ),
                 ), // closes outer Container
               ],
             ),
@@ -4841,4 +5401,79 @@ class _NextBookingCarouselState extends State<_NextBookingCarousel> {
     );
   }
 
+}
+
+class _StandaloneBookingsScreen extends StatefulWidget {
+  final _DashboardScreenState dashboardState;
+  const _StandaloneBookingsScreen({required this.dashboardState});
+
+  @override
+  State<_StandaloneBookingsScreen> createState() => _StandaloneBookingsScreenState();
+}
+
+class _StandaloneBookingsScreenState extends State<_StandaloneBookingsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final ds = widget.dashboardState;
+    return Scaffold(
+      backgroundColor: AppColors.softWhite,
+      appBar: AppBar(
+        backgroundColor: AppColors.softWhite,
+        elevation: 0,
+        title: Text('My Bookings', style: TextStyle(color: AppColors.richBlack, fontWeight: FontWeight.bold)),
+        iconTheme: IconThemeData(color: AppColors.richBlack),
+      ),
+      body: DefaultTabController(
+        length: 2,
+        child: Column(
+          children: [
+            SizedBox(height: 6),
+            TabBar(
+              indicatorColor: AppColors.primaryGreen,
+              labelColor: AppColors.primaryGreen,
+              unselectedLabelColor: Colors.grey.shade600,
+              tabs: [
+                Tab(text: 'Upcoming (${ds._upcomingBookings.length})'),
+                Tab(text: 'Past (${ds._pastBookings.length})'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  RefreshIndicator(
+                    color: AppColors.primaryGreen,
+                    onRefresh: () async {
+                      await ds._fetchBookings(ds._userEmail);
+                      if (mounted) setState(() {});
+                    },
+                    child: ds._buildBookingList(
+                      ds._upcomingBookings,
+                      isUpcoming: true,
+                      onStateChanged: () {
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                  ),
+                  RefreshIndicator(
+                    color: AppColors.primaryGreen,
+                    onRefresh: () async {
+                      await ds._fetchBookings(ds._userEmail);
+                      if (mounted) setState(() {});
+                    },
+                    child: ds._buildBookingList(
+                      ds._pastBookings,
+                      isUpcoming: false,
+                      onStateChanged: () {
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
