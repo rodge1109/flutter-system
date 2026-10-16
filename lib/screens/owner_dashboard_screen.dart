@@ -20,6 +20,7 @@ import 'manage_customers_screen.dart';
 import 'ai_promo_screen.dart';
 import 'super_dashboard_screen.dart';
 import 'login_screen.dart';
+import 'court_owner_ledger_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   @override
@@ -758,28 +759,43 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                           ),
                         ),
                         SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildNavButton(
-                              icon: Icons.calendar_month, 
-                              label: 'Calendar', 
-                              isSelected: _currentTab == 'calendar',
-                              onTap: () => setState(() => _currentTab = 'calendar'),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildNavButton(
+                                  icon: Icons.calendar_month, 
+                                  label: 'Calendar', 
+                                  isSelected: _currentTab == 'calendar',
+                                  onTap: () => setState(() => _currentTab = 'calendar'),
+                                ),
+                                SizedBox(width: 12),
+                                _buildNavButton(
+                                  icon: Icons.list_alt, 
+                                  label: 'Upcoming (${_allBookings.length})', 
+                                  isSelected: _currentTab == 'upcoming',
+                                  onTap: () => setState(() => _currentTab = 'upcoming'),
+                                ),
+                                SizedBox(width: 12),
+                                _buildNavButton(
+                                  icon: Icons.sports_tennis, 
+                                  label: _myCourts.isNotEmpty ? 'My Courts (${_myCourts.length})' : 'My Courts', 
+                                  isSelected: _currentTab == 'courts',
+                                  onTap: () => setState(() => _currentTab = 'courts'),
+                                ),
+                                SizedBox(width: 12),
+                                _buildNavButton(
+                                  icon: Icons.account_balance_wallet_rounded, 
+                                  label: 'Ledger', 
+                                  isSelected: _currentTab == 'ledger',
+                                  onTap: () => setState(() => _currentTab = 'ledger'),
+                                ),
+                              ],
                             ),
-                            _buildNavButton(
-                              icon: Icons.list_alt, 
-                              label: 'Upcoming (${_allBookings.length})', 
-                              isSelected: _currentTab == 'upcoming',
-                              onTap: () => setState(() => _currentTab = 'upcoming'),
-                            ),
-                            _buildNavButton(
-                              icon: Icons.sports_tennis, 
-                              label: _myCourts.isNotEmpty ? 'My Courts (${_myCourts.length})' : 'My Courts', 
-                              isSelected: _currentTab == 'courts',
-                              onTap: () => setState(() => _currentTab = 'courts'),
-                            ),
-                          ],
+                          ),
                         ),
                         SizedBox(height: 16),
                         _buildTabContent(),
@@ -798,8 +814,22 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       return _buildCalendarView();
     } else if (_currentTab == 'upcoming') {
       return _buildUpcomingView();
-    } else {
+    } else if (_currentTab == 'courts') {
       return _buildCourtsView();
+    } else {
+      String venueName = '';
+      if (_myCourts.isNotEmpty) {
+        final first = _myCourts.first;
+        if (first is Map) {
+          venueName = (first['venue_name'] ?? first['name'] ?? '').toString();
+        }
+      }
+      return CourtOwnerLedgerScreen(
+        isSuperAdmin: false,
+        embedded: true,
+        initialOwnerEmail: _userEmail,
+        initialVenueName: venueName,
+      );
     }
   }
 

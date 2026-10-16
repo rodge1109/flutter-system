@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/service_model.dart';
 import '../models/customer_model.dart';
 import '../models/loyalty_settings_model.dart';
+import '../models/ledger_entry_model.dart';
 
 class ApiService {
   static String get baseUrl {
@@ -1552,6 +1553,152 @@ class ApiService {
       return {'success': false, 'message': 'Failed to fetch admin earnings'};
     } catch (e) {
       print('Fetch super admin earnings error: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // ==================== COURT OWNER LEDGER ====================
+  Future<List<LedgerOwnerSummary>> fetchLedgerOwners() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/ledger/owners')).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['owners'] is List) {
+          return (data['owners'] as List)
+              .map((item) => LedgerOwnerSummary.fromJson(item))
+              .toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Fetch ledger owners error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchOwnerLedger(String ownerEmail, {String? startDate, String? endDate, String? search}) async {
+    try {
+      String url = '$baseUrl/ledger/${Uri.encodeComponent(ownerEmail)}';
+      List<String> queryParams = [];
+      if (startDate != null && startDate.isNotEmpty && endDate != null && endDate.isNotEmpty) {
+        queryParams.add('startDate=$startDate');
+        queryParams.add('endDate=$endDate');
+      }
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams.add('search=${Uri.encodeComponent(search.trim())}');
+      }
+      if (queryParams.isNotEmpty) {
+        url += '?${queryParams.join('&')}';
+      }
+
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          List<LedgerEntryModel> entries = [];
+          if (data['entries'] is List) {
+            entries = (data['entries'] as List)
+                .map((e) => LedgerEntryModel.fromJson(e))
+                .toList();
+          }
+          return {
+            'success': true,
+            'owner_email': data['owner_email'],
+            'total_charges': (data['total_charges'] ?? 0.0).toDouble(),
+            'total_payments': (data['total_payments'] ?? 0.0).toDouble(),
+            'current_balance': (data['current_balance'] ?? 0.0).toDouble(),
+            'entries': entries,
+          };
+        }
+      }
+      return {'success': false, 'message': 'Failed to load ledger', 'entries': <LedgerEntryModel>[]};
+    } catch (e) {
+      print('Fetch owner ledger error: $e');
+      return {'success': false, 'message': e.toString(), 'entries': <LedgerEntryModel>[]};
+    }
+  }
+
+  Future<Map<String, dynamic>> createLedgerEntry({
+    required String ownerEmail,
+    String? venueName,
+    required String transactionDate,
+    required String particulars,
+    required String type,
+    required double amount,
+    String? referenceNumber,
+    String? notes,
+    String? createdBy,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/ledger'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'owner_email': ownerEmail,
+          'venue_name': venueName,
+          'transaction_date': transactionDate,
+          'particulars': particulars,
+          'type': type,
+          'amount': amount,
+          'reference_number': referenceNumber,
+          'notes': notes,
+          'created_by': createdBy,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      final data = json.decode(response.body);
+      return data;
+    } catch (e) {
+      print('Create ledger entry error: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateLedgerEntry(
+    int id, {
+    required String ownerEmail,
+    String? venueName,
+    required String transactionDate,
+    required String particulars,
+    required String type,
+    required double amount,
+    String? referenceNumber,
+    String? notes,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/ledger/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'owner_email': ownerEmail,
+          'venue_name': venueName,
+          'transaction_date': transactionDate,
+          'particulars': particulars,
+          'type': type,
+          'amount': amount,
+          'reference_number': referenceNumber,
+          'notes': notes,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      final data = json.decode(response.body);
+      return data;
+    } catch (e) {
+      print('Update ledger entry error: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteLedgerEntry(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/ledger/$id'),
+      ).timeout(const Duration(seconds: 30));
+
+      final data = json.decode(response.body);
+      return data;
+    } catch (e) {
+      print('Delete ledger entry error: $e');
       return {'success': false, 'message': e.toString()};
     }
   }

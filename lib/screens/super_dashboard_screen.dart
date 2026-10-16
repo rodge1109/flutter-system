@@ -13,6 +13,7 @@ import 'inbox_screen.dart';
 import 'login_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
+import 'court_owner_ledger_screen.dart';
 
 class SuperDashboardScreen extends StatefulWidget {
   @override
@@ -1021,6 +1022,13 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                             isSelected: _currentTab == 'loyalty',
                             onTap: () => setState(() => _currentTab = 'loyalty'),
                           ),
+                          const SizedBox(width: 8),
+                          _buildNavButton(
+                            icon: Icons.account_balance_wallet_rounded, 
+                            label: 'Ledgers', 
+                            isSelected: _currentTab == 'ledger',
+                            onTap: () => setState(() => _currentTab = 'ledger'),
+                          ),
                         ],
                       ),
                     ),
@@ -1078,6 +1086,22 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       return _buildUpcomingView(filteredBookings);
     } else if (_currentTab == 'courts') {
       return _buildCourtsView(filteredCourts);
+    } else if (_currentTab == 'ledger') {
+      String? targetEmail;
+      String? targetVenue;
+      if (_selectedVenueKey != 'ALL' && _selectedVenueKey.contains('(') && _selectedVenueKey.endsWith(')')) {
+        int openParen = _selectedVenueKey.lastIndexOf('(');
+        String rawTarget = _selectedVenueKey.substring(0, openParen).trim();
+        targetVenue = rawTarget.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
+        if (targetVenue.isEmpty) targetVenue = rawTarget;
+        targetEmail = _selectedVenueKey.substring(openParen + 1, _selectedVenueKey.length - 1).trim();
+      }
+      return CourtOwnerLedgerScreen(
+        isSuperAdmin: true,
+        embedded: true,
+        initialOwnerEmail: targetEmail,
+        initialVenueName: targetVenue,
+      );
     } else {
       return _buildLoyaltyView(filteredCustomers);
     }
