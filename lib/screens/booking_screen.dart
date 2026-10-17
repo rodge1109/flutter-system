@@ -3043,136 +3043,127 @@ class _BookingScreenState extends State<BookingScreen> {
 
         SizedBox(height: 20),
 
-        // QR Code Display Card (Shows owner official QR code if uploaded)
-        Center(
-          child: Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300),
-              boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 10, offset: Offset(0, 4))],
-            ),
-            child: canShowQr
-                ? Column(
+        // QR Code Display Card (Shows owner official QR code if uploaded or for Roger's courts)
+        if (canShowQr) ...[
+          Center(
+            child: Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 10, offset: Offset(0, 4))],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.qr_code_2, color: AppColors.richBlack, size: 22),
-                          SizedBox(width: 6),
-                          Text(
-                            hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Official Payment QR Code',
-                            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
-                          ),
-                          if (hasCloudinaryQr || isRogerCourt) ...[
-                            SizedBox(width: 4),
-                            IconButton(
-                              constraints: BoxConstraints(),
-                              padding: EdgeInsets.all(4),
-                              icon: Icon(Icons.file_download_outlined, color: AppColors.richBlack, size: 22),
-                              tooltip: 'Download QR Code',
-                              onPressed: () => downloadImage(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
-                            ),
-                          ],
-                        ],
+                      Icon(Icons.qr_code_2, color: AppColors.richBlack, size: 22),
+                      SizedBox(width: 6),
+                      Text(
+                        hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Official Payment QR Code',
+                        style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
                       ),
-                      SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: () => _showFullQrCodeModal(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG', isRoger: isRogerCourt),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: hasCloudinaryQr
-                                    ? Image.network(
-                                        qrUrl,
+                      if (hasCloudinaryQr || isRogerCourt) ...[
+                        SizedBox(width: 4),
+                        IconButton(
+                          constraints: BoxConstraints(),
+                          padding: EdgeInsets.all(4),
+                          icon: Icon(Icons.file_download_outlined, color: AppColors.richBlack, size: 22),
+                          tooltip: 'Download QR Code',
+                          onPressed: () => downloadImage(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
+                        ),
+                      ],
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => _showFullQrCodeModal(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG', isRoger: isRogerCourt),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: hasCloudinaryQr
+                                ? Image.network(
+                                    qrUrl,
+                                    height: 220,
+                                    width: 220,
+                                    fit: BoxFit.contain,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
                                         height: 220,
                                         width: 220,
-                                        fit: BoxFit.contain,
-                                        loadingBuilder: (context, child, loadingProgress) {
-                                          if (loadingProgress == null) return child;
-                                          return Container(
+                                        color: Colors.grey.shade100,
+                                        child: Center(child: CircularProgressIndicator(color: AppColors.richBlack)),
+                                      );
+                                    },
+                                    errorBuilder: (_, __, ___) => isRogerCourt
+                                        ? Image.asset(
+                                            'assets/qr-code.PNG',
+                                            height: 220,
+                                            width: 220,
+                                            fit: BoxFit.contain,
+                                          )
+                                        : Container(
                                             height: 220,
                                             width: 220,
                                             color: Colors.grey.shade100,
-                                            child: Center(child: CircularProgressIndicator(color: AppColors.richBlack)),
-                                          );
-                                        },
-                                        errorBuilder: (_, __, ___) => isRogerCourt
-                                            ? Image.asset(
-                                                'assets/qr-code.PNG',
-                                                height: 220,
-                                                width: 220,
-                                                fit: BoxFit.contain,
-                                              )
-                                            : Container(
-                                                height: 220,
-                                                width: 220,
-                                                color: Colors.grey.shade100,
-                                                child: Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.broken_image_outlined, size: 40, color: Colors.grey.shade400),
-                                                    SizedBox(height: 8),
-                                                    Text('QR Code unavailable', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                                  ],
-                                                ),
-                                              ),
-                                      )
-                                    : Image.asset(
-                                        'assets/qr-code.PNG',
-                                        height: 220,
-                                        width: 220,
-                                        fit: BoxFit.contain,
-                                      ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 8,
-                              right: 8,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                                    SizedBox(width: 4),
-                                    Text('Tap to expand', style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Icon(Icons.broken_image_outlined, size: 40, color: Colors.grey.shade400),
+                                                SizedBox(height: 8),
+                                                Text('QR Code unavailable', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                              ],
+                                            ),
+                                          ),
+                                  )
+                                : Image.asset(
+                                    'assets/qr-code.PNG',
+                                    height: 220,
+                                    width: 220,
+                                    fit: BoxFit.contain,
+                                  ),
+                          ),
                         ),
-                      ),
-                    ],
-                  )
-                : Column(
-                    children: [
-                      Icon(Icons.qr_code_2_outlined, color: Colors.grey.shade400, size: 48),
-                      SizedBox(height: 8),
-                      Text('No Payment QR Code Uploaded', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
-                      SizedBox(height: 4),
-                      Text('Please use the owner payment accounts listed below to complete your payment.', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.grey.shade600)),
-                    ],
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                                SizedBox(width: 4),
+                                Text('Tap to expand', style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+              ),
+            ),
           ),
-        ),
-
-        SizedBox(height: 20),
+          SizedBox(height: 20),
+        ],
 
         // Available Payment Options Header
         Text('Owner Payment Accounts', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
