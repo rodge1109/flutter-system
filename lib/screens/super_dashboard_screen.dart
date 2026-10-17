@@ -1101,6 +1101,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         embedded: true,
         initialOwnerEmail: targetEmail,
         initialVenueName: targetVenue,
+        allCourts: _allCourts,
       );
     } else {
       return _buildLoyaltyView(filteredCustomers);

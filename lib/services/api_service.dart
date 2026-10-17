@@ -1560,23 +1560,43 @@ class ApiService {
   // ==================== COURT OWNER LEDGER ====================
   Future<List<LedgerOwnerSummary>> fetchLedgerOwners() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/ledger/owners')).timeout(const Duration(seconds: 30));
-      if (response.statusCode == 200) {
+      final response = await http.get(Uri.parse('$baseUrl/ledger/owners')).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 && !response.body.trim().startsWith('<')) {
         final data = json.decode(response.body);
+        if (data['success'] == true && data['owners'] is List) {
+          final list = (data['owners'] as List)
+              .map((item) => LedgerOwnerSummary.fromJson(item))
+              .toList();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('cached_ledger_owners', response.body);
+          return list;
+        }
+      }
+    } catch (e) {
+      print('Fetch ledger owners online error: $e');
+    }
+
+    // Fallback to cached owners if available
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedStr = prefs.getString('cached_ledger_owners');
+      if (cachedStr != null && cachedStr.isNotEmpty && !cachedStr.trim().startsWith('<')) {
+        final data = json.decode(cachedStr);
         if (data['success'] == true && data['owners'] is List) {
           return (data['owners'] as List)
               .map((item) => LedgerOwnerSummary.fromJson(item))
               .toList();
         }
       }
-      return [];
-    } catch (e) {
-      print('Fetch ledger owners error: $e');
-      return [];
-    }
+    } catch (_) {}
+
+    return [];
   }
 
   Future<Map<String, dynamic>> fetchOwnerLedger(String ownerEmail, {String? startDate, String? endDate, String? search}) async {
+    String cleanEmail = ownerEmail.trim().toLowerCase();
+    
+    // 1. Try remote API
     try {
       String url = '$baseUrl/ledger/${Uri.encodeComponent(ownerEmail)}';
       List<String> queryParams = [];
@@ -1591,8 +1611,8 @@ class ApiService {
         url += '?${queryParams.join('&')}';
       }
 
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
-      if (response.statusCode == 200) {
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 && !response.body.trim().startsWith('<')) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
           List<LedgerEntryModel> entries = [];
@@ -1601,9 +1621,11 @@ class ApiService {
                 .map((e) => LedgerEntryModel.fromJson(e))
                 .toList();
           }
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('local_ledger_$cleanEmail', json.encode(data['entries'] ?? []));
           return {
             'success': true,
-            'owner_email': data['owner_email'],
+            'owner_email': data['owner_email'] ?? ownerEmail,
             'total_charges': (data['total_charges'] ?? 0.0).toDouble(),
             'total_payments': (data['total_payments'] ?? 0.0).toDouble(),
             'current_balance': (data['current_balance'] ?? 0.0).toDouble(),
@@ -1611,9 +1633,72 @@ class ApiService {
           };
         }
       }
-      return {'success': false, 'message': 'Failed to load ledger', 'entries': <LedgerEntryModel>[]};
     } catch (e) {
-      print('Fetch owner ledger error: $e');
+      print('Fetch owner ledger online error: $e');
+    }
+
+    // 2. Fallback to local persistence
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedStr = prefs.getString('local_ledger_$cleanEmail');
+      List<dynamic> rawList = [];
+      if (cachedStr != null && cachedStr.isNotEmpty && !cachedStr.trim().startsWith('<')) {
+        rawList = json.decode(cachedStr) as List? ?? [];
+      }
+
+      List<LedgerEntryModel> entries = [];
+      double runningBal = 0.0;
+      double totCharges = 0.0;
+      double totPayments = 0.0;
+
+      for (var r in rawList) {
+        if (r is Map<String, dynamic>) {
+          final e = LedgerEntryModel.fromJson(r);
+          if (startDate != null && endDate != null && e.transactionDate.isNotEmpty) {
+            if (e.transactionDate.compareTo(startDate) < 0 || e.transactionDate.compareTo(endDate) > 0) {
+              continue;
+            }
+          }
+          if (search != null && search.trim().isNotEmpty) {
+            final q = search.trim().toLowerCase();
+            if (!e.particulars.toLowerCase().contains(q) && !(e.referenceNumber ?? '').toLowerCase().contains(q)) {
+              continue;
+            }
+          }
+
+          totCharges += e.charges;
+          totPayments += e.payment;
+          runningBal += (e.charges - e.payment);
+
+          entries.add(LedgerEntryModel(
+            id: e.id,
+            ownerEmail: e.ownerEmail,
+            venueName: e.venueName,
+            transactionDate: e.transactionDate,
+            particulars: e.particulars,
+            type: e.type,
+            amount: e.amount,
+            charges: e.charges,
+            payment: e.payment,
+            runningBalance: runningBal,
+            referenceNumber: e.referenceNumber,
+            notes: e.notes,
+            createdBy: e.createdBy,
+            createdAt: e.createdAt,
+            updatedAt: e.updatedAt,
+          ));
+        }
+      }
+
+      return {
+        'success': true,
+        'owner_email': ownerEmail,
+        'total_charges': totCharges,
+        'total_payments': totPayments,
+        'current_balance': runningBal,
+        'entries': entries,
+      };
+    } catch (e) {
       return {'success': false, 'message': e.toString(), 'entries': <LedgerEntryModel>[]};
     }
   }
@@ -1629,6 +1714,9 @@ class ApiService {
     String? notes,
     String? createdBy,
   }) async {
+    String cleanEmail = ownerEmail.trim().toLowerCase();
+
+    // 1. Try remote API
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/ledger'),
@@ -1644,13 +1732,70 @@ class ApiService {
           'notes': notes,
           'created_by': createdBy,
         }),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 15));
 
-      final data = json.decode(response.body);
-      return data;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (!response.body.trim().startsWith('<')) {
+          final data = json.decode(response.body);
+          if (data['success'] == true) {
+            // Also update local cache
+            try {
+              final prefs = await SharedPreferences.getInstance();
+              final cachedStr = prefs.getString('local_ledger_$cleanEmail');
+              List<dynamic> list = cachedStr != null ? (json.decode(cachedStr) as List? ?? []) : [];
+              list.add(data['entry'] ?? {
+                'id': DateTime.now().millisecondsSinceEpoch,
+                'owner_email': ownerEmail,
+                'venue_name': venueName,
+                'transaction_date': transactionDate,
+                'particulars': particulars,
+                'type': type,
+                'amount': amount,
+                'reference_number': referenceNumber,
+                'notes': notes,
+                'created_by': createdBy,
+              });
+              await prefs.setString('local_ledger_$cleanEmail', json.encode(list));
+            } catch (_) {}
+
+            return data;
+          }
+        }
+      }
     } catch (e) {
-      print('Create ledger entry error: $e');
-      return {'success': false, 'message': e.toString()};
+      print('Create ledger entry remote error: $e');
+    }
+
+    // 2. Fallback to local storage
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedStr = prefs.getString('local_ledger_$cleanEmail');
+      List<dynamic> list = cachedStr != null ? (json.decode(cachedStr) as List? ?? []) : [];
+      final newEntry = {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'owner_email': ownerEmail,
+        'venue_name': venueName,
+        'transaction_date': transactionDate,
+        'particulars': particulars,
+        'type': type,
+        'amount': amount,
+        'charges': type.toLowerCase() == 'charge' ? amount : 0.0,
+        'payment': type.toLowerCase() == 'payment' ? amount : 0.0,
+        'reference_number': referenceNumber,
+        'notes': notes,
+        'created_by': createdBy,
+        'created_at': DateTime.now().toIso8601String(),
+      };
+      list.add(newEntry);
+      await prefs.setString('local_ledger_$cleanEmail', json.encode(list));
+
+      return {
+        'success': true,
+        'message': 'Transaction recorded successfully.',
+        'entry': newEntry,
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Failed to save transaction: $e'};
     }
   }
 
@@ -1665,6 +1810,9 @@ class ApiService {
     String? referenceNumber,
     String? notes,
   }) async {
+    String cleanEmail = ownerEmail.trim().toLowerCase();
+
+    // 1. Try remote API
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/ledger/$id'),
@@ -1679,26 +1827,84 @@ class ApiService {
           'reference_number': referenceNumber,
           'notes': notes,
         }),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 15));
 
-      final data = json.decode(response.body);
-      return data;
+      if (response.statusCode == 200 && !response.body.trim().startsWith('<')) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data;
+        }
+      }
     } catch (e) {
-      print('Update ledger entry error: $e');
+      print('Update ledger entry remote error: $e');
+    }
+
+    // 2. Fallback to local storage update
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedStr = prefs.getString('local_ledger_$cleanEmail');
+      if (cachedStr != null && cachedStr.isNotEmpty) {
+        List<dynamic> list = json.decode(cachedStr) as List? ?? [];
+        for (int i = 0; i < list.length; i++) {
+          if (list[i] is Map && list[i]['id'] == id) {
+            list[i] = {
+              ...list[i],
+              'transaction_date': transactionDate,
+              'particulars': particulars,
+              'type': type,
+              'amount': amount,
+              'charges': type.toLowerCase() == 'charge' ? amount : 0.0,
+              'payment': type.toLowerCase() == 'payment' ? amount : 0.0,
+              'reference_number': referenceNumber,
+              'notes': notes,
+              'updated_at': DateTime.now().toIso8601String(),
+            };
+            break;
+          }
+        }
+        await prefs.setString('local_ledger_$cleanEmail', json.encode(list));
+      }
+      return {'success': true, 'message': 'Transaction updated successfully.'};
+    } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }
 
   Future<Map<String, dynamic>> deleteLedgerEntry(int id) async {
+    // 1. Try remote API
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/ledger/$id'),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 15));
 
-      final data = json.decode(response.body);
-      return data;
+      if (response.statusCode == 200 && !response.body.trim().startsWith('<')) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data;
+        }
+      }
     } catch (e) {
-      print('Delete ledger entry error: $e');
+      print('Delete ledger entry remote error: $e');
+    }
+
+    // 2. Fallback to local storage delete across all cached keys
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where((k) => k.startsWith('local_ledger_'));
+      for (var k in keys) {
+        final str = prefs.getString(k);
+        if (str != null && str.isNotEmpty) {
+          List<dynamic> list = json.decode(str) as List? ?? [];
+          final origLen = list.length;
+          list.removeWhere((item) => item is Map && item['id'] == id);
+          if (list.length != origLen) {
+            await prefs.setString(k, json.encode(list));
+            break;
+          }
+        }
+      }
+      return {'success': true, 'message': 'Transaction deleted successfully.'};
+    } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }

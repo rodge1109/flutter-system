@@ -12,6 +12,7 @@ class CourtOwnerLedgerScreen extends StatefulWidget {
   final String? initialOwnerEmail;
   final String? initialVenueName;
   final bool embedded; // true if used as a tab inside super/owner dashboard
+  final List<dynamic>? allCourts;
 
   const CourtOwnerLedgerScreen({
     Key? key,
@@ -19,6 +20,7 @@ class CourtOwnerLedgerScreen extends StatefulWidget {
     this.initialOwnerEmail,
     this.initialVenueName,
     this.embedded = false,
+    this.allCourts,
   }) : super(key: key);
 
   @override
@@ -57,12 +59,92 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
   void initState() {
     super.initState();
     _loadUserInfo();
+    _selectedOwnerEmail = widget.initialOwnerEmail ?? '';
+    _selectedVenueName = widget.initialVenueName ?? '';
+
+    if (widget.allCourts != null) {
+      _populateOwnersFromCourts(widget.allCourts);
+    }
+
+    if (_selectedOwnerEmail.isNotEmpty) {
+      _ensureOwnerInList(_selectedOwnerEmail, _selectedVenueName);
+    }
+
     if (widget.isSuperAdmin) {
       _loadOwnersAndLedger();
     } else {
-      _selectedOwnerEmail = widget.initialOwnerEmail ?? '';
-      _selectedVenueName = widget.initialVenueName ?? '';
+      if (_selectedOwnerEmail.isNotEmpty) {
+        _fetchOwnerLedgerData();
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant CourtOwnerLedgerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.allCourts != oldWidget.allCourts) {
+      _populateOwnersFromCourts(widget.allCourts);
+    }
+    if (widget.initialOwnerEmail != oldWidget.initialOwnerEmail &&
+        widget.initialOwnerEmail != null &&
+        widget.initialOwnerEmail!.isNotEmpty) {
+      setState(() {
+        _selectedOwnerEmail = widget.initialOwnerEmail!;
+        _selectedVenueName = widget.initialVenueName ?? '';
+        _ensureOwnerInList(_selectedOwnerEmail, _selectedVenueName);
+        _selectedOwner = _owners.firstWhere(
+          (o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase(),
+          orElse: () => _owners.first,
+        );
+      });
       _fetchOwnerLedgerData();
+    }
+  }
+
+  void _ensureOwnerInList(String email, String venue) {
+    if (email.trim().isEmpty) return;
+    final cleanEmail = email.trim();
+    final exists = _owners.any((o) => o.ownerEmail.toLowerCase() == cleanEmail.toLowerCase());
+    if (!exists) {
+      _owners.insert(
+        0,
+        LedgerOwnerSummary(
+          ownerEmail: cleanEmail,
+          venueName: venue.isNotEmpty ? venue : 'Court Venue',
+          ownerName: venue.isNotEmpty ? venue : cleanEmail.split('@')[0],
+          totalCharges: 0,
+          totalPayments: 0,
+          currentBalance: 0,
+          transactionCount: 0,
+        ),
+      );
+    }
+  }
+
+  void _populateOwnersFromCourts(List<dynamic>? courts) {
+    if (courts == null || courts.isEmpty) return;
+    for (var c in courts) {
+      if (c is! Map) continue;
+      final email = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
+      if (email.isEmpty) continue;
+      final rawVenue = (c['venue_name'] ?? c['venue'] ?? c['name'] ?? 'Court Venue').toString().trim();
+      final cleanVenue = rawVenue.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
+      final venue = cleanVenue.isNotEmpty ? cleanVenue : rawVenue;
+      final ownerName = (c['owner_name'] ?? c['ownerName'] ?? venue).toString().trim();
+
+      if (!_owners.any((o) => o.ownerEmail.toLowerCase() == email.toLowerCase())) {
+        _owners.add(
+          LedgerOwnerSummary(
+            ownerEmail: email,
+            venueName: venue,
+            ownerName: ownerName.isNotEmpty ? ownerName : email.split('@')[0],
+            totalCharges: 0,
+            totalPayments: 0,
+            currentBalance: 0,
+            transactionCount: 0,
+          ),
+        );
+      }
     }
   }
 
@@ -95,27 +177,38 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
     });
 
     try {
-      final owners = await _apiService.fetchLedgerOwners();
+      final remoteOwners = await _apiService.fetchLedgerOwners();
+
+      // Merge remote owners with local list (from allCourts or initialOwnerEmail)
+      final Map<String, LedgerOwnerSummary> ownerMap = {};
+      for (var o in _owners) {
+        ownerMap[o.ownerEmail.toLowerCase()] = o;
+      }
+      for (var o in remoteOwners) {
+        ownerMap[o.ownerEmail.toLowerCase()] = o;
+      }
+
+      final combined = ownerMap.values.toList();
+
       setState(() {
-        _owners = owners;
+        _owners = combined;
         _isLoadingOwners = false;
       });
 
-      if (owners.isNotEmpty) {
-        // Find matching initial owner if supplied, or default to the first
-        LedgerOwnerSummary? match;
-        if (widget.initialOwnerEmail != null && widget.initialOwnerEmail!.isNotEmpty) {
-          match = owners.firstWhere(
-            (o) => o.ownerEmail.toLowerCase() == widget.initialOwnerEmail!.toLowerCase(),
-            orElse: () => owners.first,
-          );
-        } else {
-          match = owners.first;
-        }
-
-        _selectedOwner = match;
-        _selectedOwnerEmail = match.ownerEmail;
-        _selectedVenueName = match.venueName;
+      if (_selectedOwnerEmail.isNotEmpty) {
+        _ensureOwnerInList(_selectedOwnerEmail, _selectedVenueName);
+        _selectedOwner = _owners.firstWhere(
+          (o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase(),
+          orElse: () => _owners.first,
+        );
+        _selectedOwnerEmail = _selectedOwner!.ownerEmail;
+        _selectedVenueName = _selectedOwner!.venueName;
+        await _fetchOwnerLedgerData();
+      } else if (_owners.isNotEmpty) {
+        final first = _owners.first;
+        _selectedOwner = first;
+        _selectedOwnerEmail = first.ownerEmail;
+        _selectedVenueName = first.venueName;
         await _fetchOwnerLedgerData();
       } else {
         setState(() {
@@ -128,6 +221,9 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
         _isLoadingOwners = false;
         _errorMessage = 'Failed to load owners: $e';
       });
+      if (_selectedOwnerEmail.isNotEmpty) {
+        await _fetchOwnerLedgerData();
+      }
     }
   }
 
@@ -164,12 +260,30 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
 
       if (res['success'] == true) {
         final List<LedgerEntryModel> fetched = res['entries'] ?? [];
+        final double charges = (res['total_charges'] ?? 0.0).toDouble();
+        final double payments = (res['total_payments'] ?? 0.0).toDouble();
+        final double balance = (res['current_balance'] ?? 0.0).toDouble();
+
         setState(() {
           _entries = fetched;
-          _totalCharges = (res['total_charges'] ?? 0.0).toDouble();
-          _totalPayments = (res['total_payments'] ?? 0.0).toDouble();
-          _currentBalance = (res['current_balance'] ?? 0.0).toDouble();
+          _totalCharges = charges;
+          _totalPayments = payments;
+          _currentBalance = balance;
           _isLoadingLedger = false;
+
+          // Update summary in _owners list
+          final idx = _owners.indexWhere((o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase());
+          if (idx != -1) {
+            _owners[idx] = LedgerOwnerSummary(
+              ownerEmail: _owners[idx].ownerEmail,
+              venueName: _owners[idx].venueName,
+              ownerName: _owners[idx].ownerName,
+              totalCharges: charges,
+              totalPayments: payments,
+              currentBalance: balance,
+              transactionCount: fetched.length,
+            );
+          }
         });
       } else {
         setState(() {
@@ -195,6 +309,14 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
     final refCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
     bool isSubmitting = false;
+
+    // Default target owner to currently selected or first available owner
+    String activeOwnerEmail = _selectedOwnerEmail;
+    String activeVenueName = _selectedVenueName;
+    if (activeOwnerEmail.isEmpty && _owners.isNotEmpty) {
+      activeOwnerEmail = _owners.first.ownerEmail;
+      activeVenueName = _owners.first.venueName;
+    }
 
     final List<String> suggestions = [
       'Monthly Platform Fee',
@@ -237,7 +359,9 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
                           style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack),
                         ),
                         Text(
-                          _selectedVenueName.isNotEmpty ? _selectedVenueName : _selectedOwnerEmail,
+                          activeVenueName.isNotEmpty
+                              ? activeVenueName
+                              : (activeOwnerEmail.isNotEmpty ? activeOwnerEmail : 'Select target court owner below'),
                           style: GoogleFonts.outfit(fontSize: 12, color: AppColors.stoneGray),
                         ),
                       ],
@@ -255,6 +379,62 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const SizedBox(height: 8),
+
+                        // Target Court Owner (if Super Admin)
+                        if (widget.isSuperAdmin) ...[
+                          Text(
+                            'Target Court Owner',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack),
+                          ),
+                          const SizedBox(height: 6),
+                          if (_owners.isNotEmpty)
+                            DropdownButtonFormField<String>(
+                              value: _owners.any((o) => o.ownerEmail.toLowerCase() == activeOwnerEmail.toLowerCase())
+                                  ? _owners.firstWhere((o) => o.ownerEmail.toLowerCase() == activeOwnerEmail.toLowerCase()).ownerEmail
+                                  : _owners.first.ownerEmail,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              items: _owners.map((o) {
+                                return DropdownMenuItem<String>(
+                                  value: o.ownerEmail,
+                                  child: Text(
+                                    '${o.venueName.isNotEmpty ? o.venueName : 'Venue'} — ${o.ownerName} (${o.ownerEmail})',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setDialogState(() {
+                                    activeOwnerEmail = val;
+                                    final match = _owners.firstWhere((o) => o.ownerEmail == val);
+                                    activeVenueName = match.venueName;
+                                  });
+                                }
+                              },
+                            )
+                          else
+                            TextFormField(
+                              initialValue: activeOwnerEmail,
+                              decoration: InputDecoration(
+                                hintText: 'e.g. owner@example.com',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return 'Enter court owner email';
+                                if (!v.contains('@')) return 'Enter a valid email address';
+                                return null;
+                              },
+                              onChanged: (v) => activeOwnerEmail = v.trim(),
+                            ),
+                          const SizedBox(height: 14),
+                        ],
+
                         // Type Segmented Toggle
                         Text('Transaction Type', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
                         const SizedBox(height: 6),
@@ -465,8 +645,8 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
                           final amt = double.parse(amountCtrl.text.trim());
 
                           final res = await _apiService.createLedgerEntry(
-                            ownerEmail: _selectedOwnerEmail,
-                            venueName: _selectedVenueName,
+                            ownerEmail: activeOwnerEmail,
+                            venueName: activeVenueName,
                             transactionDate: dateStr,
                             particulars: particularsCtrl.text.trim(),
                             type: selectedType,
@@ -484,6 +664,15 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
                                 backgroundColor: AppColors.primaryGreen,
                               ),
                             );
+                            setState(() {
+                              _selectedOwnerEmail = activeOwnerEmail;
+                              _selectedVenueName = activeVenueName;
+                              _ensureOwnerInList(_selectedOwnerEmail, _selectedVenueName);
+                              _selectedOwner = _owners.firstWhere(
+                                (o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase(),
+                                orElse: () => _owners.first,
+                              );
+                            });
                             _fetchOwnerLedgerData();
                           } else {
                             setDialogState(() => isSubmitting = false);
@@ -1031,7 +1220,7 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
               if (widget.isSuperAdmin) ...[
                 const SizedBox(width: 10),
                 ElevatedButton.icon(
-                  onPressed: _selectedOwnerEmail.isEmpty ? null : _showAddTransactionDialog,
+                  onPressed: _showAddTransactionDialog,
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: Text('Add Entry', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
@@ -1070,7 +1259,9 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               isExpanded: true,
-                              value: _selectedOwnerEmail.isNotEmpty ? _selectedOwnerEmail : (_owners.isNotEmpty ? _owners.first.ownerEmail : null),
+                              value: _owners.any((o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase())
+                                  ? _owners.firstWhere((o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase()).ownerEmail
+                                  : (_owners.isNotEmpty ? _owners.first.ownerEmail : null),
                               hint: Text('Select an owner', style: GoogleFonts.outfit(fontSize: 13, color: AppColors.stoneGray)),
                               icon: const Icon(Icons.arrow_drop_down, color: AppColors.primaryGreen),
                               items: _owners.map((owner) {
@@ -1109,8 +1300,8 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
                                 );
                               }).toList(),
                               onChanged: (newEmail) {
-                                if (newEmail != null && newEmail != _selectedOwnerEmail) {
-                                  final match = _owners.firstWhere((o) => o.ownerEmail == newEmail, orElse: () => _owners.first);
+                                if (newEmail != null && newEmail.toLowerCase() != _selectedOwnerEmail.toLowerCase()) {
+                                  final match = _owners.firstWhere((o) => o.ownerEmail.toLowerCase() == newEmail.toLowerCase(), orElse: () => _owners.first);
                                   setState(() {
                                     _selectedOwner = match;
                                     _selectedOwnerEmail = match.ownerEmail;
