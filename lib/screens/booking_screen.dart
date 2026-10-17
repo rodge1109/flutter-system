@@ -2742,8 +2742,41 @@ class _BookingScreenState extends State<BookingScreen> {
     return fallback;
   }
 
-  void _showFullQrCodeModal(String qrUrl) {
+  String _getVenueOwnerEmail() {
+    String ownerEmail = _selectedService?.ownerEmail ?? '';
+    if (ownerEmail.isEmpty && _selectedService?.ownerPayment != null) {
+      ownerEmail = _selectedService!.ownerPayment!['owner_email']?.toString() ??
+                   _selectedService!.ownerPayment!['ownerEmail']?.toString() ?? '';
+    }
+    if (ownerEmail.isEmpty && widget.venue != null) {
+      ownerEmail = widget.venue!['owner_email']?.toString() ??
+                   widget.venue!['ownerEmail']?.toString() ??
+                   widget.venue!['email']?.toString() ?? '';
+    }
+    if (ownerEmail.isEmpty && _services.isNotEmpty) {
+      for (var s in _services) {
+        if (s.ownerEmail.isNotEmpty) {
+          ownerEmail = s.ownerEmail;
+          break;
+        }
+        if (s.ownerPayment?['owner_email']?.toString().isNotEmpty == true) {
+          ownerEmail = s.ownerPayment!['owner_email'].toString();
+          break;
+        }
+      }
+    }
+    return ownerEmail.trim().toLowerCase();
+  }
+
+  bool _isRogerCourt() {
+    final ownerEmail = _getVenueOwnerEmail();
+    final venueName = (widget.venue?['venueName'] ?? widget.venue?['name'] ?? _selectedService?.venueName ?? '').toString().toLowerCase();
+    return ownerEmail.contains('rodge1109') || venueName.contains('rtpa');
+  }
+
+  void _showFullQrCodeModal(String qrUrl, {bool isRoger = false}) {
     final bool isNetwork = qrUrl.isNotEmpty && (qrUrl.startsWith('http') || qrUrl.startsWith('/uploads'));
+    if (!isNetwork && !isRoger) return;
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -2764,11 +2797,12 @@ class _BookingScreenState extends State<BookingScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: Icon(Icons.download_rounded, color: AppColors.richBlack),
-                        tooltip: 'Download QR Code',
-                        onPressed: () => downloadImage(isNetwork ? qrUrl : 'assets/qr-code.PNG'),
-                      ),
+                      if (isNetwork || isRoger)
+                        IconButton(
+                          icon: Icon(Icons.download_rounded, color: AppColors.richBlack),
+                          tooltip: 'Download QR Code',
+                          onPressed: () => downloadImage(isNetwork ? qrUrl : 'assets/qr-code.PNG'),
+                        ),
                       IconButton(
                         icon: Icon(Icons.close, color: AppColors.richBlack),
                         onPressed: () => Navigator.pop(ctx),
@@ -2785,7 +2819,13 @@ class _BookingScreenState extends State<BookingScreen> {
                       ? Image.network(
                           qrUrl,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => Image.asset('assets/qr-code.PNG', fit: BoxFit.contain),
+                          errorBuilder: (_, __, ___) => isRoger
+                              ? Image.asset('assets/qr-code.PNG', fit: BoxFit.contain)
+                              : Container(
+                                  padding: EdgeInsets.all(20),
+                                  color: Colors.grey.shade100,
+                                  child: Text('Unable to display QR Code image.', style: TextStyle(color: Colors.grey.shade700)),
+                                ),
                         )
                       : Image.asset(
                           'assets/qr-code.PNG',
@@ -2814,6 +2854,8 @@ class _BookingScreenState extends State<BookingScreen> {
     String bankAccount = _getPaymentDetail(['bank_account', 'bank_account_number', 'bankAccount', 'account_number'], '');
     final String customInstructions = _getPaymentDetail(['payment_instructions', 'instructions', 'notes'], '');
 
+    final bool isRogerCourt = _isRogerCourt();
+
     // Fallbacks if empty
     if (gcashNum.isEmpty && widget.venue != null) {
       gcashNum = widget.venue!['gcash_number']?.toString() ?? widget.venue!['gcash']?.toString() ?? '';
@@ -2828,12 +2870,13 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
-    // Always ensure GCash fallback so GCash details never disappear
-    if (gcashNum.isEmpty) {
+    // Only fallback to Roger's GCash number if this venue/court belongs to Roger
+    if (gcashNum.isEmpty && isRogerCourt) {
       gcashNum = '09276230491';
     }
 
     final bool hasCloudinaryQr = qrUrl.trim().isNotEmpty && (qrUrl.startsWith('http') || qrUrl.startsWith('/uploads'));
+    final bool canShowQr = hasCloudinaryQr || isRogerCourt;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3000,7 +3043,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
         SizedBox(height: 20),
 
-        // QR Code Display Card (Shows owner official QR code if uploaded, otherwise falls back to official GCash QR code)
+        // QR Code Display Card (Shows owner official QR code if uploaded)
         Center(
           child: Container(
             padding: EdgeInsets.all(16),
@@ -3010,103 +3053,157 @@ class _BookingScreenState extends State<BookingScreen> {
               border: Border.all(color: Colors.grey.shade300),
               boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 10, offset: Offset(0, 4))],
             ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.qr_code_2, color: AppColors.richBlack, size: 22),
-                    SizedBox(width: 6),
-                    Text(
-                      hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Official GCash Payment QR Code',
-                      style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
-                    ),
-                    SizedBox(width: 4),
-                    IconButton(
-                      constraints: BoxConstraints(),
-                      padding: EdgeInsets.all(4),
-                      icon: Icon(Icons.file_download_outlined, color: AppColors.richBlack, size: 22),
-                      tooltip: 'Download QR Code',
-                      onPressed: () => downloadImage(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () => _showFullQrCodeModal(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
-                  child: Stack(
-                    alignment: Alignment.center,
+            child: canShowQr
+                ? Column(
                     children: [
-                      Container(
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: hasCloudinaryQr
-                              ? Image.network(
-                                  qrUrl,
-                                  height: 220,
-                                  width: 220,
-                                  fit: BoxFit.contain,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      height: 220,
-                                      width: 220,
-                                      color: Colors.grey.shade100,
-                                      child: Center(child: CircularProgressIndicator(color: AppColors.richBlack)),
-                                    );
-                                  },
-                                  errorBuilder: (_, __, ___) => Image.asset(
-                                    'assets/qr-code.PNG',
-                                    height: 220,
-                                    width: 220,
-                                    fit: BoxFit.contain,
-                                  ),
-                                )
-                              : Image.asset(
-                                  'assets/qr-code.PNG',
-                                  height: 220,
-                                  width: 220,
-                                  fit: BoxFit.contain,
-                                ),
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_2, color: AppColors.richBlack, size: 22),
+                          SizedBox(width: 6),
+                          Text(
+                            hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Official Payment QR Code',
+                            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
+                          ),
+                          if (hasCloudinaryQr || isRogerCourt) ...[
+                            SizedBox(width: 4),
+                            IconButton(
+                              constraints: BoxConstraints(),
+                              padding: EdgeInsets.all(4),
+                              icon: Icon(Icons.file_download_outlined, color: AppColors.richBlack, size: 22),
+                              tooltip: 'Download QR Code',
+                              onPressed: () => downloadImage(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
+                            ),
+                          ],
+                        ],
                       ),
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                              SizedBox(width: 4),
-                              Text('Tap to expand', style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
+                      SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () => _showFullQrCodeModal(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG', isRoger: isRogerCourt),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: hasCloudinaryQr
+                                    ? Image.network(
+                                        qrUrl,
+                                        height: 220,
+                                        width: 220,
+                                        fit: BoxFit.contain,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return Container(
+                                            height: 220,
+                                            width: 220,
+                                            color: Colors.grey.shade100,
+                                            child: Center(child: CircularProgressIndicator(color: AppColors.richBlack)),
+                                          );
+                                        },
+                                        errorBuilder: (_, __, ___) => isRogerCourt
+                                            ? Image.asset(
+                                                'assets/qr-code.PNG',
+                                                height: 220,
+                                                width: 220,
+                                                fit: BoxFit.contain,
+                                              )
+                                            : Container(
+                                                height: 220,
+                                                width: 220,
+                                                color: Colors.grey.shade100,
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.broken_image_outlined, size: 40, color: Colors.grey.shade400),
+                                                    SizedBox(height: 8),
+                                                    Text('QR Code unavailable', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                                  ],
+                                                ),
+                                              ),
+                                      )
+                                    : Image.asset(
+                                        'assets/qr-code.PNG',
+                                        height: 220,
+                                        width: 220,
+                                        fit: BoxFit.contain,
+                                      ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 8,
+                              right: 8,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                                    SizedBox(width: 4),
+                                    Text('Tap to expand', style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
+                  )
+                : Column(
+                    children: [
+                      Icon(Icons.qr_code_2_outlined, color: Colors.grey.shade400, size: 48),
+                      SizedBox(height: 8),
+                      Text('No Payment QR Code Uploaded', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
+                      SizedBox(height: 4),
+                      Text('Please use the owner payment accounts listed below to complete your payment.', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.grey.shade600)),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
         ),
+
         SizedBox(height: 20),
 
         // Available Payment Options Header
         Text('Owner Payment Accounts', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
         SizedBox(height: 10),
+
+        // Fallback banner if owner has neither GCash, Maya, nor Bank Account
+        if (gcashNum.isEmpty && mayaNum.isEmpty && bankAccount.isEmpty && bankName.isEmpty && bankAccountName.isEmpty) ...[
+          Container(
+            margin: EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.payment, color: AppColors.richBlack, size: 24),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    hasCloudinaryQr 
+                        ? 'Please scan the official payment QR code above using your payment app to complete your booking.'
+                        : 'No direct payment accounts provided. Please follow instructions or contact the venue.',
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.richBlack),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
 
         // GCash Container
         if (gcashNum.isNotEmpty) ...[
@@ -3129,7 +3226,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       Row(
                         children: [
                           Text('GCash Number', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
-                          if (gcashNum == '09276230491') ...[
+                          if (gcashNum == '09276230491' && isRogerCourt) ...[
                             SizedBox(width: 6),
                             Text('(Roger Tonacao)', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
                           ],
