@@ -60,6 +60,7 @@ class ServiceModel {
   final String? venueName;
   final String? dayPrice;
   final String? nightPrice;
+  final bool isVerified;
 
   ServiceModel({
     required this.id,
@@ -73,6 +74,7 @@ class ServiceModel {
     required this.duration,
     required this.category,
     required this.isActive,
+    this.isVerified = false,
     this.variablePrices,
     this.ownerPayment,
     this.latitude,
@@ -256,6 +258,25 @@ class ServiceModel {
       parsedIsActive = statusStr != 'deactivated' && statusStr != 'inactive' && statusStr != 'disabled';
     }
 
+    bool parsedIsVerified = false;
+    if (json['is_verified'] != null) {
+      if (json['is_verified'] is bool) {
+        parsedIsVerified = json['is_verified'] as bool;
+      } else if (json['is_verified'] is num) {
+        parsedIsVerified = (json['is_verified'] as num) != 0;
+      } else if (json['is_verified'] is String) {
+        parsedIsVerified = json['is_verified'].toString().toLowerCase().trim() == 'true' || json['is_verified'].toString().trim() == '1';
+      }
+    } else if (json['isVerified'] != null) {
+      if (json['isVerified'] is bool) {
+        parsedIsVerified = json['isVerified'] as bool;
+      } else if (json['isVerified'] is num) {
+        parsedIsVerified = (json['isVerified'] as num) != 0;
+      } else if (json['isVerified'] is String) {
+        parsedIsVerified = json['isVerified'].toString().toLowerCase().trim() == 'true' || json['isVerified'].toString().trim() == '1';
+      }
+    }
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
@@ -268,6 +289,7 @@ class ServiceModel {
       duration: json['duration']?.toString() ?? '30M',
       category: json['category'] as String? ?? 'General',
       isActive: parsedIsActive,
+      isVerified: parsedIsVerified,
       variablePrices: parsedVariablePrices,
       ownerPayment: parsedOwnerPayment.isNotEmpty ? parsedOwnerPayment : null,
       latitude: json['latitude'] != null ? double.tryParse(json['latitude'].toString()) : null,

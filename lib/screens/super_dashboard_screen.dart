@@ -44,6 +44,11 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   Set<String> _disabledVenues = {};
   Set<String> _disabledOwners = {};
 
+  // Verified Venues / Owners Tracking
+  Set<String> _verifiedVenues = {};
+  Set<String> _verifiedOwners = {};
+  Set<String> _verifiedCourtIds = {};
+
   // Unread badges
   int _unreadMessageCount = 0;
   int _unreadCount = 0;
@@ -56,6 +61,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     _selectedDay = _focusedDay;
     _loadUserData();
     _loadDisabledLists();
+    _loadVerifiedLists();
     _loadDashboardData();
   }
 
@@ -83,6 +89,17 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }
   }
 
+  Future<void> _loadVerifiedLists() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _verifiedVenues = (prefs.getStringList('verified_venues') ?? []).map((e) => e.toLowerCase()).toSet();
+        _verifiedOwners = (prefs.getStringList('verified_owners') ?? []).map((e) => e.toLowerCase()).toSet();
+        _verifiedCourtIds = (prefs.getStringList('verified_court_ids') ?? []).toSet();
+      });
+    }
+  }
+
   bool _isVenueCurrentlyActive(String venueName, String ownerEmail) {
     String vKey = venueName.trim().toLowerCase();
     String oKey = ownerEmail.trim().toLowerCase();
@@ -90,6 +107,17 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       return false;
     }
     return true;
+  }
+
+  bool _isVenueCurrentlyVerified(String venueName, String ownerEmail, dynamic courtId) {
+    String vKey = venueName.trim().toLowerCase();
+    String oKey = ownerEmail.trim().toLowerCase();
+    String idKey = courtId != null ? courtId.toString() : '';
+
+    if (idKey.isNotEmpty && _verifiedCourtIds.contains(idKey)) return true;
+    if (vKey.isNotEmpty && _verifiedVenues.contains(vKey)) return true;
+    if (oKey.isNotEmpty && _verifiedOwners.contains(oKey)) return true;
+    return false;
   }
 
   Future<void> _handleToggleVenueActivation(String venueName, String ownerEmail, dynamic courtId, bool currentStatus) async {
@@ -117,6 +145,41 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }
   }
 
+  Future<void> _handleToggleVenueVerification(String venueName, String ownerEmail, dynamic courtId, bool currentStatus) async {
+    bool nextStatus = !currentStatus;
+    bool success = await _apiService.toggleCourtVerification(courtId, venueName, ownerEmail, nextStatus);
+
+    if (success) {
+      await _loadVerifiedLists();
+      setState(() {
+        for (var c in _allCourts) {
+          String cvName = (c['name'] ?? c['venue_name'] ?? '').toString().trim();
+          String coEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
+          if (c['id'] == courtId || (cvName.toLowerCase() == venueName.toLowerCase() && (ownerEmail.isEmpty || coEmail.toLowerCase() == ownerEmail.toLowerCase()))) {
+            c['is_verified'] = nextStatus;
+            c['isVerified'] = nextStatus;
+          }
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              nextStatus
+                  ? '✅ $venueName marked as "Verified Venue" (Badge will show in Nearby Venues).'
+                  : 'ℹ️ $venueName verification removed.',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: nextStatus ? AppColors.primaryGreen : Colors.grey.shade800,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -127,6 +190,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
     await _loadDisabledLists();
+    await _loadVerifiedLists();
     
     // Load cached bookings if available
     final prefs = await SharedPreferences.getInstance();
@@ -1348,6 +1412,9 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                 String oEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
                 bool isActive = _isVenueCurrentlyActive(vName, oEmail);
                 dynamic courtId = c['id'];
+                bool isVerified = (c['is_verified'] == true || c['is_verified'] == 1 || c['is_verified'] == 'true' ||
+                                   c['isVerified'] == true || c['isVerified'] == 1 || c['isVerified'] == 'true') ||
+                                  _isVenueCurrentlyVerified(vName, oEmail, courtId);
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -1408,6 +1475,60 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                             ],
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 10),
+                      // VERIFIED VENUE TOGGLE OPTION
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isVerified ? const Color(0xFFE3F2FD) : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isVerified ? Colors.blue.shade200 : Colors.grey.shade200,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.verified_rounded,
+                                  size: 20,
+                                  color: isVerified ? Colors.blue.shade700 : Colors.grey.shade400,
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Verified Venue',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: isVerified ? Colors.blue.shade900 : AppColors.richBlack,
+                                      ),
+                                    ),
+                                    Text(
+                                      isVerified ? 'Badge visible on Nearby Venues' : 'Hidden from Nearby Venues badge',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 11,
+                                        color: isVerified ? Colors.blue.shade700 : AppColors.stoneGray,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Switch(
+                              value: isVerified,
+                              activeColor: Colors.blue.shade600,
+                              onChanged: (val) {
+                                _handleToggleVenueVerification(vName, oEmail, courtId, isVerified);
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Divider(height: 1, color: Colors.grey.shade200),

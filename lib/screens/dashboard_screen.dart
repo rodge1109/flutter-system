@@ -72,6 +72,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int get _activeFilterCount => (_filterMaxPrice < 1000 ? 1 : 0) + (_filterMinRating > 0 ? 1 : 0);
   Position? _currentPosition;
 
+  Set<String> _verifiedVenuesCache = {};
+  Set<String> _verifiedOwnersCache = {};
+  Set<String> _verifiedCourtIdsCache = {};
+
   String _extractCourtLogo(dynamic c) {
     if (c == null) return '';
     List<dynamic> candidates = [];
@@ -232,6 +236,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       }
 
+      bool isVerifiedVenue = false;
+      for (var c in courtList) {
+        if (c['is_verified'] == true || c['is_verified'] == 1 || c['is_verified'] == 'true' ||
+            c['isVerified'] == true || c['isVerified'] == 1 || c['isVerified'] == 'true') {
+          isVerifiedVenue = true;
+          break;
+        }
+      }
+      if (!isVerifiedVenue && _verifiedVenuesCache.isNotEmpty) {
+        String cleanV = vTitle.trim().toLowerCase();
+        String oEmail = (first['owner_email'] ?? first['ownerEmail'] ?? first['email'] ?? '').toString().trim().toLowerCase();
+        if (_verifiedVenuesCache.contains(cleanV) || (oEmail.isNotEmpty && _verifiedOwnersCache.contains(oEmail))) {
+          isVerifiedVenue = true;
+        }
+      }
+
       venueList.add({
         'venueKey': key,
         'venueName': vTitle,
@@ -243,6 +263,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'basePrice': lowestPrice.toInt().toString(),
         'sports': sportsSet.toList(),
         'courts': courtList,
+        'is_verified': isVerifiedVenue,
+        'isVerified': isVerifiedVenue,
         'latitude': first['latitude'],
         'longitude': first['longitude'],
         'aboutVenue': first['aboutVenue'] ?? first['about_venue'],
@@ -421,6 +443,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    final vVenues = (prefs.getStringList('verified_venues') ?? []).map((e) => e.toLowerCase()).toSet();
+    final vOwners = (prefs.getStringList('verified_owners') ?? []).map((e) => e.toLowerCase()).toSet();
+    final vIds = (prefs.getStringList('verified_court_ids') ?? []).toSet();
+    if (mounted) {
+      setState(() {
+        _verifiedVenuesCache = vVenues;
+        _verifiedOwnersCache = vOwners;
+        _verifiedCourtIdsCache = vIds;
+      });
+    }
+
     final userStr = prefs.getString('user');
     if (userStr != null) {
       final userObj = json.decode(userStr);
@@ -822,6 +855,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               actualSlots = typicalSlots.where((slot) => backendAvailable.contains(slot)).toList();
             }
 
+            final bool isCourtVerified = s.isVerified ||
+                _verifiedCourtIdsCache.contains(s.id.toString()) ||
+                _verifiedVenuesCache.contains((s.venueName ?? s.name).trim().toLowerCase()) ||
+                (s.ownerEmail.isNotEmpty && _verifiedOwnersCache.contains(s.ownerEmail.trim().toLowerCase()));
+
             return {
               'id': s.id.toString(),
               'name': s.name,
@@ -830,6 +868,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               'rating': (4.8 + (idx % 2) * 0.1).toStringAsFixed(1),
               'price': rawPrice,
               'image': imageUrl,
+              'is_verified': isCourtVerified,
+              'isVerified': isCourtVerified,
               'slots': actualSlots.take(4).toList(),
               'latitude': s.latitude,
               'longitude': s.longitude,
@@ -4834,54 +4874,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           : null,
                     ),
                   ),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    right: 8,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.4),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              CustomPaddleIcon(color: AppColors.softWhite, size: 12),
-                              SizedBox(width: 4),
-                              Text(venue['rating'] ?? '4.8', style: TextStyle(color: AppColors.softWhite, fontSize: 11, fontWeight: FontWeight.bold)),
-                              Icon(Icons.star, color: Colors.amber, size: 11),
-                            ],
-                          ),
+                  if (venue['is_verified'] == true || venue['isVerified'] == true)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.8),
                         ),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              if (isFav) {
-                                _favoriteCourts.remove(venueId);
-                              } else {
-                                _favoriteCourts.add(venueId);
-                              }
-                            });
-                          },
-                          child: Container(
-                            padding: EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.4),
-                              shape: BoxShape.circle,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.verified_rounded, color: Color(0xFF29B6F6), size: 13),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Verified Venue',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: AppColors.softWhite,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.2,
+                              ),
                             ),
-                            child: Icon(
-                              isFav ? Icons.favorite : Icons.favorite_border,
-                              color: isFav ? Colors.red : AppColors.softWhite,
-                              size: 14,
-                            ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

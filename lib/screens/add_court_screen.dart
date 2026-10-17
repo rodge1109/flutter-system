@@ -39,6 +39,7 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   final _faqCtrl = TextEditingController();
   final ApiService _apiService = ApiService();
   
+  bool _isVerified = false;
   bool _enableDayDiscount = false;
   bool _enableNightDiscount = false;
   String _dayDiscountAppliesTo = 'ALL';
@@ -79,6 +80,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
   void initState() {
     super.initState();
     if (widget.court != null) {
+      _isVerified = widget.court!['is_verified'] == true || widget.court!['is_verified'] == 1 || widget.court!['is_verified'] == 'true' ||
+                    widget.court!['isVerified'] == true || widget.court!['isVerified'] == 1 || widget.court!['isVerified'] == 'true';
       _venueNameCtrl.text = widget.court!['venue_name'] ?? widget.court!['venueName'] ?? widget.court!['venue'] ?? '';
       _nameCtrl.text = widget.court!['name'] ?? '';
 
@@ -526,6 +529,8 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
       'venueName': _venueNameCtrl.text.trim(),
       'venue': _venueNameCtrl.text.trim(),
       'name': _nameCtrl.text,
+      'is_verified': _isVerified,
+      'isVerified': _isVerified,
       'courtNumber': courtNumberVal,
       'court_number': courtNumberVal,
       'address': _addressCtrl.text,
@@ -630,6 +635,44 @@ class _AddCourtScreenState extends State<AddCourtScreen> {
                   children: [
                     _buildSectionTitle('Basic Information'),
                     _buildTextField('Venue Name (e.g. AMINOVA COURT)', _venueNameCtrl, required: true),
+                    SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _isVerified ? const Color(0xFFE3F2FD) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _isVerified ? Colors.blue.shade300 : Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.verified_rounded, color: _isVerified ? Colors.blue.shade700 : Colors.grey.shade400, size: 22),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Verified Venue',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _isVerified ? Colors.blue.shade900 : AppColors.richBlack),
+                                  ),
+                                  Text(
+                                    _isVerified ? 'Displays "Verified Venue" badge in Nearby Venues' : 'Venue will not display the verified badge',
+                                    style: TextStyle(fontSize: 11, color: _isVerified ? Colors.blue.shade700 : Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: _isVerified,
+                            activeColor: Colors.blue.shade600,
+                            onChanged: (val) => setState(() => _isVerified = val),
+                          ),
+                        ],
+                      ),
+                    ),
                     SizedBox(height: 16),
                     Row(
                       children: [

@@ -100,6 +100,77 @@ class ApiService {
     }
   }
 
+  Future<bool> isVenueVerified(String venueName, String ownerEmail, [dynamic courtId]) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final verifiedVenues = (prefs.getStringList('verified_venues') ?? []).map((e) => e.toLowerCase()).toSet();
+      final verifiedOwners = (prefs.getStringList('verified_owners') ?? []).map((e) => e.toLowerCase()).toSet();
+      final verifiedCourtIds = (prefs.getStringList('verified_court_ids') ?? []).toSet();
+
+      String venueKey = venueName.trim().toLowerCase();
+      String ownerKey = ownerEmail.trim().toLowerCase();
+      String idKey = courtId != null ? courtId.toString() : '';
+
+      if (idKey.isNotEmpty && verifiedCourtIds.contains(idKey)) return true;
+      if (venueKey.isNotEmpty && verifiedVenues.contains(venueKey)) return true;
+      if (ownerKey.isNotEmpty && verifiedOwners.contains(ownerKey)) return true;
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> toggleCourtVerification(dynamic courtId, String venueName, String ownerEmail, bool verify) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> verifiedVenues = prefs.getStringList('verified_venues') ?? [];
+      List<String> verifiedOwners = prefs.getStringList('verified_owners') ?? [];
+      List<String> verifiedCourtIds = prefs.getStringList('verified_court_ids') ?? [];
+
+      String venueKey = venueName.trim().toLowerCase();
+      String ownerKey = ownerEmail.trim().toLowerCase();
+      String idKey = courtId != null ? courtId.toString() : '';
+
+      if (verify) {
+        if (venueKey.isNotEmpty && !verifiedVenues.any((v) => v.toLowerCase() == venueKey)) {
+          verifiedVenues.add(venueKey);
+        }
+        if (ownerKey.isNotEmpty && !verifiedOwners.any((o) => o.toLowerCase() == ownerKey)) {
+          verifiedOwners.add(ownerKey);
+        }
+        if (idKey.isNotEmpty && !verifiedCourtIds.contains(idKey)) {
+          verifiedCourtIds.add(idKey);
+        }
+      } else {
+        if (venueKey.isNotEmpty) verifiedVenues.removeWhere((v) => v.toLowerCase() == venueKey);
+        if (ownerKey.isNotEmpty) verifiedOwners.removeWhere((o) => o.toLowerCase() == ownerKey);
+        if (idKey.isNotEmpty) verifiedCourtIds.removeWhere((id) => id == idKey);
+      }
+
+      await prefs.setStringList('verified_venues', verifiedVenues);
+      await prefs.setStringList('verified_owners', verifiedOwners);
+      await prefs.setStringList('verified_court_ids', verifiedCourtIds);
+
+      try {
+        await http.post(
+          Uri.parse('$baseUrl/courts/toggle-verified'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'courtId': courtId,
+            'venueName': venueName,
+            'ownerEmail': ownerEmail,
+            'isVerified': verify,
+          }),
+        ).timeout(const Duration(seconds: 4));
+      } catch (_) {}
+
+      return true;
+    } catch (e) {
+      print('Error toggling court verification: $e');
+      return false;
+    }
+  }
+
   Future<List<ServiceModel>> fetchServices() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/booking-services?t=${DateTime.now().millisecondsSinceEpoch}'));
