@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ledger_entry_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import 'ledger_entry_form_screen.dart';
 
 class CourtOwnerLedgerScreen extends StatefulWidget {
   final bool isSuperAdmin;
@@ -115,7 +116,7 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
           totalCharges: 0,
           totalPayments: 0,
           currentBalance: 0,
-          transactionCount: 0,
+          totalEntries: 0,
         ),
       );
     }
@@ -141,7 +142,7 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
             totalCharges: 0,
             totalPayments: 0,
             currentBalance: 0,
-            transactionCount: 0,
+            totalEntries: 0,
           ),
         );
       }
@@ -281,7 +282,7 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
               totalCharges: charges,
               totalPayments: payments,
               currentBalance: balance,
-              transactionCount: fetched.length,
+              totalEntries: fetched.length,
             );
           }
         });
@@ -299,699 +300,56 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
     }
   }
 
-  // ==================== ADD TRANSACTION DIALOG ====================
-  void _showAddTransactionDialog() {
-    final formKey = GlobalKey<FormState>();
-    String selectedType = 'charge';
-    DateTime selectedDate = DateTime.now();
-    final particularsCtrl = TextEditingController();
-    final amountCtrl = TextEditingController();
-    final refCtrl = TextEditingController();
-    final notesCtrl = TextEditingController();
-    bool isSubmitting = false;
-
-    // Default target owner to currently selected or first available owner
-    String activeOwnerEmail = _selectedOwnerEmail;
-    String activeVenueName = _selectedVenueName;
-    if (activeOwnerEmail.isEmpty && _owners.isNotEmpty) {
-      activeOwnerEmail = _owners.first.ownerEmail;
-      activeVenueName = _owners.first.venueName;
-    }
-
-    final List<String> suggestions = [
-      'Monthly Platform Fee',
-      'Booking Service Fee Remittance',
-      'GCash Payout',
-      'Bank Transfer Remittance',
-      'Court Maintenance Fee',
-      'Offline Booking Settlement',
-      'Account Balance Adjustment',
-    ];
-
-    showDialog(
-      context: context,
-      barrierDismissible: !isSubmitting,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primaryGreen, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'New Ledger Transaction',
-                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack),
-                        ),
-                        Text(
-                          activeVenueName.isNotEmpty
-                              ? activeVenueName
-                              : (activeOwnerEmail.isNotEmpty ? activeOwnerEmail : 'Select target court owner below'),
-                          style: GoogleFonts.outfit(fontSize: 12, color: AppColors.stoneGray),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: SizedBox(
-                  width: 480,
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 8),
-
-                        // Target Court Owner (if Super Admin)
-                        if (widget.isSuperAdmin) ...[
-                          Text(
-                            'Target Court Owner',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack),
-                          ),
-                          const SizedBox(height: 6),
-                          if (_owners.isNotEmpty)
-                            DropdownButtonFormField<String>(
-                              value: _owners.any((o) => o.ownerEmail.toLowerCase() == activeOwnerEmail.toLowerCase())
-                                  ? _owners.firstWhere((o) => o.ownerEmail.toLowerCase() == activeOwnerEmail.toLowerCase()).ownerEmail
-                                  : _owners.first.ownerEmail,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                              items: _owners.map((o) {
-                                return DropdownMenuItem<String>(
-                                  value: o.ownerEmail,
-                                  child: Text(
-                                    '${o.venueName.isNotEmpty ? o.venueName : 'Venue'} — ${o.ownerName} (${o.ownerEmail})',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setDialogState(() {
-                                    activeOwnerEmail = val;
-                                    final match = _owners.firstWhere((o) => o.ownerEmail == val);
-                                    activeVenueName = match.venueName;
-                                  });
-                                }
-                              },
-                            )
-                          else
-                            TextFormField(
-                              initialValue: activeOwnerEmail,
-                              decoration: InputDecoration(
-                                hintText: 'e.g. owner@example.com',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              ),
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) return 'Enter court owner email';
-                                if (!v.contains('@')) return 'Enter a valid email address';
-                                return null;
-                              },
-                              onChanged: (v) => activeOwnerEmail = v.trim(),
-                            ),
-                          const SizedBox(height: 14),
-                        ],
-
-                        // Type Segmented Toggle
-                        Text('Transaction Type', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => setDialogState(() => selectedType = 'charge'),
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: selectedType == 'charge' ? Colors.red.shade50 : Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: selectedType == 'charge' ? Colors.red.shade400 : Colors.grey.shade300,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.arrow_upward_rounded, size: 16, color: selectedType == 'charge' ? Colors.red.shade700 : Colors.grey.shade600),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Charge (Debit)',
-                                        style: GoogleFonts.outfit(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: selectedType == 'charge' ? Colors.red.shade700 : Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => setDialogState(() => selectedType = 'payment'),
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: selectedType == 'payment' ? Colors.green.shade50 : Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: selectedType == 'payment' ? AppColors.primaryGreen : Colors.grey.shade300,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.arrow_downward_rounded, size: 16, color: selectedType == 'payment' ? AppColors.primaryGreen : Colors.grey.shade600),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Payment (Credit)',
-                                        style: GoogleFonts.outfit(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: selectedType == 'payment' ? AppColors.primaryGreen : Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Date Picker Field
-                        Text('Transaction Date', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2035),
-                            );
-                            if (picked != null) {
-                              setDialogState(() => selectedDate = picked);
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primaryGreen),
-                                const SizedBox(width: 10),
-                                Text(_dateFormat.format(selectedDate), style: GoogleFonts.outfit(fontSize: 14, color: AppColors.richBlack)),
-                                const Spacer(),
-                                const Icon(Icons.arrow_drop_down, color: AppColors.stoneGray),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Amount Field
-                        Text('Amount (₱)', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: amountCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            hintText: '0.00',
-                            prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.primaryGreen),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) return 'Enter an amount';
-                            final parsed = double.tryParse(v.trim());
-                            if (parsed == null || parsed <= 0) return 'Enter a valid amount greater than 0';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Particulars Field
-                        Text('Particulars / Description', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: particularsCtrl,
-                          decoration: InputDecoration(
-                            hintText: 'e.g., Monthly Platform Fee - October',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) return 'Please describe the transaction';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        // Quick suggestion chips
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: suggestions.map((s) {
-                            return ActionChip(
-                              label: Text(s, style: GoogleFonts.outfit(fontSize: 10, color: AppColors.primaryGreen)),
-                              backgroundColor: AppColors.primaryGreen.withOpacity(0.06),
-                              padding: EdgeInsets.zero,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              onPressed: () {
-                                setDialogState(() => particularsCtrl.text = s);
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Reference Number
-                        Text('Reference # (Optional)', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: refCtrl,
-                          decoration: InputDecoration(
-                            hintText: 'e.g., GCASH-998811 / INV-2026-01',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Notes Field
-                        Text('Notes / Remarks (Optional)', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: notesCtrl,
-                          maxLines: 2,
-                          decoration: InputDecoration(
-                            hintText: 'Additional details or memo...',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-              actions: [
-                TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
-                  child: Text('Cancel', style: GoogleFonts.outfit(color: AppColors.stoneGray, fontWeight: FontWeight.w600)),
-                ),
-                ElevatedButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          if (!formKey.currentState!.validate()) return;
-                          setDialogState(() => isSubmitting = true);
-
-                          final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
-                          final amt = double.parse(amountCtrl.text.trim());
-
-                          final res = await _apiService.createLedgerEntry(
-                            ownerEmail: activeOwnerEmail,
-                            venueName: activeVenueName,
-                            transactionDate: dateStr,
-                            particulars: particularsCtrl.text.trim(),
-                            type: selectedType,
-                            amount: amt,
-                            referenceNumber: refCtrl.text.trim().isEmpty ? null : refCtrl.text.trim(),
-                            notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                            createdBy: _currentUserName,
-                          );
-
-                          if (res['success'] == true) {
-                            Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('✅ Transaction recorded successfully.', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                                backgroundColor: AppColors.primaryGreen,
-                              ),
-                            );
-                            setState(() {
-                              _selectedOwnerEmail = activeOwnerEmail;
-                              _selectedVenueName = activeVenueName;
-                              _ensureOwnerInList(_selectedOwnerEmail, _selectedVenueName);
-                              _selectedOwner = _owners.firstWhere(
-                                (o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase(),
-                                orElse: () => _owners.first,
-                              );
-                            });
-                            _fetchOwnerLedgerData();
-                          } else {
-                            setDialogState(() => isSubmitting = false);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: ${res['message'] ?? 'Failed to save transaction'}'),
-                                backgroundColor: Colors.redAccent,
-                              ),
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
-                  child: isSubmitting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text('Record Transaction', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          },
-        );
-      },
+  // ==================== FULL-PAGE TRANSACTION NAVIGATION ====================
+  Future<void> _openAddTransactionScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LedgerEntryFormScreen(
+          isSuperAdmin: widget.isSuperAdmin,
+          currentUserName: _currentUserName,
+          initialOwnerEmail: _selectedOwnerEmail,
+          initialVenueName: _selectedVenueName,
+          availableOwners: _owners,
+          existingEntry: null,
+        ),
+      ),
     );
+
+    if (result is Map && result['saved'] == true) {
+      if (result['ownerEmail'] != null && result['ownerEmail'].toString().isNotEmpty) {
+        setState(() {
+          _selectedOwnerEmail = result['ownerEmail'];
+          _selectedVenueName = result['venueName'] ?? '';
+          _ensureOwnerInList(_selectedOwnerEmail, _selectedVenueName);
+          if (_owners.any((o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase())) {
+            _selectedOwner = _owners.firstWhere((o) => o.ownerEmail.toLowerCase() == _selectedOwnerEmail.toLowerCase());
+          }
+        });
+      }
+      _fetchOwnerLedgerData();
+    }
   }
 
-  // ==================== EDIT TRANSACTION DIALOG ====================
-  void _showEditTransactionDialog(LedgerEntryModel entry) {
-    final formKey = GlobalKey<FormState>();
-    String selectedType = entry.type.toLowerCase();
-    DateTime selectedDate = DateTime.tryParse(entry.transactionDate) ?? DateTime.now();
-    final particularsCtrl = TextEditingController(text: entry.particulars);
-    final amountCtrl = TextEditingController(text: entry.amount.toStringAsFixed(2));
-    final refCtrl = TextEditingController(text: entry.referenceNumber ?? '');
-    final notesCtrl = TextEditingController(text: entry.notes ?? '');
-    bool isSubmitting = false;
-
-    showDialog(
-      context: context,
-      barrierDismissible: !isSubmitting,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.edit_rounded, color: Colors.amber.shade800, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Edit Transaction', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-                        Text('Entry ID #${entry.id ?? '—'}', style: GoogleFonts.outfit(fontSize: 12, color: AppColors.stoneGray)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: SizedBox(
-                  width: 480,
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 8),
-                        // Type Segmented Toggle
-                        Text('Transaction Type', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => setDialogState(() => selectedType = 'charge'),
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: selectedType == 'charge' ? Colors.red.shade50 : Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: selectedType == 'charge' ? Colors.red.shade400 : Colors.grey.shade300,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.arrow_upward_rounded, size: 16, color: selectedType == 'charge' ? Colors.red.shade700 : Colors.grey.shade600),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Charge (Debit)',
-                                        style: GoogleFonts.outfit(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: selectedType == 'charge' ? Colors.red.shade700 : Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => setDialogState(() => selectedType = 'payment'),
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: selectedType == 'payment' ? Colors.green.shade50 : Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: selectedType == 'payment' ? AppColors.primaryGreen : Colors.grey.shade300,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.arrow_downward_rounded, size: 16, color: selectedType == 'payment' ? AppColors.primaryGreen : Colors.grey.shade600),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Payment (Credit)',
-                                        style: GoogleFonts.outfit(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: selectedType == 'payment' ? AppColors.primaryGreen : Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Date Picker Field
-                        Text('Transaction Date', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2035),
-                            );
-                            if (picked != null) {
-                              setDialogState(() => selectedDate = picked);
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primaryGreen),
-                                const SizedBox(width: 10),
-                                Text(_dateFormat.format(selectedDate), style: GoogleFonts.outfit(fontSize: 14, color: AppColors.richBlack)),
-                                const Spacer(),
-                                const Icon(Icons.arrow_drop_down, color: AppColors.stoneGray),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Amount Field
-                        Text('Amount (₱)', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: amountCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            hintText: '0.00',
-                            prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.primaryGreen),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) return 'Enter an amount';
-                            final parsed = double.tryParse(v.trim());
-                            if (parsed == null || parsed <= 0) return 'Enter a valid amount greater than 0';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Particulars Field
-                        Text('Particulars / Description', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: particularsCtrl,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) return 'Please describe the transaction';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Reference Number
-                        Text('Reference # (Optional)', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: refCtrl,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Notes Field
-                        Text('Notes / Remarks (Optional)', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.richBlack)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: notesCtrl,
-                          maxLines: 2,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-              actions: [
-                TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
-                  child: Text('Cancel', style: GoogleFonts.outfit(color: AppColors.stoneGray, fontWeight: FontWeight.w600)),
-                ),
-                ElevatedButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          if (!formKey.currentState!.validate() || entry.id == null) return;
-                          setDialogState(() => isSubmitting = true);
-
-                          final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
-                          final amt = double.parse(amountCtrl.text.trim());
-
-                          final res = await _apiService.updateLedgerEntry(
-                            entry.id!,
-                            ownerEmail: _selectedOwnerEmail,
-                            venueName: _selectedVenueName,
-                            transactionDate: dateStr,
-                            particulars: particularsCtrl.text.trim(),
-                            type: selectedType,
-                            amount: amt,
-                            referenceNumber: refCtrl.text.trim().isEmpty ? null : refCtrl.text.trim(),
-                            notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                          );
-
-                          if (res['success'] == true) {
-                            Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('✅ Transaction updated successfully.', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                                backgroundColor: AppColors.primaryGreen,
-                              ),
-                            );
-                            _fetchOwnerLedgerData();
-                          } else {
-                            setDialogState(() => isSubmitting = false);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: ${res['message'] ?? 'Failed to update transaction'}'),
-                                backgroundColor: Colors.redAccent,
-                              ),
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
-                  child: isSubmitting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text('Save Changes', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          },
-        );
-      },
+  // ==================== FULL-PAGE EDIT NAVIGATION ====================
+  Future<void> _openEditTransactionScreen(LedgerEntryModel entry) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LedgerEntryFormScreen(
+          isSuperAdmin: widget.isSuperAdmin,
+          currentUserName: _currentUserName,
+          initialOwnerEmail: _selectedOwnerEmail,
+          initialVenueName: _selectedVenueName,
+          availableOwners: _owners,
+          existingEntry: entry,
+        ),
+      ),
     );
+
+    if (result is Map && result['saved'] == true) {
+      _fetchOwnerLedgerData();
+    }
   }
 
   // ==================== DELETE TRANSACTION CONFIRMATION ====================
@@ -1220,7 +578,7 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
               if (widget.isSuperAdmin) ...[
                 const SizedBox(width: 10),
                 ElevatedButton.icon(
-                  onPressed: _showAddTransactionDialog,
+                  onPressed: _openAddTransactionScreen,
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: Text('Add Entry', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
@@ -1695,7 +1053,7 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
               if (widget.isSuperAdmin) ...[
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: _showAddTransactionDialog,
+                  onPressed: _openAddTransactionScreen,
                   icon: const Icon(Icons.add, size: 18),
                   label: Text('Record First Entry', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
@@ -1870,7 +1228,7 @@ class _CourtOwnerLedgerScreenState extends State<CourtOwnerLedgerScreen> {
                               icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.stoneGray),
                               tooltip: 'Edit Transaction',
                               splashRadius: 18,
-                              onPressed: () => _showEditTransactionDialog(entry),
+                              onPressed: () => _openEditTransactionScreen(entry),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
