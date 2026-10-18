@@ -14,6 +14,7 @@ import 'login_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'court_owner_ledger_screen.dart';
+import '../widgets/booking_logs_widget.dart';
 
 class SuperDashboardScreen extends StatefulWidget {
   @override
@@ -1093,6 +1094,13 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                             isSelected: _currentTab == 'ledger',
                             onTap: () => setState(() => _currentTab = 'ledger'),
                           ),
+                          const SizedBox(width: 8),
+                          _buildNavButton(
+                            icon: Icons.receipt_long_rounded, 
+                            label: 'Audit Logs', 
+                            isSelected: _currentTab == 'audit',
+                            onTap: () => setState(() => _currentTab = 'audit'),
+                          ),
                         ],
                       ),
                     ),
@@ -1166,6 +1174,19 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         initialOwnerEmail: targetEmail,
         initialVenueName: targetVenue,
         allCourts: _allCourts,
+      );
+    } else if (_currentTab == 'audit') {
+      String? targetVenue;
+      if (_selectedVenueKey != 'ALL' && _selectedVenueKey.contains('(')) {
+        int openParen = _selectedVenueKey.lastIndexOf('(');
+        String rawTarget = _selectedVenueKey.substring(0, openParen).trim();
+        targetVenue = rawTarget.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
+        if (targetVenue.isEmpty) targetVenue = rawTarget;
+      } else if (_selectedVenueKey != 'ALL') {
+        targetVenue = _selectedVenueKey;
+      }
+      return BookingLogsWidget(
+        venueFilter: targetVenue,
       );
     } else {
       return _buildLoyaltyView(filteredCustomers);

@@ -21,6 +21,7 @@ import 'ai_promo_screen.dart';
 import 'super_dashboard_screen.dart';
 import 'login_screen.dart';
 import 'court_owner_ledger_screen.dart';
+import '../widgets/booking_logs_widget.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   @override
@@ -793,6 +794,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                                   isSelected: _currentTab == 'ledger',
                                   onTap: () => setState(() => _currentTab = 'ledger'),
                                 ),
+                                SizedBox(width: 12),
+                                _buildNavButton(
+                                  icon: Icons.receipt_long_rounded, 
+                                  label: 'Audit Logs', 
+                                  isSelected: _currentTab == 'audit',
+                                  onTap: () => setState(() => _currentTab = 'audit'),
+                                ),
                               ],
                             ),
                           ),
@@ -816,6 +824,18 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       return _buildUpcomingView();
     } else if (_currentTab == 'courts') {
       return _buildCourtsView();
+    } else if (_currentTab == 'audit') {
+      String venueName = '';
+      if (_myCourts.isNotEmpty) {
+        final first = _myCourts.first;
+        if (first is Map) {
+          venueName = (first['venue_name'] ?? first['name'] ?? '').toString();
+        }
+      }
+      return BookingLogsWidget(
+        venueFilter: venueName.isNotEmpty ? venueName : null,
+        ownerEmailFilter: _userEmail.isNotEmpty ? _userEmail : null,
+      );
     } else {
       String venueName = '';
       if (_myCourts.isNotEmpty) {

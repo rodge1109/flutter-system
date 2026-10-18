@@ -48,6 +48,7 @@ class _BookingScreenState extends State<BookingScreen> {
   int _currentStep = 0;
   List<ServiceModel> _services = [];
   bool _isLoading = true;
+  int? _currentBookingLogId;
   
   ServiceModel? _selectedService;
   Set<int> _selectedServiceIds = {};
@@ -665,6 +666,7 @@ class _BookingScreenState extends State<BookingScreen> {
           } else {
             _holdTimer?.cancel();
             _holdToken = null;
+            _recordBookingLog('HOLD_EXPIRED', errorMsg: 'Slot hold expired after 5 minutes');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Hold expired! Please hold your slots again.'),
@@ -709,6 +711,66 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
+  Future<void> _recordBookingLog(String stage, {String? refNumber, String? errorMsg}) async {
+    try {
+      final distinctCourts = <String>{};
+      for (var t in _selectedTimes) {
+        final c = _findCourtForSlot(t);
+        if (c != null && c.name.isNotEmpty) {
+          distinctCourts.add(c.name);
+        }
+      }
+      final String venueTitle = widget.venue?['venueName'] ?? widget.venue?['name'] ?? _selectedService?.venueName ?? '';
+      final String courtNamesStr = distinctCourts.isNotEmpty 
+          ? distinctCourts.join(", ") 
+          : (_selectedService?.name ?? 'Court');
+
+      final double totalAmount = _selectedTimes.fold(0.0, (sum, time) {
+        return sum + _getSlotPriceValue(time);
+      });
+      double freeDiscount = 0.0;
+      if (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true)) {
+        if (_selectedTimes.isNotEmpty) {
+          freeDiscount = _getSlotPriceValue(_selectedTimes.first);
+        } else {
+          freeDiscount = 350.0;
+        }
+      }
+      final double finalPaid = (totalAmount - freeDiscount).clamp(0.0, double.infinity) + _getServiceFee();
+
+      final bookingDateStr = _selectedDate != null 
+          ? '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}'
+          : '';
+
+      final logId = await _apiService.logBookingAttempt(
+        logId: _currentBookingLogId,
+        customerName: _nameController.text.trim(),
+        customerEmail: _emailController.text.trim(),
+        customerPhone: _phoneController.text.trim(),
+        venueName: venueTitle,
+        courtNames: courtNamesStr,
+        bookingDate: bookingDateStr,
+        timeSlots: _selectedTimes.join(', '),
+        totalAmount: finalPaid,
+        paymentMethod: _selectedPaymentMethod,
+        referenceNumber: refNumber ?? (_referenceNumberController.text.trim().isNotEmpty ? _referenceNumberController.text.trim() : null),
+        stage: stage,
+        errorMessage: errorMsg,
+        metadata: {
+          'isOpenPlay': _isOpenPlay,
+          'isOpenChallenge': _isOpenChallenge,
+          'holdToken': _holdToken,
+        },
+      );
+
+      if (logId != null) {
+        _currentBookingLogId = logId;
+      }
+    } catch (e) {
+      debugPrint('Silent booking log error: $e');
+    }
+  }
+
   void _submitBooking() async {
     if (_selectedDate == null || _selectedTimes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -741,52 +803,61 @@ class _BookingScreenState extends State<BookingScreen> {
       _isLoading = true;
     });
 
+    _recordBookingLog('SUBMITTING', refNumber: _referenceNumberController.text.trim());
+
     bool allSuccess = true;
+    String? submitErrorMessage;
 
-    for (var rawTime in _selectedTimes) {
-      final matchedService = _findCourtForSlot(rawTime) ?? _selectedService ?? ServiceModel(
-        id: 999,
-        name: 'Court',
-        description: '',
-        price: 'PHP 350',
-        icon: '🎾',
-        duration: '1H',
-        category: 'pickle',
-        isActive: true,
-      );
+    try {
+      for (var rawTime in _selectedTimes) {
+        final matchedService = _findCourtForSlot(rawTime) ?? _selectedService ?? ServiceModel(
+          id: 999,
+          name: 'Court',
+          description: '',
+          price: 'PHP 350',
+          icon: '🎾',
+          duration: '1H',
+          category: 'pickle',
+          isActive: true,
+        );
 
-      String sName = matchedService.name;
-      String cleanTime = _extractSlotTime(rawTime);
-      double slotAmount = _getSlotPriceValue(rawTime);
+        String sName = matchedService.name;
+        String cleanTime = _extractSlotTime(rawTime);
+        double slotAmount = _getSlotPriceValue(rawTime);
 
-      final appointmentData = {
-        'serviceType': sName, 
-        'specialistId': matchedService.id.toString(),
-        'preferredDate': '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
-        'preferredTime': cleanTime,
-        'fullName': _nameController.text,
-        'email': _emailController.text,
-        'phoneNumber': _phoneController.text,
-        'paymentMethod': _selectedPaymentMethod,
-        'totalAmount': slotAmount,
-        'proofOfPayment': _referenceNumberController.text.isNotEmpty ? 'REF: ${_referenceNumberController.text}' : null,
-        'isOpenPlay': _isOpenPlay,
-        'openPlayType': _openPlayType,
-        'openPlayMaxPlayers': int.tryParse(_openPlayMaxPlayersController.text) ?? 4,
-        'openPlayPrice': double.tryParse(_openPlayPriceController.text) ?? 0.0,
-        'openPlayInstructions': _openPlayInstructionsController.text,
-        'openPlayPaymentDetails': _openPlayPaymentDetailsController.text,
-        'isOpenChallenge': _isOpenChallenge,
-        'challengeType': _challengeType,
-        'hostTandemName': _hostTandemNameController.text,
-        'challengeDescription': _challengeDescriptionController.text,
-        'holdToken': _holdToken,
-      };
+        final appointmentData = {
+          'serviceType': sName, 
+          'specialistId': matchedService.id.toString(),
+          'preferredDate': '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
+          'preferredTime': cleanTime,
+          'fullName': _nameController.text,
+          'email': _emailController.text,
+          'phoneNumber': _phoneController.text,
+          'paymentMethod': _selectedPaymentMethod,
+          'totalAmount': slotAmount,
+          'proofOfPayment': _referenceNumberController.text.isNotEmpty ? 'REF: ${_referenceNumberController.text}' : null,
+          'isOpenPlay': _isOpenPlay,
+          'openPlayType': _openPlayType,
+          'openPlayMaxPlayers': int.tryParse(_openPlayMaxPlayersController.text) ?? 4,
+          'openPlayPrice': double.tryParse(_openPlayPriceController.text) ?? 0.0,
+          'openPlayInstructions': _openPlayInstructionsController.text,
+          'openPlayPaymentDetails': _openPlayPaymentDetailsController.text,
+          'isOpenChallenge': _isOpenChallenge,
+          'challengeType': _challengeType,
+          'hostTandemName': _hostTandemNameController.text,
+          'challengeDescription': _challengeDescriptionController.text,
+          'holdToken': _holdToken,
+        };
 
-      final success = await _apiService.submitAppointment(appointmentData);
-      if (!success) {
-        allSuccess = false;
+        final success = await _apiService.submitAppointment(appointmentData);
+        if (!success) {
+          allSuccess = false;
+          submitErrorMessage = 'Server failed to save appointment';
+        }
       }
+    } catch (e) {
+      allSuccess = false;
+      submitErrorMessage = e.toString();
     }
 
     setState(() {
@@ -799,6 +870,8 @@ class _BookingScreenState extends State<BookingScreen> {
         await prefs.setString('open_play_instructions_default', _openPlayInstructionsController.text);
         await prefs.setString('open_play_payment_details_default', _openPlayPaymentDetailsController.text);
       }
+
+      _recordBookingLog('CONFIRMED', refNumber: _referenceNumberController.text.trim());
 
       final double totalAmount = _selectedTimes.fold(0.0, (sum, time) {
         return sum + _getSlotPriceValue(time);
@@ -861,15 +934,23 @@ class _BookingScreenState extends State<BookingScreen> {
         _nameController.clear();
         _emailController.clear();
         _phoneController.clear();
+        _currentBookingLogId = null;
       });
 
       if (mounted) {
         Navigator.pop(context, result);
       }
     } else {
+      _recordBookingLog(
+        'FAILED',
+        refNumber: _referenceNumberController.text.trim(),
+        errorMsg: submitErrorMessage ?? 'Some bookings failed to submit. Please try again.',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Some bookings failed to submit. Please try again.'),
+          content: Text(submitErrorMessage != null && submitErrorMessage.isNotEmpty 
+              ? 'Booking failed: $submitErrorMessage' 
+              : 'Some bookings failed to submit. Please try again.'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
@@ -1247,10 +1328,14 @@ class _BookingScreenState extends State<BookingScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill your details')));
         return;
       }
+      _recordBookingLog('PAYMENT_VIEWED');
     }
     if (_currentStep == 2 && _referenceNumberController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter your reference number to continue')));
       return;
+    }
+    if (_currentStep == 2) {
+      _recordBookingLog('PAYMENT_ENTERED', refNumber: _referenceNumberController.text.trim());
     }
 
     if (_currentStep < 3) {

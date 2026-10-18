@@ -1979,5 +1979,88 @@ class ApiService {
       return {'success': false, 'message': e.toString()};
     }
   }
+
+  Future<int?> logBookingAttempt({
+    int? logId,
+    required String customerName,
+    required String customerEmail,
+    required String customerPhone,
+    required String venueName,
+    required String courtNames,
+    required String bookingDate,
+    required String timeSlots,
+    required double totalAmount,
+    String paymentMethod = 'GCash',
+    String? referenceNumber,
+    required String stage,
+    String? errorMessage,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/booking-logs'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'logId': logId,
+          'customerName': customerName,
+          'customerEmail': customerEmail,
+          'customerPhone': customerPhone,
+          'venueName': venueName,
+          'courtNames': courtNames,
+          'bookingDate': bookingDate,
+          'timeSlots': timeSlots,
+          'totalAmount': totalAmount,
+          'paymentMethod': paymentMethod,
+          'referenceNumber': referenceNumber,
+          'stage': stage,
+          'errorMessage': errorMessage,
+          'metadata': metadata,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['log'] != null) {
+          return int.tryParse(data['log']['id'].toString());
+        }
+      }
+    } catch (e) {
+      print('Error logging booking attempt: $e');
+    }
+    return null;
+  }
+
+  Future<List<dynamic>> fetchBookingLogs({
+    String? email,
+    String? phone,
+    String? ref,
+    String? venue,
+    String? date,
+    int limit = 100,
+  }) async {
+    try {
+      final queryParams = <String, String>{
+        'limit': limit.toString(),
+      };
+      if (email != null && email.isNotEmpty) queryParams['email'] = email;
+      if (phone != null && phone.isNotEmpty) queryParams['phone'] = phone;
+      if (ref != null && ref.isNotEmpty) queryParams['ref'] = ref;
+      if (venue != null && venue.isNotEmpty) queryParams['venue'] = venue;
+      if (date != null && date.isNotEmpty) queryParams['date'] = date;
+
+      final uri = Uri.parse('$baseUrl/booking-logs').replace(queryParameters: queryParams);
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 && !response.body.trim().startsWith('<')) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['logs'] is List) {
+          return data['logs'];
+        }
+      }
+    } catch (e) {
+      print('Error fetching booking logs: $e');
+    }
+    return [];
+  }
 }
 
