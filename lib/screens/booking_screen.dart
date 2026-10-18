@@ -573,12 +573,14 @@ class _BookingScreenState extends State<BookingScreen> {
       // Remove selected times if booked for that specific court
       _selectedTimes.removeWhere((rawTime) {
         if (rawTime.contains(': ')) {
-          final parts = rawTime.split(': ');
-          final courtName = parts[0];
-          final cleanTime = parts[1];
-          return _courtBookedSlots[courtName]?.contains(cleanTime) ?? false;
+          final idx = rawTime.indexOf(': ');
+          final courtName = rawTime.substring(0, idx).trim();
+          final cleanTime = rawTime.substring(idx + 2).trim();
+          final bookedList = _courtBookedSlots[courtName] ?? [];
+          return bookedList.any((bTime) => _normalizeTime(bTime) == _normalizeTime(cleanTime) || bTime.trim() == cleanTime.trim());
         } else if (_selectedService != null) {
-           return _courtBookedSlots[_selectedService!.name]?.contains(rawTime) ?? false;
+          final bookedList = _courtBookedSlots[_selectedService!.name] ?? [];
+          return bookedList.any((bTime) => _normalizeTime(bTime) == _normalizeTime(rawTime) || bTime.trim() == rawTime.trim());
         }
         return false;
       });
@@ -616,13 +618,9 @@ class _BookingScreenState extends State<BookingScreen> {
     // Group selected times by court/service name
     Map<String, List<String>> slotsByService = {};
     for (var rawTime in _selectedTimes) {
-      String sName = _selectedService?.name ?? 'Court';
-      String cleanTime = rawTime;
-      int idx = rawTime.indexOf(': ');
-      if (idx != -1) {
-        sName = rawTime.substring(0, idx).trim();
-        cleanTime = rawTime.substring(idx + 2).trim();
-      }
+      final court = _findCourtForSlot(rawTime);
+      final sName = court?.name ?? (_selectedService?.name ?? 'Court');
+      final cleanTime = _extractSlotTime(rawTime);
       slotsByService.putIfAbsent(sName, () => []);
       slotsByService[sName]!.add(cleanTime);
     }
@@ -746,30 +744,20 @@ class _BookingScreenState extends State<BookingScreen> {
     bool allSuccess = true;
 
     for (var rawTime in _selectedTimes) {
-      String sName = _selectedService?.name ?? 'Court';
-      String cleanTime = rawTime;
-      int idx = rawTime.indexOf(': ');
-      if (idx != -1) {
-        sName = rawTime.substring(0, idx).trim();
-        cleanTime = rawTime.substring(idx + 2).trim();
-      }
-
-      final matchedService = _services.firstWhere(
-        (s) => s.name == sName,
-        orElse: () => _selectedService ?? ServiceModel(
-          id: 999,
-          name: sName,
-          description: '',
-          price: 'PHP 350',
-          icon: '🎾',
-          duration: '1H',
-          category: 'pickle',
-          isActive: true,
-        ),
+      final matchedService = _findCourtForSlot(rawTime) ?? _selectedService ?? ServiceModel(
+        id: 999,
+        name: 'Court',
+        description: '',
+        price: 'PHP 350',
+        icon: '🎾',
+        duration: '1H',
+        category: 'pickle',
+        isActive: true,
       );
 
-      String priceStr = _getPriceForTime(cleanTime, service: matchedService).replaceAll(RegExp(r'[^0-9.]'), '');
-      double slotAmount = double.tryParse(priceStr) ?? 350.0;
+      String sName = matchedService.name;
+      String cleanTime = _extractSlotTime(rawTime);
+      double slotAmount = _getSlotPriceValue(rawTime);
 
       final appointmentData = {
         'serviceType': sName, 
@@ -813,15 +801,13 @@ class _BookingScreenState extends State<BookingScreen> {
       }
 
       final double totalAmount = _selectedTimes.fold(0.0, (sum, time) {
-        String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
-        return sum + (double.tryParse(priceStr) ?? 0.0);
+        return sum + _getSlotPriceValue(time);
       });
 
       double freeDiscount = 0.0;
       if (_customerLoyalty != null && _customerLoyalty!.stampCount >= 9 && (_loyaltySettings?.freeRewardEnabled ?? true)) {
         if (_selectedTimes.isNotEmpty) {
-          String firstPriceStr = _getPriceForTime(_selectedTimes.first).replaceAll(RegExp(r'[^0-9.]'), '');
-          freeDiscount = double.tryParse(firstPriceStr) ?? 350.0;
+          freeDiscount = _getSlotPriceValue(_selectedTimes.first);
         } else {
           freeDiscount = 350.0;
         }
@@ -829,14 +815,26 @@ class _BookingScreenState extends State<BookingScreen> {
 
       double finalPaid = (totalAmount - freeDiscount).clamp(0.0, double.infinity) + _getServiceFee();
 
-      final String courtName = _selectedService?.name ?? 'Smash Zone Pickleball';
+      final distinctCourts = <String>{};
+      for (var t in _selectedTimes) {
+        final c = _findCourtForSlot(t);
+        if (c != null && c.name.isNotEmpty) {
+          distinctCourts.add(c.name);
+        }
+      }
+      final String venueTitle = widget.venue?['venueName'] ?? widget.venue?['name'] ?? _selectedService?.venueName ?? '';
+      final String courtName = distinctCourts.isNotEmpty 
+          ? (distinctCourts.length == 1 
+              ? distinctCourts.first 
+              : (venueTitle.isNotEmpty ? '$venueTitle (${distinctCourts.join(" & ")})' : distinctCourts.join(" & ")))
+          : (_selectedService?.name ?? 'Smash Zone Pickleball');
+      final String courtNum = distinctCourts.isNotEmpty ? distinctCourts.join(", ") : courtName;
       final String courtAddress = _selectedService?.address.isNotEmpty == true 
           ? _selectedService!.address 
           : (_selectedService?.description.isNotEmpty == true ? _selectedService!.description : 'Cayang');
       final String? courtImage = _selectedService?.icon;
       final DateTime date = _selectedDate ?? DateTime.now();
       final List<String> times = List.from(_selectedTimes);
-      final String courtNum = courtName;
 
       // Navigate to the beautiful BookingConfirmationScreen matching design screenshot
       final result = await Navigator.push(
@@ -879,18 +877,73 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
+  ServiceModel? _findCourtForSlot(String rawTime) {
+    String cName = '';
+    int idx = rawTime.indexOf(': ');
+    if (idx != -1) {
+      cName = rawTime.substring(0, idx).trim();
+    }
+    if (cName.isNotEmpty) {
+      final target = cName.toLowerCase().trim();
+      for (var s in _services) {
+        final sName = s.name.toLowerCase().trim();
+        if (sName == target || sName.contains(target) || target.contains(sName)) {
+          return s;
+        }
+      }
+    }
+    return _selectedService ?? (_services.isNotEmpty ? _services.first : null);
+  }
+
+  String _extractSlotTime(String rawTime) {
+    int idx = rawTime.indexOf(': ');
+    if (idx != -1) {
+      return rawTime.substring(idx + 2).trim();
+    }
+    return rawTime.trim();
+  }
+
+  String _extractSlotCourtName(String rawTime) {
+    int idx = rawTime.indexOf(': ');
+    if (idx != -1) {
+      return rawTime.substring(0, idx).trim();
+    }
+    return _selectedService?.name ?? 'Court';
+  }
+
+  double _getSlotPriceValue(String rawTime) {
+    final court = _findCourtForSlot(rawTime);
+    final cleanTime = _extractSlotTime(rawTime);
+    final priceStr = _getPriceForTime(cleanTime, service: court).replaceAll(RegExp(r'[^0-9.]'), '');
+    return double.tryParse(priceStr) ?? 350.0;
+  }
+
   String _getPriceForTime(String timeStr, {ServiceModel? service}) {
     String time = timeStr.trim();
     ServiceModel? matchedService = service;
 
-    if (timeStr.contains(':')) {
+    if (matchedService == null && timeStr.contains(': ')) {
+      int idx = timeStr.indexOf(': ');
+      String cName = timeStr.substring(0, idx).trim();
+      time = timeStr.substring(idx + 2).trim();
+      final target = cName.toLowerCase().trim();
+      for (var s in _services) {
+        final sName = s.name.toLowerCase().trim();
+        if (sName == target || sName.contains(target) || target.contains(sName)) {
+          matchedService = s;
+          break;
+        }
+      }
+    } else if (timeStr.contains(':')) {
       final parts = timeStr.split(':');
       if (parts.length > 2) {
         String cName = parts[0].trim();
         time = parts.sublist(1).join(':').trim();
         if (matchedService == null) {
+          final target = cName.toLowerCase().trim();
           for (var s in _services) {
-            if (s.name.toLowerCase() == cName.toLowerCase()) {
+            final sName = s.name.toLowerCase().trim();
+            if (sName == target || sName.contains(target) || target.contains(sName)) {
               matchedService = s;
               break;
             }
@@ -899,7 +952,7 @@ class _BookingScreenState extends State<BookingScreen> {
       }
     }
 
-    final s = matchedService ?? _selectedService;
+    final s = matchedService ?? _selectedService ?? (_services.isNotEmpty ? _services.first : null);
     if (s == null) return '';
 
     int hourNum = _parseHourFromTimeString(time);
@@ -1449,6 +1502,38 @@ class _BookingScreenState extends State<BookingScreen> {
                         steps[_currentStep].content,
 
                         const SizedBox(height: 24),
+
+                        if (_currentStep == 0 && _selectedTimes.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryGreen.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.25)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 18),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        '${_selectedTimes.length} ${_selectedTimes.length == 1 ? "slot" : "slots"} selected',
+                                        style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: AppColors.richBlack, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    'Total: ${_getTotalDue()}',
+                                    style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 14),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
 
                         // Navigation buttons
                         Row(
@@ -2496,7 +2581,31 @@ class _BookingScreenState extends State<BookingScreen> {
                 ],
                 _buildSummaryRow(Icons.calendar_today, 'Date', _selectedDate != null ? '${_selectedDate!.toLocal()}'.split(' ')[0] : '-'),
                 Divider(height: 24, color: Colors.green.shade100),
-                _buildSummaryRow(Icons.access_time, 'Times', _selectedTimes.isNotEmpty ? _selectedTimes.join(', ') : '-'),
+                Builder(
+                  builder: (context) {
+                    final distinctCourts = <String>{};
+                    for (var t in _selectedTimes) {
+                      final c = _findCourtForSlot(t);
+                      if (c != null && c.name.isNotEmpty) distinctCourts.add(c.name);
+                    }
+                    if (distinctCourts.length > 1) {
+                      return Column(
+                        children: [
+                          _buildSummaryRow(Icons.sports_tennis, 'Courts', distinctCourts.join(' & ')),
+                          Divider(height: 24, color: Colors.green.shade100),
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                _buildSummaryRow(
+                  Icons.access_time, 
+                  'Times', 
+                  _selectedTimes.isNotEmpty 
+                      ? _selectedTimes.map((t) => '${_extractSlotCourtName(t)}: ${_extractSlotTime(t)} (PHP ${_getSlotPriceValue(t).toStringAsFixed(0)})').join('\n')
+                      : '-'
+                ),
                 Divider(height: 24, color: Colors.green.shade100),
                 _buildSummaryRow(Icons.person, 'Customer', _nameController.text.isEmpty ? '-' : _nameController.text),
                 if (_customerLoyalty?.isMember == true && _loyaltySettings != null) ...[
@@ -2561,8 +2670,7 @@ class _BookingScreenState extends State<BookingScreen> {
     double total = 0.0;
     List<double> slotPrices = [];
     for (var time in _selectedTimes) {
-      String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
-      double price = double.tryParse(priceStr) ?? 0.0;
+      double price = _getSlotPriceValue(time);
       total += price;
       slotPrices.add(price);
     }
@@ -2585,8 +2693,7 @@ class _BookingScreenState extends State<BookingScreen> {
     double total = 0.0;
     List<double> slotPrices = [];
     for (var time in _selectedTimes) {
-      String priceStr = _getPriceForTime(time).replaceAll(RegExp(r'[^0-9.]'), '');
-      double price = double.tryParse(priceStr) ?? 0.0;
+      double price = _getSlotPriceValue(time);
       total += price;
       slotPrices.add(price);
     }
@@ -2903,6 +3010,27 @@ class _BookingScreenState extends State<BookingScreen> {
                 ],
               ),
               SizedBox(height: 8),
+              if (_selectedTimes.length > 1) ...[
+                ..._selectedTimes.map((t) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_extractSlotCourtName(t)}: ${_extractSlotTime(t)}',
+                          style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, color: Colors.grey.shade700),
+                        ),
+                        Text(
+                          'PHP ${_getSlotPriceValue(t).toStringAsFixed(2)}',
+                          style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.richBlack),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                Divider(height: 14, color: Colors.grey.shade300),
+              ],
               RichText(
                 text: TextSpan(
                   style: TextStyle(color: AppColors.richBlack, height: 1.5, fontSize: 13, fontFamily: 'Poppins'),

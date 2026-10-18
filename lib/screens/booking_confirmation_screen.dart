@@ -37,20 +37,44 @@ class BookingConfirmationScreen extends StatelessWidget {
 
   String _formatTimeRange(List<String> slots) {
     if (slots.isEmpty) return '9:00 AM - 10:00 AM';
-    if (slots.length == 1) {
-      String start = slots.first;
-      String end = _getEndTime(start);
-      return '$start - $end';
+
+    final hasMultipleCourts = slots.any((s) => s.contains(': '));
+    if (hasMultipleCourts) {
+      return slots.map((s) {
+        String cName = '';
+        String clean = s;
+        if (s.contains(': ')) {
+          int idx = s.indexOf(': ');
+          cName = s.substring(0, idx).trim();
+          clean = s.substring(idx + 2).trim();
+        }
+        String end = _getEndTime(clean);
+        return cName.isNotEmpty ? '$cName: $clean - $end' : '$clean - $end';
+      }).join('\n');
     }
-    String start = slots.first;
-    String end = _getEndTime(slots.last);
-    return '$start - $end';
+
+    if (slots.length == 1) {
+      String raw = slots.first;
+      String clean = raw.contains(': ') ? raw.substring(raw.indexOf(': ') + 2).trim() : raw;
+      String end = _getEndTime(clean);
+      return '$clean - $end';
+    }
+    String rawFirst = slots.first;
+    String rawLast = slots.last;
+    String cleanFirst = rawFirst.contains(': ') ? rawFirst.substring(rawFirst.indexOf(': ') + 2).trim() : rawFirst;
+    String cleanLast = rawLast.contains(': ') ? rawLast.substring(rawLast.indexOf(': ') + 2).trim() : rawLast;
+    String end = _getEndTime(cleanLast);
+    return '$cleanFirst - $end';
   }
 
   String _getEndTime(String timeStr) {
     try {
-      final parts = timeStr.trim().split(' ');
-      if (parts.length < 2) return timeStr;
+      String clean = timeStr.trim();
+      if (clean.contains(': ')) {
+        clean = clean.substring(clean.indexOf(': ') + 2).trim();
+      }
+      final parts = clean.split(' ');
+      if (parts.length < 2) return clean;
       final timeParts = parts[0].split(':');
       int hour = int.parse(timeParts[0]);
       String ampm = parts[1].toUpperCase();
