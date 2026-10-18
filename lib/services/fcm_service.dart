@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'api_service.dart';
 
 class FcmService {
   static final FcmService _instance = FcmService._internal();
@@ -58,9 +59,7 @@ class FcmService {
   }
 
   Future<void> _sendTokenToBackend(String email, String token) async {
-    final String baseUrl = kIsWeb 
-        ? 'http://localhost:5000/api'
-        : 'https://pickle-system.onrender.com/api';
+    final String baseUrl = ApiService.baseUrl;
 
     try {
       await http.post(
