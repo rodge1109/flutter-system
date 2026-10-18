@@ -1980,6 +1980,9 @@ class ApiService {
     }
   }
 
+  static const String _supabaseUrl = 'https://zhtyktlktykotyzhxyps.supabase.co';
+  static const String _supabaseAnonKey = 'sb_publishable_KE2xNib4kr-vqqvDRleKAg_NfD07o1a';
+
   Future<int?> logBookingAttempt({
     int? logId,
     required String customerName,
@@ -1996,6 +1999,57 @@ class ApiService {
     String? errorMessage,
     Map<String, dynamic>? metadata,
   }) async {
+    // 1. Try direct Supabase PostgREST for zero-latency, high reliability
+    try {
+      final headers = {
+        'apikey': _supabaseAnonKey,
+        'Authorization': 'Bearer $_supabaseAnonKey',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation',
+      };
+
+      final payload = {
+        'customer_name': customerName,
+        'customer_email': customerEmail,
+        'customer_phone': customerPhone,
+        'venue_name': venueName,
+        'court_names': courtNames,
+        if (bookingDate.isNotEmpty) 'booking_date': bookingDate,
+        'time_slots': timeSlots,
+        'total_amount': totalAmount,
+        'payment_method': paymentMethod,
+        if (referenceNumber != null && referenceNumber.isNotEmpty) 'reference_number': referenceNumber,
+        'stage': stage,
+        if (errorMessage != null) 'error_message': errorMessage,
+        if (metadata != null) 'metadata': metadata,
+      };
+
+      http.Response response;
+      if (logId != null) {
+        response = await http.patch(
+          Uri.parse('$_supabaseUrl/rest/v1/pickle_booking_logs?id=eq.$logId'),
+          headers: headers,
+          body: json.encode(payload),
+        ).timeout(const Duration(seconds: 7));
+      } else {
+        response = await http.post(
+          Uri.parse('$_supabaseUrl/rest/v1/pickle_booking_logs'),
+          headers: headers,
+          body: json.encode(payload),
+        ).timeout(const Duration(seconds: 7));
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = json.decode(response.body);
+        if (data is List && data.isNotEmpty && data[0]['id'] != null) {
+          return int.tryParse(data[0]['id'].toString());
+        }
+      }
+    } catch (e) {
+      debugPrint('Supabase direct log error: $e');
+    }
+
+    // 2. Fallback to Render backend server
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/booking-logs'),
@@ -2016,7 +2070,7 @@ class ApiService {
           'errorMessage': errorMessage,
           'metadata': metadata,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 7));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
@@ -2038,6 +2092,42 @@ class ApiService {
     String? date,
     int limit = 100,
   }) async {
+    // 1. Try direct Supabase PostgREST
+    try {
+      final headers = {
+        'apikey': _supabaseAnonKey,
+        'Authorization': 'Bearer $_supabaseAnonKey',
+      };
+
+      String query = '$_supabaseUrl/rest/v1/pickle_booking_logs?select=*&order=created_at.desc&limit=$limit';
+      if (venue != null && venue.isNotEmpty) {
+        query += '&venue_name=ilike.*${Uri.encodeComponent(venue.trim())}*';
+      }
+      if (email != null && email.isNotEmpty) {
+        query += '&customer_email=ilike.*${Uri.encodeComponent(email.trim())}*';
+      }
+      if (phone != null && phone.isNotEmpty) {
+        query += '&customer_phone=ilike.*${Uri.encodeComponent(phone.trim())}*';
+      }
+      if (ref != null && ref.isNotEmpty) {
+        query += '&reference_number=ilike.*${Uri.encodeComponent(ref.trim())}*';
+      }
+      if (date != null && date.isNotEmpty) {
+        query += '&booking_date=eq.$date';
+      }
+
+      final response = await http.get(Uri.parse(query), headers: headers).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is List) {
+          return data;
+        }
+      }
+    } catch (e) {
+      debugPrint('Supabase direct fetch logs error: $e');
+    }
+
+    // 2. Fallback to Render backend server
     try {
       final queryParams = <String, String>{
         'limit': limit.toString(),
@@ -2049,7 +2139,7 @@ class ApiService {
       if (date != null && date.isNotEmpty) queryParams['date'] = date;
 
       final uri = Uri.parse('$baseUrl/booking-logs').replace(queryParameters: queryParams);
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200 && !response.body.trim().startsWith('<')) {
         final data = json.decode(response.body);
