@@ -1,11 +1,13 @@
 import 'package:flutter_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
 import 'owner_dashboard_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import '../services/fcm_service.dart';
 
 class RegistrationScreen extends StatefulWidget {
   @override
@@ -135,35 +137,67 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   void _googleSignIn() async {
     setState(() => _isLoading = true);
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn(
-        clientId: '791853418225-nnsmvmfnabhqlevkevbp8549mccha2he.apps.googleusercontent.com',
-      ).signIn();
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: kIsWeb ? '791853418225-nnsmvmfnabhqlevkevbp8549mccha2he.apps.googleusercontent.com' : null,
+        serverClientId: '791853418225-nnsmvmfnabhqlevkevbp8549mccha2he.apps.googleusercontent.com',
+        scopes: const ['email', 'profile'],
+      );
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final token = googleAuth.idToken;
-      if (token != null) {
+      final token = googleAuth.idToken ?? googleAuth.accessToken;
+      if (token != null && token.isNotEmpty) {
         final result = await _apiService.googleSignIn(token, role: _selectedRole);
-        if (result['success']) {
+        if (result['success'] == true) {
+          final userEmail = result['user']?['email'];
+          if (userEmail != null) {
+            FcmService().init(userEmail);
+          }
+          if (!mounted) return;
           final userRole = result['user']?['role'];
           final isOwner = userRole == 'court_owner' || userRole == 'owner';
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => isOwner ? OwnerDashboardScreen() : DashboardScreen()
-            ),
-            (route) => false,
-          );
+          if (isOwner) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OwnerDashboardScreen(),
+              ),
+              (route) => false,
+            );
+          } else {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context, true);
+              return;
+            }
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DashboardScreen(),
+              ),
+            );
+          }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'])));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Google Sign In failed')));
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to retrieve authentication token from Google.')),
+          );
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Google Sign In failed: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Google Sign In failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 
   void _facebookSignIn() async {
@@ -173,28 +207,53 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (fbResult.status == LoginStatus.success) {
         final token = fbResult.accessToken!.tokenString;
         final result = await _apiService.facebookSignIn(token, role: _selectedRole);
-        if (result['success']) {
+        if (result['success'] == true) {
+          final userEmail = result['user']?['email'];
+          if (userEmail != null) {
+            FcmService().init(userEmail);
+          }
+          if (!mounted) return;
           final userRole = result['user']?['role'];
           final isOwner = userRole == 'court_owner' || userRole == 'owner';
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => isOwner ? OwnerDashboardScreen() : DashboardScreen()
-            ),
-            (route) => false,
-          );
+          if (isOwner) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OwnerDashboardScreen(),
+              ),
+              (route) => false,
+            );
+          } else {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context, true);
+              return;
+            }
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DashboardScreen(),
+              ),
+            );
+          }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'])));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Facebook Sign In failed')));
+          }
         }
       } else if (fbResult.status == LoginStatus.cancelled) {
         // cancelled
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Facebook Sign In failed: ${fbResult.message}')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Facebook Sign In failed: ${fbResult.message}')));
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Facebook Sign In failed: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Facebook Sign In failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 
 

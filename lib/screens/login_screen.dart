@@ -95,34 +95,60 @@ class _LoginScreenState extends State<LoginScreen> {
   void _googleSignIn() async {
     setState(() => _isLoading = true);
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn(
-        clientId: '791853418225-nnsmvmfnabhqlevkevbp8549mccha2he.apps.googleusercontent.com',
-      ).signIn();
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: kIsWeb ? '791853418225-nnsmvmfnabhqlevkevbp8549mccha2he.apps.googleusercontent.com' : null,
+        serverClientId: '791853418225-nnsmvmfnabhqlevkevbp8549mccha2he.apps.googleusercontent.com',
+        scopes: const ['email', 'profile'],
+      );
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final token = googleAuth.idToken;
-      if (token != null) {
+      final token = googleAuth.idToken ?? googleAuth.accessToken;
+      if (token != null && token.isNotEmpty) {
         final result = await _apiService.googleSignIn(token);
         if (result['success'] == true) {
-          await secureStorage.write(key: 'email', value: result['user']['email']);
+          final userEmail = result['user']?['email'];
+          if (userEmail != null) {
+            await secureStorage.write(key: 'email', value: userEmail);
+            FcmService().init(userEmail);
+          }
+          if (!mounted) return;
           final userRole = result['user']?['role'];
+          final isSuperAdmin = userRole == 'super_admin';
           final isOwner = userRole == 'court_owner' || userRole == 'owner';
-          if (isOwner) {
+          if (isSuperAdmin) {
+            Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => SuperDashboardScreen()), (route) => false);
+          } else if (isOwner) {
             Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => OwnerDashboardScreen()), (route) => false);
           } else {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context, true);
+              return;
+            }
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => DashboardScreen()));
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Google Sign In failed')));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Google Sign In failed')));
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to retrieve authentication token from Google.')),
+          );
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Google Sign In failed: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Google Sign In failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 
   void _facebookSignIn() async {
@@ -132,27 +158,43 @@ class _LoginScreenState extends State<LoginScreen> {
       if (fbResult.status == LoginStatus.success) {
         final token = fbResult.accessToken!.tokenString;
         final result = await _apiService.facebookSignIn(token);
-        if (result['success']) {
-          await secureStorage.write(key: 'email', value: result['user']['email']);
+        if (result['success'] == true) {
+          final userEmail = result['user']?['email'];
+          if (userEmail != null) {
+            await secureStorage.write(key: 'email', value: userEmail);
+            FcmService().init(userEmail);
+          }
+          if (!mounted) return;
           final userRole = result['user']?['role'];
           final isOwner = userRole == 'court_owner' || userRole == 'owner';
           if (isOwner) {
             Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => OwnerDashboardScreen()), (route) => false);
           } else {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context, true);
+              return;
+            }
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => DashboardScreen()));
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'])));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Facebook Sign In failed')));
+          }
         }
       } else if (fbResult.status == LoginStatus.cancelled) {
         // cancelled
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Facebook Sign In failed: ${fbResult.message}')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Facebook Sign In failed: ${fbResult.message}')));
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Facebook Sign In failed: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Facebook Sign In failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 
   void _login() async {
@@ -437,8 +479,53 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ],
+
+                  SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade400)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('OR', style: TextStyle(color: Colors.grey.shade600, fontSize: 13, fontWeight: FontWeight.w600)),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade400)),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _googleSignIn,
+                      icon: Icon(Icons.g_mobiledata, size: 32),
+                      label: Text('Continue with Google', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.black87,
+                        backgroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _facebookSignIn,
+                      icon: Icon(Icons.facebook, size: 28),
+                      label: Text('Continue with Facebook', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Color(0xFF1877F2),
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                  ),
                   
-                  SizedBox(height: 30),
+                  SizedBox(height: 24),
                   
                   // Footer
                   Row(
