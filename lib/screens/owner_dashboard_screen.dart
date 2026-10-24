@@ -996,6 +996,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final now = DateTime.now();
     final upcomingBookings = _allBookings.where((b) {
       if (b['appointment_date'] == null || b['appointment_time'] == null) return false;
+      if (b['status'] == 'cancelled') return false;
       
       try {
         String dateString = b['appointment_date'].toString().substring(0, 10);
@@ -1349,13 +1350,32 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Widget _buildBookingCard(dynamic booking) {
+    final rawStatus = (booking['status'] ?? 'confirmed').toString().toLowerCase();
+    final isCancelled = rawStatus == 'cancelled';
+    final isBlocked = rawStatus == 'blocked';
+    final isCompleted = rawStatus == 'completed';
+
+    Color badgeColor = AppColors.primaryGreen;
+    String statusText = 'Confirmed';
+
+    if (isCancelled) {
+      badgeColor = Colors.red.shade600;
+      statusText = 'Cancelled';
+    } else if (isBlocked) {
+      badgeColor = Colors.orange.shade700;
+      statusText = 'Blocked';
+    } else if (isCompleted) {
+      badgeColor = Colors.blue.shade700;
+      statusText = 'Completed';
+    }
+
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.softWhite,
+        color: isCancelled ? Colors.grey.shade50 : AppColors.softWhite,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: isCancelled ? Colors.red.shade300 : Colors.grey.shade200),
         boxShadow: [
           BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))
         ],
@@ -1366,18 +1386,27 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                booking['service_type'] ?? 'Court Booking',
-                style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.5),
+              Expanded(
+                child: Text(
+                  booking['service_type'] ?? 'Court Booking',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    letterSpacing: -0.5,
+                    decoration: isCancelled ? TextDecoration.lineThrough : null,
+                    color: isCancelled ? Colors.grey.shade600 : null,
+                  ),
+                ),
               ),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen,
+                  color: badgeColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Confirmed',
+                  statusText,
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.softWhite),
                 ),
               ),

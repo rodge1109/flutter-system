@@ -1690,7 +1690,9 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: status == 'COMPLETED' ? Colors.blue.shade700 : AppColors.primaryGreen,
+                  color: status == 'COMPLETED'
+                      ? Colors.blue.shade700
+                      : (status == 'CANCELLED' ? Colors.red.shade700 : AppColors.primaryGreen),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
