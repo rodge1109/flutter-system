@@ -350,6 +350,9 @@ class ApiService {
                 if (b['proof_of_payment'] != null) allTransactions[idx]['proof_of_payment'] = b['proof_of_payment'];
                 if (b['agent_code'] != null) allTransactions[idx]['agent_code'] = b['agent_code'];
                 if (b['payment_reference'] != null) allTransactions[idx]['payment_reference'] = b['payment_reference'];
+                if (b['venue_name'] != null) allTransactions[idx]['venue_name'] = b['venue_name'];
+                if (b['court_name'] != null) allTransactions[idx]['court_name'] = b['court_name'];
+                if (b['owner_email'] != null) allTransactions[idx]['owner_email'] = b['owner_email'];
               } else {
                 allTransactions.add(b);
               }

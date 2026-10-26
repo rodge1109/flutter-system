@@ -460,9 +460,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + kToolbarHeight + 16.0, bottom: 12.0),
                   child: GestureDetector(
                     onTap: () {
+                      String venueName = '';
+                      if (_myCourts.isNotEmpty) {
+                        final first = _myCourts.first;
+                        if (first is Map) {
+                          venueName = (first['venue_name'] ?? first['name'] ?? '').toString();
+                        }
+                      }
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => EarningsScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => EarningsScreen(
+                            ownerEmail: _userEmail.isNotEmpty ? _userEmail : null,
+                            venueName: venueName.isNotEmpty ? venueName : null,
+                          ),
+                        ),
                       );
                     },
                     child: Container(

@@ -56,6 +56,28 @@ class _EarningsScreenState extends State<EarningsScreen> {
         startDate = DateFormat('yyyy-MM-dd').format(_selectedDateRange!.start);
         endDate = DateFormat('yyyy-MM-dd').format(_selectedDateRange!.end);
       }
+
+      // Fetch owner courts to map court names to venue names (e.g. "Court N" -> "7ten Pickleyard")
+      final Map<String, String> courtToVenueMap = {};
+      final Set<String> ownerVenueNames = {};
+      try {
+        final courts = await _apiService.fetchOwnerCourts(email);
+        for (var c in courts) {
+          if (c is Map) {
+            String cName = (c['name'] ?? '').toString().trim().toLowerCase();
+            String vName = (c['venue_name'] ?? c['venue'] ?? c['name'] ?? '').toString().trim().toLowerCase();
+            String cleanC = cName.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+            String cleanV = vName.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+            if (cName.isNotEmpty && vName.isNotEmpty) {
+              courtToVenueMap[cName] = vName;
+              courtToVenueMap[cleanC] = cleanV;
+            }
+            if (vName.isNotEmpty) ownerVenueNames.add(vName);
+            if (cleanV.isNotEmpty) ownerVenueNames.add(cleanV);
+          }
+        }
+      } catch (_) {}
+
       final data = await _apiService.fetchOwnerEarnings(email, startDate: startDate, endDate: endDate);
       if (data['success'] == true) {
         final List rawTransactions = data['transactions'] ?? [];
@@ -66,11 +88,48 @@ class _EarningsScreenState extends State<EarningsScreen> {
           if (status == 'cancelled') return false;
 
           if (widget.venueName == null || widget.venueName!.trim().isEmpty) return true;
-          String txVenue = (tx['court_name'] ?? tx['service_type'] ?? tx['venue_name'] ?? '').toString().trim().toLowerCase();
+
           String targetV = widget.venueName!.trim().toLowerCase();
-          String cleanTx = txVenue.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
           String cleanTarget = targetV.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
-          return txVenue == targetV || cleanTx == cleanTarget || txVenue.contains(cleanTarget) || targetV.contains(cleanTx);
+
+          // 1. Direct venue_name field match (from backend or merged data)
+          String txVenue = (tx['venue_name'] ?? '').toString().trim().toLowerCase();
+          String cleanTxVenue = txVenue.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+          if (txVenue.isNotEmpty) {
+            if (txVenue == targetV || cleanTxVenue == cleanTarget || txVenue.contains(cleanTarget) || targetV.contains(cleanTxVenue)) {
+              return true;
+            }
+          }
+
+          // 2. Direct court_name / service_type match
+          String txCourt = (tx['court_name'] ?? tx['service_type'] ?? '').toString().trim().toLowerCase();
+          String cleanTxCourt = txCourt.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+          if (txCourt.isNotEmpty) {
+            if (txCourt == targetV || cleanTxCourt == cleanTarget || txCourt.contains(cleanTarget) || targetV.contains(cleanTxCourt)) {
+              return true;
+            }
+          }
+
+          // 3. Match via owner's registered courts (e.g. "Court N" / "Court S" mapped to "7ten Pickleyard")
+          if (courtToVenueMap.containsKey(txCourt) || courtToVenueMap.containsKey(cleanTxCourt)) {
+            String mappedVenue = (courtToVenueMap[txCourt] ?? courtToVenueMap[cleanTxCourt] ?? '').toLowerCase();
+            String cleanMapped = mappedVenue.replaceAll(RegExp(r'\s*\([^)]*\)'), '').split('-')[0].trim();
+            if (mappedVenue == targetV || cleanMapped == cleanTarget || mappedVenue.contains(cleanTarget) || targetV.contains(cleanMapped)) {
+              return true;
+            }
+          }
+
+          // 4. If the owner only has courts for this target venue
+          if (ownerVenueNames.contains(targetV) || ownerVenueNames.contains(cleanTarget)) {
+            return true;
+          }
+
+          // 5. If this screen was opened specifically for an owner's email, all transactions from fetchOwnerEarnings belong to this owner
+          if (widget.ownerEmail != null && widget.ownerEmail!.trim().isNotEmpty) {
+            return true;
+          }
+
+          return false;
         }).toList();
         
         // Group transactions placed in the same checkout session
