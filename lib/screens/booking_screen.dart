@@ -825,6 +825,8 @@ class _BookingScreenState extends State<BookingScreen> {
         String sName = matchedService.name;
         String cleanTime = _extractSlotTime(rawTime);
         double slotAmount = _getSlotPriceValue(rawTime);
+        double feePerSlot = _selectedTimes.isNotEmpty ? (_getServiceFee() / _selectedTimes.length) : 15.0;
+        double slotTotalWithFee = slotAmount + feePerSlot;
 
         final appointmentData = {
           'serviceType': sName, 
@@ -835,7 +837,7 @@ class _BookingScreenState extends State<BookingScreen> {
           'email': _emailController.text,
           'phoneNumber': _phoneController.text,
           'paymentMethod': _selectedPaymentMethod,
-          'totalAmount': slotAmount,
+          'totalAmount': slotTotalWithFee,
           'proofOfPayment': _referenceNumberController.text.isNotEmpty ? 'REF: ${_referenceNumberController.text}' : null,
           'isOpenPlay': _isOpenPlay,
           'openPlayType': _openPlayType,
