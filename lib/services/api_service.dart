@@ -241,6 +241,25 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> submitAppointmentWithResult(Map<String, dynamic> appointmentData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/appointments'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(appointmentData),
+      );
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        return data is Map<String, dynamic> ? data : {'success': true};
+      }
+      return null;
+    } catch (e) {
+      print('Error submitting appointment with result: $e');
+      return null;
+    }
+  }
+
   Future<String?> holdSlots({
     required String dateStr,
     required List<String> times,

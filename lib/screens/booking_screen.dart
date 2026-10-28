@@ -807,6 +807,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
     bool allSuccess = true;
     String? submitErrorMessage;
+    String? lastBookingId;
 
     try {
       for (var rawTime in _selectedTimes) {
@@ -849,10 +850,12 @@ class _BookingScreenState extends State<BookingScreen> {
           'holdToken': _holdToken,
         };
 
-        final success = await _apiService.submitAppointment(appointmentData);
-        if (!success) {
+        final res = await _apiService.submitAppointmentWithResult(appointmentData);
+        if (res == null || (res['success'] != true && res['appointment'] == null)) {
           allSuccess = false;
-          submitErrorMessage = 'Server failed to save appointment';
+          submitErrorMessage = res?['message'] ?? 'Server failed to save appointment';
+        } else if (res['appointment'] != null && res['appointment']['id'] != null) {
+          lastBookingId = res['appointment']['id'].toString();
         }
       }
     } catch (e) {
@@ -921,6 +924,8 @@ class _BookingScreenState extends State<BookingScreen> {
             timeSlots: times,
             courtNumber: courtNum,
             totalPaid: finalPaid,
+            bookingId: lastBookingId,
+            playerName: _nameController.text.trim(),
           ),
         ),
       );

@@ -1,7 +1,8 @@
 import 'package:flutter_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import '../widgets/custom_paddle_icon.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class BookingConfirmationScreen extends StatelessWidget {
   final String courtName;
@@ -11,6 +12,8 @@ class BookingConfirmationScreen extends StatelessWidget {
   final List<String> timeSlots;
   final String courtNumber;
   final double totalPaid;
+  final String? bookingId;
+  final String? playerName;
 
   const BookingConfirmationScreen({
     Key? key,
@@ -21,7 +24,60 @@ class BookingConfirmationScreen extends StatelessWidget {
     required this.timeSlots,
     required this.courtNumber,
     required this.totalPaid,
+    this.bookingId,
+    this.playerName,
   }) : super(key: key);
+
+  String _generateBookingUrl() {
+    if (bookingId != null && bookingId!.trim().isNotEmpty) {
+      return 'https://pickle-system.onrender.com/b/${bookingId!.trim()}';
+    }
+    final uri = Uri.parse('https://pickle-system.onrender.com/b').replace(queryParameters: {
+      'court': courtName,
+      'address': courtAddress,
+      'date': _formatDate(bookingDate),
+      'time': _formatTimeRange(timeSlots),
+      'courtNum': courtNumber,
+      'price': totalPaid.toStringAsFixed(2),
+      if (playerName != null && playerName!.isNotEmpty) 'name': playerName!,
+    });
+    return uri.toString();
+  }
+
+  void _shareBookingLink(BuildContext context) {
+    final String url = _generateBookingUrl();
+    final String formattedDate = _formatDate(bookingDate);
+    final String timeStr = _formatTimeRange(timeSlots);
+    final String shareText =
+        '🎾 Pickleball Match Reserved!\n'
+        '🏟️ Venue: $courtName ($courtNumber)\n'
+        '📅 Date: $formattedDate\n'
+        '⏰ Time: $timeStr\n'
+        '📍 Address: $courtAddress\n\n'
+        '👉 View Schedule & Match Pass:\n$url';
+
+    SharePlus.instance.share(shareText, subject: '🎾 PickleBook Match Pass: $courtName');
+  }
+
+  void _copyBookingLink(BuildContext context) {
+    final String url = _generateBookingUrl();
+    Clipboard.setData(ClipboardData(text: url));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: const [
+            Icon(Icons.check_circle_rounded, color: AppColors.accentLime, size: 20),
+            SizedBox(width: 10),
+            Text('Booking pass link copied to clipboard!'),
+          ],
+        ),
+        backgroundColor: AppColors.richBlack,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   String _formatDate(DateTime date) {
     final List<String> months = [
@@ -325,7 +381,151 @@ class BookingConfirmationScreen extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
+
+                    // Share Match Pass with Buddies Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.accentLime.withOpacity(0.6), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryGreen.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.share_rounded,
+                                  color: AppColors.primaryGreen,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Share Schedule with Buddies',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.richBlack,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Let your group see the timeslot & court pass',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Link preview pill + Copy button
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.link_rounded, size: 16, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _generateBookingUrl(),
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 11,
+                                      color: Colors.grey.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () => _copyBookingLink(context),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.copy_rounded, size: 14, color: AppColors.primaryGreen),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Copy',
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primaryGreen,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Share Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _shareBookingLink(context),
+                              icon: const Icon(Icons.send_rounded, size: 16),
+                              label: const Text(
+                                'Share Match Pass Link',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryGreen,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
