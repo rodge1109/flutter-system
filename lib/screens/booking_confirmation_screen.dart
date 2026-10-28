@@ -56,7 +56,7 @@ class BookingConfirmationScreen extends StatelessWidget {
         '📍 Address: $courtAddress\n\n'
         '👉 View Schedule & Match Pass:\n$url';
 
-    SharePlus.instance.share(shareText, subject: '🎾 PickleBook Match Pass: $courtName');
+    Share.share(shareText);
   }
 
   void _copyBookingLink(BuildContext context) {
