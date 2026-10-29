@@ -3103,9 +3103,9 @@ class _BookingScreenState extends State<BookingScreen> {
           width: double.infinity,
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
+            color: const Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: const Color(0xFFE5E5E5)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3230,9 +3230,9 @@ class _BookingScreenState extends State<BookingScreen> {
           width: double.infinity,
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
+            color: const Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: const Color(0xFFE5E5E5)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3285,9 +3285,9 @@ class _BookingScreenState extends State<BookingScreen> {
             child: Container(
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: const Color(0xFFF5F5F5),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: const Color(0xFFE5E5E5)),
                 boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 10, offset: Offset(0, 4))],
               ),
               child: Column(
@@ -3411,9 +3411,9 @@ class _BookingScreenState extends State<BookingScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: const Color(0xFFF5F5F5),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: const Color(0xFFE5E5E5)),
             ),
             child: Row(
               children: [
