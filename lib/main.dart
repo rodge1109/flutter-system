@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'screens/splash_screen.dart';
 import 'screens/deep_link_handler_screen.dart';
+import 'screens/booking_confirmation_screen.dart';
 import 'theme/app_colors.dart';
 
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
@@ -114,6 +115,21 @@ class PicklebookApp extends StatelessWidget {
           final uri = Uri.parse(settings.name!);
           if (uri.pathSegments.isNotEmpty) {
             final slug = uri.pathSegments[0];
+            if (slug == 'preview_confirmation') {
+              return MaterialPageRoute(
+                builder: (context) => BookingConfirmationScreen(
+                  courtName: 'NHP (Soon)',
+                  courtAddress: 'Brgy. Cayang, Bogo City',
+                  courtImage: 'https://res.cloudinary.com/doxih7ab3/image/upload/v1784821986/queuing-system-uploads/1784821985216-132187.jpg',
+                  bookingDate: DateTime(2026, 10, 29),
+                  timeSlots: const ['9:00 PM'],
+                  courtNumber: 'Court 1',
+                  totalPaid: 350.0,
+                  bookingId: 'BK-PREVIEW-123',
+                  playerName: 'Alex Rivera',
+                ),
+              );
+            }
             return MaterialPageRoute(
               builder: (context) => DeepLinkHandlerScreen(slug: slug),
             );

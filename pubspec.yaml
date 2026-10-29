@@ -87,6 +87,7 @@ flutter:
     - assets/qr-code.PNG
     - assets/qr-code.jpg
     - assets/splash.png
+    - assets/hero_banner.png
 
   fonts:
     - family: BarberChop

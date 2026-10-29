@@ -910,7 +910,14 @@ class _BookingScreenState extends State<BookingScreen> {
       final String courtAddress = _selectedService?.address.isNotEmpty == true 
           ? _selectedService!.address 
           : (_selectedService?.description.isNotEmpty == true ? _selectedService!.description : 'Cayang');
-      final String? courtImage = _selectedService?.icon;
+      final String venueLogo = _getVenueLogoUrl();
+      final String? courtImage = (venueLogo.isNotEmpty && (venueLogo.startsWith('http') || venueLogo.startsWith('assets/')))
+          ? venueLogo
+          : (_selectedService?.icon.startsWith('http') == true 
+              ? _selectedService!.icon 
+              : ((widget.venue?['logo_url'] ?? widget.venue?['image'])?.toString().trim().isNotEmpty == true 
+                  ? (widget.venue!['logo_url'] ?? widget.venue!['image']).toString().trim() 
+                  : null));
       final DateTime date = _selectedDate ?? DateTime.now();
       final List<String> times = List.from(_selectedTimes);
 
@@ -1557,38 +1564,82 @@ class _BookingScreenState extends State<BookingScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (skipChooseService) ...[
+                          Builder(
+                            builder: (context) {
+                              final venueLogo = _getVenueLogoUrl();
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12, top: 4),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.06),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: (venueLogo.isNotEmpty && (venueLogo.startsWith('http') || venueLogo.startsWith('assets/')))
+                                          ? (venueLogo.startsWith('assets/')
+                                              ? Image.asset(venueLogo, fit: BoxFit.cover)
+                                              : Image.network(
+                                                  venueLogo,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) => Container(
+                                                    padding: const EdgeInsets.all(8),
+                                                    color: AppColors.primaryGreen,
+                                                    child: CustomPaddleIcon(color: AppColors.softWhite, size: 16),
+                                                  ),
+                                                ))
+                                          : Container(
+                                              padding: const EdgeInsets.all(8),
+                                              color: AppColors.primaryGreen,
+                                              child: CustomPaddleIcon(color: AppColors.softWhite, size: 16),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'VENUE SELECTED',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.richBlack.withOpacity(0.54),
+                                              letterSpacing: 0.6,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            (widget.venue?['venueName'] ?? widget.venue?['name'] ?? 'KAPENARRA COURTSIDE').toString().toUpperCase(),
+                                            style: const TextStyle(
+                                              fontFamily: 'Poppins',
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.richBlack,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                         if (_currentStep == 0 && widget.venue != null)
                           _buildVenuePhotoCarousel(),
-                        if (skipChooseService)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryGreen.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(7),
-                                  decoration: BoxDecoration(color: AppColors.primaryGreen, shape: BoxShape.circle),
-                                  child: CustomPaddleIcon(color: AppColors.softWhite, size: 16),
-                                ),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('VENUE SELECTED', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.richBlack.withOpacity(0.54), letterSpacing: 0.5)),
-                                      SizedBox(height: 2),
-                                      Text((widget.venue?['venueName'] ?? widget.venue?['name'] ?? 'KAPENARRA COURTSIDE').toString().toUpperCase(), style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
 
                         // Active step content
                         steps[_currentStep].content,
@@ -2628,124 +2679,89 @@ class _BookingScreenState extends State<BookingScreen> {
     if (_selectedService == null) return Container();
     
     return Container(
-      margin: EdgeInsets.symmetric(vertical: 16),
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFDDF7E8),
+        color: const Color(0xFFF1F3F5),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: Offset(0, 4))],
+        boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
+          _buildSummaryRow(Icons.sports_tennis, 'Court', _selectedService!.name),
+          Divider(height: 24, color: Colors.grey.shade300),
+          _buildSummaryRow(Icons.calendar_today, 'Date', _selectedDate != null ? '${_selectedDate!.toLocal()}'.split(' ')[0] : '-'),
+          Divider(height: 24, color: Colors.grey.shade300),
+          Builder(
+            builder: (context) {
+              final distinctCourts = <String>{};
+              for (var t in _selectedTimes) {
+                final c = _findCourtForSlot(t);
+                if (c != null && c.name.isNotEmpty) distinctCourts.add(c.name);
+              }
+              if (distinctCourts.length > 1) {
+                return Column(
+                  children: [
+                    _buildSummaryRow(Icons.sports_tennis, 'All Courts', distinctCourts.join(' & ')),
+                    Divider(height: 24, color: Colors.grey.shade300),
+                  ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          _buildSummaryRow(
+            Icons.access_time, 
+            'Times', 
+            _selectedTimes.isNotEmpty 
+                ? _selectedTimes.map((t) => '${_extractSlotCourtName(t)}: ${_extractSlotTime(t)} (PHP ${_getSlotPriceValue(t).toStringAsFixed(0)})').join('\n')
+                : '-'
+          ),
+          Divider(height: 24, color: Colors.grey.shade300),
+          _buildSummaryRow(Icons.person, 'Customer', _nameController.text.isEmpty ? '-' : _nameController.text),
+          if (_customerLoyalty?.isMember == true && _loyaltySettings != null) ...[
+            Divider(height: 24, color: Colors.grey.shade300),
+            _buildSummaryRow(
+              Icons.stars, 
+              'VIP Member Discount', 
+              _loyaltySettings!.memberDiscountType == 'PERCENTAGE' 
+                  ? '${_loyaltySettings!.memberDiscountValue.toInt()}% OFF (Applied)' 
+                  : (_loyaltySettings!.memberDiscountType == 'DISCOUNT_AMOUNT'
+                      ? '-₱${_loyaltySettings!.memberDiscountValue.toStringAsFixed(0)} OFF / slot (Applied)'
+                      : '₱${_loyaltySettings!.memberDiscountValue.toStringAsFixed(0)} Member Rate (Applied)')
+            ),
+          ],
+          Divider(height: 24, color: Colors.grey.shade300),
+          _buildSummaryRow('P', 'Subtotal', _getTotalAmount()),
+          Divider(height: 24, color: Colors.grey.shade300),
+          _buildSummaryRow(Icons.receipt, 'Service Charge', 'PHP ${_getServiceFee().toStringAsFixed(2)}'),
+          Divider(height: 24, color: Colors.grey.shade300),
+          _buildSummaryRow('P', 'Total Due', _getTotalDue()),
+          const SizedBox(height: 24),
           Container(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryGreen,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              color: AppColors.softWhite.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CustomPaddleIcon( color: AppColors.softWhite, size: 28),
-                SizedBox(width: 16),
+                const Icon(Icons.info_outline, color: AppColors.primaryGreen, size: 20),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Selected Service', style: TextStyle(color: AppColors.softWhite.withOpacity(0.70), fontSize: 11)),
-                      Text(_selectedService!.name, style: TextStyle(color: AppColors.softWhite, fontSize: 17, fontWeight: FontWeight.bold)),
+                    children: const [
+                      Text('Refund & Cancellation Policy', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 13)),
+                      SizedBox(height: 8),
+                      Text('Cancellations made at least 24 hours in advance will receive a full refund. Cancellations made less than 24 hours before the booking time are non-refundable.', style: TextStyle(color: AppColors.primaryGreen, fontSize: 12, height: 1.4)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              children: [
-                if (_customerLoyalty != null) ...[
-                  LoyaltyStampCardWidget(
-                    stampCount: _customerLoyalty!.stampCount,
-                    milestoneTarget: _loyaltySettings?.milestoneTarget ?? 10,
-                    courtOwnerName: _selectedService?.name ?? 'Court Loyalty Program',
-                    isMember: _customerLoyalty!.isMember,
-                  ),
-                  SizedBox(height: 16),
-                ],
-                _buildSummaryRow(Icons.calendar_today, 'Date', _selectedDate != null ? '${_selectedDate!.toLocal()}'.split(' ')[0] : '-'),
-                Divider(height: 24, color: Colors.green.shade100),
-                Builder(
-                  builder: (context) {
-                    final distinctCourts = <String>{};
-                    for (var t in _selectedTimes) {
-                      final c = _findCourtForSlot(t);
-                      if (c != null && c.name.isNotEmpty) distinctCourts.add(c.name);
-                    }
-                    if (distinctCourts.length > 1) {
-                      return Column(
-                        children: [
-                          _buildSummaryRow(Icons.sports_tennis, 'Courts', distinctCourts.join(' & ')),
-                          Divider(height: 24, color: Colors.green.shade100),
-                        ],
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-                _buildSummaryRow(
-                  Icons.access_time, 
-                  'Times', 
-                  _selectedTimes.isNotEmpty 
-                      ? _selectedTimes.map((t) => '${_extractSlotCourtName(t)}: ${_extractSlotTime(t)} (PHP ${_getSlotPriceValue(t).toStringAsFixed(0)})').join('\n')
-                      : '-'
-                ),
-                Divider(height: 24, color: Colors.green.shade100),
-                _buildSummaryRow(Icons.person, 'Customer', _nameController.text.isEmpty ? '-' : _nameController.text),
-                if (_customerLoyalty?.isMember == true && _loyaltySettings != null) ...[
-                  Divider(height: 24, color: Colors.green.shade100),
-                  _buildSummaryRow(
-                    Icons.stars, 
-                    'VIP Member Discount', 
-                    _loyaltySettings!.memberDiscountType == 'PERCENTAGE' 
-                        ? '${_loyaltySettings!.memberDiscountValue.toInt()}% OFF (Applied)' 
-                        : (_loyaltySettings!.memberDiscountType == 'DISCOUNT_AMOUNT'
-                            ? '-₱${_loyaltySettings!.memberDiscountValue.toStringAsFixed(0)} OFF / slot (Applied)'
-                            : '₱${_loyaltySettings!.memberDiscountValue.toStringAsFixed(0)} Member Rate (Applied)')
-                  ),
-                ],
-                Divider(height: 24, color: Colors.green.shade100),
-                _buildSummaryRow('P', 'Subtotal', _getTotalAmount()),
-                Divider(height: 24, color: Colors.green.shade100),
-                _buildSummaryRow(Icons.receipt, 'Service Charge', 'PHP ${_getServiceFee().toStringAsFixed(2)}'),
-                Divider(height: 24, color: Colors.green.shade100),
-                _buildSummaryRow('P', 'Total Due', _getTotalDue()),
-                SizedBox(height: 24),
-                Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.softWhite.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.info_outline, color: AppColors.primaryGreen, size: 20),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Refund & Cancellation Policy', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 13)),
-                            SizedBox(height: 8),
-                            Text('Cancellations made at least 24 hours in advance will receive a full refund. Cancellations made less than 24 hours before the booking time are non-refundable.', style: TextStyle(color: AppColors.primaryGreen, fontSize: 12, height: 1.4)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          )
         ],
       ),
     );
@@ -3561,20 +3577,43 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  Widget _buildVenuePhotoCarousel() {
+  String _getVenueLogoUrl() {
     String logoUrl = '';
     if (widget.venue != null) {
       logoUrl = (widget.venue!['logo_url'] ?? 
                  widget.venue!['logoUrl'] ?? 
                  widget.venue!['logo'] ?? 
                  widget.venue!['court_logo'] ?? 
+                 widget.venue!['image'] ?? 
                  widget.venue!['icon'] ?? '').toString().trim();
+      if ((logoUrl.isEmpty || !logoUrl.startsWith('http')) && widget.venue!['courts'] is List) {
+        for (var c in widget.venue!['courts']) {
+          final cLogo = (c['logo_url'] ?? c['logoUrl'] ?? c['logo'] ?? c['court_logo'] ?? c['image'] ?? c['icon'] ?? '').toString().trim();
+          if (cLogo.startsWith('http')) {
+            logoUrl = cLogo;
+            break;
+          }
+        }
+      }
     }
-    if (logoUrl.isEmpty && _selectedService != null) {
+    if ((logoUrl.isEmpty || !logoUrl.startsWith('http')) && _selectedService != null) {
       if (_selectedService!.icon.startsWith('http')) {
         logoUrl = _selectedService!.icon;
       }
     }
+    if (logoUrl.isEmpty || !logoUrl.startsWith('http')) {
+      for (var s in _services) {
+        if (s.icon.startsWith('http')) {
+          logoUrl = s.icon;
+          break;
+        }
+      }
+    }
+    return logoUrl;
+  }
+
+  Widget _buildVenuePhotoCarousel() {
+    String logoUrl = _getVenueLogoUrl();
 
     List<String> photosList = [];
 

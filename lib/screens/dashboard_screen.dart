@@ -3417,7 +3417,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildCloudinaryBannerCarousel() {
     const String promoUrl =
-        'https://res.cloudinary.com/doxih7ab3/image/upload/v1791726379/Green_and_White_Modern_Matcha_Latte_Promotion_Facebook_Post_1400_x_630_px_1600_x_630_px_a07ynb.png';
+        'https://res.cloudinary.com/doxih7ab3/image/upload/v1793249996/queuing-system-uploads/1793249994771-594446.png';
 
     return _CloudinaryBannerCarousel(banners: const [
       {
@@ -5146,22 +5146,32 @@ class _CloudinaryBannerCarouselState extends State<_CloudinaryBannerCarousel> {
 
     if (widget.banners.length == 1) {
       final banner = widget.banners.first;
+      final String imgUrl = banner['image'] ?? '';
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: AspectRatio(
-            aspectRatio: 1600 / 630,
-            child: Image.network(
-              banner['image']!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: AppColors.primaryGreen.withOpacity(0.12),
-                child: const Center(
-                  child: Icon(Icons.sports_tennis, size: 48, color: AppColors.primaryGreen),
-                ),
-              ),
-            ),
+            aspectRatio: 1024 / 403,
+            child: imgUrl.startsWith('assets/')
+                ? Image.asset(
+                    imgUrl,
+                    fit: BoxFit.cover,
+                  )
+                : Image.network(
+                    imgUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/hero_banner.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AppColors.primaryGreen.withOpacity(0.12),
+                        child: const Center(
+                          child: Icon(Icons.sports_tennis, size: 48, color: AppColors.primaryGreen),
+                        ),
+                      ),
+                    ),
+                  ),
           ),
         ),
       );
@@ -5177,6 +5187,7 @@ class _CloudinaryBannerCarouselState extends State<_CloudinaryBannerCarousel> {
             itemCount: widget.banners.length,
             itemBuilder: (context, index) {
               final banner = widget.banners[index];
+              final String itemImg = banner['image'] ?? '';
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 child: ClipRRect(
@@ -5184,16 +5195,25 @@ class _CloudinaryBannerCarouselState extends State<_CloudinaryBannerCarousel> {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: Image.network(
-                          banner['image']!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: AppColors.primaryGreen.withOpacity(0.12),
-                            child: const Center(
-                              child: Icon(Icons.sports_tennis, size: 48, color: AppColors.primaryGreen),
-                            ),
-                          ),
-                        ),
+                        child: itemImg.startsWith('assets/')
+                            ? Image.asset(
+                                itemImg,
+                                fit: BoxFit.cover,
+                              )
+                            : Image.network(
+                                itemImg,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Image.asset(
+                                  'assets/hero_banner.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: AppColors.primaryGreen.withOpacity(0.12),
+                                    child: const Center(
+                                      child: Icon(Icons.sports_tennis, size: 48, color: AppColors.primaryGreen),
+                                    ),
+                                  ),
+                                ),
+                              ),
                       ),
                       // Dark gradient overlay (only if title is present)
                       if ((banner['title'] ?? '').isNotEmpty)
