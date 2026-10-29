@@ -120,7 +120,7 @@ class ApiService {
     }
   }
 
-  Future<bool> toggleCourtVerification(dynamic courtId, String venueName, String ownerEmail, bool verify) async {
+  Future<bool> toggleCourtVerification(dynamic courtId, String venueName, String ownerEmail, bool verify, {String? courtName}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       List<String> verifiedVenues = prefs.getStringList('verified_venues') ?? [];
@@ -128,12 +128,16 @@ class ApiService {
       List<String> verifiedCourtIds = prefs.getStringList('verified_court_ids') ?? [];
 
       String venueKey = venueName.trim().toLowerCase();
+      String courtKey = (courtName ?? '').trim().toLowerCase();
       String ownerKey = ownerEmail.trim().toLowerCase();
       String idKey = courtId != null ? courtId.toString() : '';
 
       if (verify) {
         if (venueKey.isNotEmpty && !verifiedVenues.any((v) => v.toLowerCase() == venueKey)) {
           verifiedVenues.add(venueKey);
+        }
+        if (courtKey.isNotEmpty && !verifiedVenues.any((v) => v.toLowerCase() == courtKey)) {
+          verifiedVenues.add(courtKey);
         }
         if (ownerKey.isNotEmpty && !verifiedOwners.any((o) => o.toLowerCase() == ownerKey)) {
           verifiedOwners.add(ownerKey);
@@ -143,6 +147,7 @@ class ApiService {
         }
       } else {
         if (venueKey.isNotEmpty) verifiedVenues.removeWhere((v) => v.toLowerCase() == venueKey);
+        if (courtKey.isNotEmpty) verifiedVenues.removeWhere((v) => v.toLowerCase() == courtKey);
         if (ownerKey.isNotEmpty) verifiedOwners.removeWhere((o) => o.toLowerCase() == ownerKey);
         if (idKey.isNotEmpty) verifiedCourtIds.removeWhere((id) => id == idKey);
       }

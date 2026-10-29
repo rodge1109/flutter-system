@@ -91,6 +91,12 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
               'gcash_number': s['gcash_number'] ?? s['gcash'],
               'paymaya_number': s['paymaya_number'] ?? s['paymaya'],
               'qr_code_url': s['qr_code_url'] ?? s['payment_qr_url'] ?? s['qr_code'],
+              'open_time': s['open_time'] ?? s['openTime'],
+              'openTime': s['open_time'] ?? s['openTime'],
+              'close_time': s['close_time'] ?? s['closeTime'],
+              'closeTime': s['close_time'] ?? s['closeTime'],
+              'is_verified': s['is_verified'] ?? s['isVerified'] ?? false,
+              'isVerified': s['is_verified'] ?? s['isVerified'] ?? false,
             };
         }).toList();
 
@@ -145,6 +151,8 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
             }
           }
 
+          bool isGroupVerified = courtList.any((c) => c['is_verified'] == true || c['isVerified'] == true);
+
           venueList.add({
             'venueKey': key,
             'venueName': vTitle.toUpperCase(),
@@ -165,9 +173,17 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
             'night_start_hour': first['night_start_hour'] ?? first['nightStartHour'],
             'owner_payment': mergedPayment,
             'ownerPayment': mergedPayment,
+            'owner_email': first['owner_email'] ?? first['ownerEmail'] ?? first['email'],
+            'ownerEmail': first['owner_email'] ?? first['ownerEmail'] ?? first['email'],
+            'open_time': first['open_time'] ?? first['openTime'],
+            'openTime': first['open_time'] ?? first['openTime'],
+            'close_time': first['close_time'] ?? first['closeTime'],
+            'closeTime': first['close_time'] ?? first['closeTime'],
             'gcash_number': mergedPayment['gcash_number'] ?? first['gcash_number'],
             'paymaya_number': mergedPayment['paymaya_number'] ?? first['paymaya_number'],
             'qr_code_url': mergedPayment['qr_code_url'] ?? first['qr_code_url'],
+            'is_verified': isGroupVerified,
+            'isVerified': isGroupVerified,
           });
         });
 

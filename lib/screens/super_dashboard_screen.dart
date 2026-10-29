@@ -110,13 +110,15 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     return true;
   }
 
-  bool _isVenueCurrentlyVerified(String venueName, String ownerEmail, dynamic courtId) {
+  bool _isVenueCurrentlyVerified(String venueName, String ownerEmail, dynamic courtId, {String? courtName}) {
     String vKey = venueName.trim().toLowerCase();
+    String cKey = (courtName ?? '').trim().toLowerCase();
     String oKey = ownerEmail.trim().toLowerCase();
     String idKey = courtId != null ? courtId.toString() : '';
 
     if (idKey.isNotEmpty && _verifiedCourtIds.contains(idKey)) return true;
     if (vKey.isNotEmpty && _verifiedVenues.contains(vKey)) return true;
+    if (cKey.isNotEmpty && _verifiedVenues.contains(cKey)) return true;
     if (oKey.isNotEmpty && _verifiedOwners.contains(oKey)) return true;
     return false;
   }
@@ -146,17 +148,20 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     }
   }
 
-  Future<void> _handleToggleVenueVerification(String venueName, String ownerEmail, dynamic courtId, bool currentStatus) async {
+  Future<void> _handleToggleVenueVerification(String venueName, String ownerEmail, dynamic courtId, bool currentStatus, {String? courtName}) async {
     bool nextStatus = !currentStatus;
-    bool success = await _apiService.toggleCourtVerification(courtId, venueName, ownerEmail, nextStatus);
+    bool success = await _apiService.toggleCourtVerification(courtId, venueName, ownerEmail, nextStatus, courtName: courtName);
 
     if (success) {
       await _loadVerifiedLists();
       setState(() {
         for (var c in _allCourts) {
-          String cvName = (c['name'] ?? c['venue_name'] ?? '').toString().trim();
+          String cvName = (c['venue_name'] ?? c['venueName'] ?? '').toString().trim();
+          String cName = (c['name'] ?? '').toString().trim();
           String coEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
-          if (c['id'] == courtId || (cvName.toLowerCase() == venueName.toLowerCase() && (ownerEmail.isEmpty || coEmail.toLowerCase() == ownerEmail.toLowerCase()))) {
+          if (c['id'] == courtId || 
+              (venueName.isNotEmpty && cvName.toLowerCase() == venueName.toLowerCase()) ||
+              (courtName != null && courtName.isNotEmpty && cName.toLowerCase() == courtName.toLowerCase())) {
             c['is_verified'] = nextStatus;
             c['isVerified'] = nextStatus;
           }
@@ -164,12 +169,13 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       });
 
       if (mounted) {
+        final label = courtName != null && courtName.isNotEmpty ? courtName : venueName;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               nextStatus
-                  ? '✅ $venueName marked as "Verified Venue" (Badge will show in Nearby Venues).'
-                  : 'ℹ️ $venueName verification removed.',
+                  ? '✅ $label marked as "VERIFIED" (Badge active on Nearby Venues & Courts).'
+                  : 'ℹ️ $label verification removed.',
               style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
             ),
             backgroundColor: nextStatus ? AppColors.primaryGreen : Colors.grey.shade800,
@@ -1429,13 +1435,18 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: filteredCourts.map((c) {
-                String vName = (c['name'] ?? c['venue_name'] ?? 'Court Venue').toString().trim();
+                String cName = (c['name'] ?? '').toString().trim();
+                String vTitle = (c['venue_name'] ?? c['venueName'] ?? '').toString().trim();
+                if (vTitle.isEmpty) vTitle = cName;
+                String displayName = vTitle.isNotEmpty && vTitle.toLowerCase() != cName.toLowerCase()
+                    ? '$vTitle - $cName'
+                    : (cName.isNotEmpty ? cName : vTitle);
                 String oEmail = (c['owner_email'] ?? c['ownerEmail'] ?? '').toString().trim();
-                bool isActive = _isVenueCurrentlyActive(vName, oEmail);
+                bool isActive = _isVenueCurrentlyActive(vTitle, oEmail) || _isVenueCurrentlyActive(cName, oEmail);
                 dynamic courtId = c['id'];
                 bool isVerified = (c['is_verified'] == true || c['is_verified'] == 1 || c['is_verified'] == 'true' ||
                                    c['isVerified'] == true || c['isVerified'] == 1 || c['isVerified'] == 'true') ||
-                                  _isVenueCurrentlyVerified(vName, oEmail, courtId);
+                                  _isVenueCurrentlyVerified(vTitle, oEmail, courtId, courtName: cName);
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -1459,7 +1470,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  vName,
+                                  displayName,
                                   style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1490,7 +1501,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                                 activeColor: AppColors.primaryGreen,
                                 inactiveThumbColor: Colors.grey,
                                 onChanged: (val) {
-                                  _handleToggleVenueActivation(vName, oEmail, courtId, isActive);
+                                  _handleToggleVenueActivation(vTitle, oEmail, courtId, isActive);
                                 },
                               ),
                             ],
@@ -1545,7 +1556,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                               value: isVerified,
                               activeColor: Colors.blue.shade600,
                               onChanged: (val) {
-                                _handleToggleVenueVerification(vName, oEmail, courtId, isVerified);
+                                _handleToggleVenueVerification(vTitle, oEmail, courtId, isVerified, courtName: cName);
                               },
                             ),
                           ],

@@ -1018,11 +1018,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         floatingActionButton: SizedBox(
           height: 44,
           child: FloatingActionButton.extended(
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => SuperDashboardScreen()),
               );
+              await _loadUserData();
+              _loadCourts();
             },
             backgroundColor: AppColors.primaryGreen,
             elevation: 6,
@@ -2694,7 +2696,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
-                  // Court Logo Badge overlay on bottom-left of photo card
+                   // Court Logo Badge overlay on bottom-left of photo card
                   Positioned(
                     bottom: 6,
                     left: 8,
@@ -2720,6 +2722,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
+                  if (court['is_verified'] == true ||
+                      court['isVerified'] == true ||
+                      _verifiedCourtIdsCache.contains(courtId) ||
+                      _verifiedCourtIdsCache.contains(court['id']?.toString()) ||
+                      _verifiedVenuesCache.contains((court['name'] ?? '').toString().trim().toLowerCase()) ||
+                      _verifiedVenuesCache.contains((court['venueName'] ?? court['venue_name'] ?? court['venue'] ?? '').toString().trim().toLowerCase()))
+                    Positioned(
+                      bottom: 6,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.6), width: 0.8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0284C7).withOpacity(0.35),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.verified_rounded, color: Color(0xFF38BDF8), size: 11),
+                            SizedBox(width: 3),
+                            Text(
+                              'VERIFIED',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: Colors.white,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -4007,6 +4055,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
+                  if (court['is_verified'] == true ||
+                      court['isVerified'] == true ||
+                      _verifiedCourtIdsCache.contains(court['id']?.toString()) ||
+                      _verifiedVenuesCache.contains((court['name'] ?? '').toString().trim().toLowerCase()) ||
+                      _verifiedVenuesCache.contains((court['venueName'] ?? court['venue_name'] ?? court['venue'] ?? '').toString().trim().toLowerCase()))
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.6), width: 0.8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0284C7).withOpacity(0.35),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.verified_rounded, color: Color(0xFF38BDF8), size: 10),
+                            SizedBox(width: 3),
+                            Text(
+                              'VERIFIED',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: Colors.white,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -4874,30 +4967,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           : null,
                     ),
                   ),
-                  if (venue['is_verified'] == true || venue['isVerified'] == true)
+                  if (venue['is_verified'] == true ||
+                      venue['isVerified'] == true ||
+                      _verifiedVenuesCache.contains((venue['venueName'] ?? '').toString().trim().toLowerCase()) ||
+                      _verifiedVenuesCache.contains((venue['venueKey'] ?? '').toString().trim().toLowerCase()) ||
+                      courts.any((c) =>
+                          c['is_verified'] == true ||
+                          c['isVerified'] == true ||
+                          _verifiedCourtIdsCache.contains(c['id']?.toString()) ||
+                          _verifiedVenuesCache.contains((c['name'] ?? '').toString().trim().toLowerCase())))
                     Positioned(
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.55),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.8),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.6), width: 1.0),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0284C7).withOpacity(0.35),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.verified_rounded, color: Color(0xFF29B6F6), size: 13),
-                            const SizedBox(width: 4),
+                          children: const [
+                            Icon(Icons.verified_rounded, color: Color(0xFF38BDF8), size: 13),
+                            SizedBox(width: 4),
                             Text(
-                              'Verified Venue',
+                              'VERIFIED',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
-                                color: AppColors.softWhite,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.2,
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
                               ),
                             ),
                           ],
