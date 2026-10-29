@@ -1024,7 +1024,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 MaterialPageRoute(builder: (_) => SuperDashboardScreen()),
               );
               await _loadUserData();
-              _loadCourts();
+              _fetchCourts();
             },
             backgroundColor: AppColors.primaryGreen,
             elevation: 6,
