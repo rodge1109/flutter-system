@@ -265,6 +265,32 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> getAppointmentById(String id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/appointments/$id'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is Map<String, dynamic>) {
+          if (data['appointment'] != null && data['appointment'] is Map) {
+            return Map<String, dynamic>.from(data['appointment']);
+          } else if (data['success'] == true && data['data'] != null && data['data'] is Map) {
+            return Map<String, dynamic>.from(data['data']);
+          } else if (data.containsKey('id')) {
+            return data;
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching appointment $id: $e');
+      return null;
+    }
+  }
+
+
   Future<String?> holdSlots({
     required String dateStr,
     required List<String> times,

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dashboard_screen.dart';
 import 'owner_dashboard_screen.dart';
 import 'login_screen.dart';
+import 'court_pass_screen.dart';
 import '../theme/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -63,13 +64,41 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       await prefs.setString('pending_openplay', openplayId);
     }
     
-    // If browser URL has a deep link slug (e.g. /aminova), let DeepLinkHandlerScreen handle navigation
+    // If browser URL has a court pass link (e.g. /b/2265226), navigate directly to CourtPassScreen
     final pathSegments = Uri.base.pathSegments;
     if (pathSegments.isNotEmpty && 
         pathSegments.first.isNotEmpty && 
         pathSegments.first != 'index.html' && 
         pathSegments.first != 'splash') {
+      final firstSlug = pathSegments.first.toLowerCase();
+      if (firstSlug == 'b' || firstSlug == 'pass' || firstSlug == 'courtpass' || firstSlug == 'court-pass') {
+        final bId = pathSegments.length > 1 ? pathSegments[1] : Uri.base.queryParameters['id'];
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => CourtPassScreen(bookingId: bId, queryParams: Uri.base.queryParameters),
+          ),
+        );
+        return;
+      }
       return;
+    }
+
+    if (Uri.base.fragment.isNotEmpty) {
+      String frag = Uri.base.fragment;
+      if (frag.startsWith('/')) frag = frag.substring(1);
+      final fragParts = frag.split('/');
+      if (fragParts.isNotEmpty) {
+        final fSlug = fragParts.first.toLowerCase();
+        if (fSlug == 'b' || fSlug == 'pass' || fSlug == 'courtpass' || fSlug == 'court-pass') {
+          final bId = fragParts.length > 1 ? fragParts[1] : null;
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => CourtPassScreen(bookingId: bId, queryParams: Uri.base.queryParameters),
+            ),
+          );
+          return;
+        }
+      }
     }
 
     final userStr = prefs.getString('user');

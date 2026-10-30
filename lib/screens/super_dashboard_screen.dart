@@ -859,7 +859,6 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.primaryGreen.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1022,7 +1021,6 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.primaryGreen.withOpacity(0.4)),
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<String>(
@@ -1349,78 +1347,70 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2F999).withOpacity(0.5),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Registered Venues', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Registered Venues', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
+                ],
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${filteredCourts.length} ${filteredCourts.length == 1 ? 'Venue' : 'Venues'}',
+                      style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () async {
+                      String defaultOwner = 'rodge1109@yahoo.com';
+                      if (_selectedVenueKey != 'ALL' && _selectedVenueKey.contains('(')) {
+                        final match = RegExp(r'\(([^)]+)\)').firstMatch(_selectedVenueKey);
+                        if (match != null && match.group(1) != null) {
+                          defaultOwner = match.group(1)!;
+                        }
+                      }
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddCourtScreen(userEmail: defaultOwner),
+                        ),
+                      );
+                      _loadDashboardData();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryGreen,
+                        color: AppColors.richBlack,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        '${filteredCourts.length} ${filteredCourts.length == 1 ? 'Venue' : 'Venues'}',
-                        style: TextStyle(color: AppColors.softWhite, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () async {
-                        String defaultOwner = 'rodge1109@yahoo.com';
-                        if (_selectedVenueKey != 'ALL' && _selectedVenueKey.contains('(')) {
-                          final match = RegExp(r'\(([^)]+)\)').firstMatch(_selectedVenueKey);
-                          if (match != null && match.group(1) != null) {
-                            defaultOwner = match.group(1)!;
-                          }
-                        }
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AddCourtScreen(userEmail: defaultOwner),
+                      child: Row(
+                        children: [
+                          Icon(Icons.add, size: 14, color: Colors.white),
+                          const SizedBox(width: 2),
+                          Text(
+                            'Add Venue',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                           ),
-                        );
-                        _loadDashboardData();
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.richBlack,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.add, size: 14, color: Colors.white),
-                            const SizedBox(width: 2),
-                            Text(
-                              'Add Venue',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -1452,18 +1442,15 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.softWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isActive ? AppColors.primaryGreen.withOpacity(0.3) : Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))
-                    ],
+                    color: AppColors.primaryGreen.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
                             child: Column(
@@ -1483,41 +1470,45 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                               ],
                             ),
                           ),
-                          
-                          // COURT ACTIVATION TOGGLE BUTTON
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                isActive ? 'ACTIVATED' : 'DEACTIVATED',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: isActive ? AppColors.primaryGreen : Colors.redAccent,
+                          const SizedBox(width: 8),
+                          // COURT ACTIVATION TOGGLE BUTTON (aligned to match the Verified switch)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  isActive ? 'ACTIVATED' : 'DEACTIVATED',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                    color: isActive ? AppColors.primaryGreen : Colors.redAccent,
+                                  ),
                                 ),
-                              ),
-                              Switch(
-                                value: isActive,
-                                activeColor: AppColors.primaryGreen,
-                                inactiveThumbColor: Colors.grey,
-                                onChanged: (val) {
-                                  _handleToggleVenueActivation(vTitle, oEmail, courtId, isActive);
-                                },
-                              ),
-                            ],
+                                const SizedBox(height: 2),
+                                Switch(
+                                  value: isActive,
+                                  activeColor: AppColors.primaryGreen,
+                                  inactiveThumbColor: Colors.grey,
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  onChanged: (val) {
+                                    _handleToggleVenueActivation(vTitle, oEmail, courtId, isActive);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       // VERIFIED VENUE TOGGLE OPTION
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: isVerified ? const Color(0xFFE3F2FD) : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isVerified ? Colors.blue.shade200 : Colors.grey.shade200,
-                          ),
+                          color: isVerified ? const Color(0xFFE3F2FD) : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1555,6 +1546,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                             Switch(
                               value: isVerified,
                               activeColor: Colors.blue.shade600,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               onChanged: (val) {
                                 _handleToggleVenueVerification(vTitle, oEmail, courtId, isVerified, courtName: cName);
                               },
@@ -1563,7 +1555,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Divider(height: 1, color: Colors.grey.shade200),
+                      Divider(height: 1, color: AppColors.primaryGreen.withOpacity(0.15)),
                       const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1606,9 +1598,8 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: AppColors.primaryGreen.withOpacity(0.1),
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,

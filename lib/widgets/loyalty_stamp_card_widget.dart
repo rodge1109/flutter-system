@@ -56,43 +56,50 @@ class LoyaltyStampCardWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentLime.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const PickleballIcon(
-                      size: 20,
-                      color: AppColors.accentLime,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        courtOwnerName,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentLime.withOpacity(0.2),
+                        shape: BoxShape.circle,
                       ),
-                      Text(
-                        isMember ? 'VIP Member Club' : 'Loyalty Rewards',
-                        style: GoogleFonts.outfit(
-                          color: AppColors.accentLime,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: const PickleballIcon(
+                        size: 20,
+                        color: AppColors.accentLime,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            courtOwnerName,
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            isMember ? 'VIP Member Club' : 'Loyalty Rewards',
+                            style: GoogleFonts.outfit(
+                              color: AppColors.accentLime,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(

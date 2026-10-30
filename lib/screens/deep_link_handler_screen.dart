@@ -95,6 +95,8 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
               'openTime': s['open_time'] ?? s['openTime'],
               'close_time': s['close_time'] ?? s['closeTime'],
               'closeTime': s['close_time'] ?? s['closeTime'],
+              'photos': s['photos'] ?? s['images'] ?? [],
+              'images': s['images'] ?? s['photos'] ?? [],
               'is_verified': s['is_verified'] ?? s['isVerified'] ?? false,
               'isVerified': s['is_verified'] ?? s['isVerified'] ?? false,
             };
@@ -153,6 +155,18 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
 
           bool isGroupVerified = courtList.any((c) => c['is_verified'] == true || c['isVerified'] == true);
 
+          List<String> venuePhotos = [];
+          for (var c in courtList) {
+            final pList = c['photos'] ?? c['images'];
+            if (pList is List) {
+              for (var p in pList) {
+                if (p != null && p.toString().trim().startsWith('http') && !venuePhotos.contains(p.toString().trim())) {
+                  venuePhotos.add(p.toString().trim());
+                }
+              }
+            }
+          }
+
           venueList.add({
             'venueKey': key,
             'venueName': vTitle.toUpperCase(),
@@ -184,6 +198,8 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
             'qr_code_url': mergedPayment['qr_code_url'] ?? first['qr_code_url'],
             'is_verified': isGroupVerified,
             'isVerified': isGroupVerified,
+            'photos': venuePhotos,
+            'images': venuePhotos,
           });
         });
 
@@ -237,13 +253,31 @@ class _DeepLinkHandlerScreenState extends State<DeepLinkHandlerScreen> {
           if (courtsInVenue.isNotEmpty) {
             Map<String, dynamic>? courtMatch;
             if (searchSlug.contains('green')) {
-              courtMatch = courtsInVenue.firstWhere((c) => c['name'].toString().toLowerCase().contains('green'), orElse: () => null);
+              for (var c in courtsInVenue) {
+                if (c['name'].toString().toLowerCase().contains('green')) {
+                  courtMatch = c;
+                  break;
+                }
+              }
             } else if (searchSlug.contains('blue')) {
-              courtMatch = courtsInVenue.firstWhere((c) => c['name'].toString().toLowerCase().contains('blue'), orElse: () => null);
+              for (var c in courtsInVenue) {
+                if (c['name'].toString().toLowerCase().contains('blue')) {
+                  courtMatch = c;
+                  break;
+                }
+              }
             }
             
             // Default or fallback to Red Court
-            courtMatch ??= courtsInVenue.firstWhere((c) => c['name'].toString().toLowerCase().contains('red'), orElse: () => courtsInVenue.first);
+            if (courtMatch == null) {
+              for (var c in courtsInVenue) {
+                if (c['name'].toString().toLowerCase().contains('red')) {
+                  courtMatch = c;
+                  break;
+                }
+              }
+              courtMatch ??= courtsInVenue.isNotEmpty ? courtsInVenue.first : null;
+            }
             matchedCourtName = courtMatch?['name'];
           }
         }

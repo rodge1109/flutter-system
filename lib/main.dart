@@ -3,6 +3,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'screens/splash_screen.dart';
 import 'screens/deep_link_handler_screen.dart';
 import 'screens/booking_confirmation_screen.dart';
+import 'screens/court_pass_screen.dart';
 import 'theme/app_colors.dart';
 
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
@@ -109,12 +110,32 @@ class PicklebookApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      initialRoute: '/',
       onGenerateRoute: (settings) {
-        if (settings.name != null && settings.name != '/') {
-          final uri = Uri.parse(settings.name!);
-          if (uri.pathSegments.isNotEmpty) {
-            final slug = uri.pathSegments[0];
+        String routeName = settings.name ?? '';
+        if (kIsWeb && (routeName.isEmpty || routeName == '/')) {
+          if (Uri.base.fragment.isNotEmpty && Uri.base.fragment != '/') {
+            routeName = Uri.base.fragment;
+          } else if (Uri.base.pathSegments.isNotEmpty &&
+              Uri.base.pathSegments.first.isNotEmpty &&
+              Uri.base.pathSegments.first != 'index.html') {
+            routeName = Uri.base.path;
+          }
+        }
+
+        if (routeName.isNotEmpty && routeName != '/') {
+          String rawName = routeName;
+          if (rawName.startsWith('/#/')) {
+            rawName = rawName.substring(2);
+          } else if (rawName.startsWith('#/')) {
+            rawName = rawName.substring(1);
+          } else if (rawName.startsWith('#')) {
+            rawName = rawName.substring(1);
+          }
+          final uri = Uri.parse(rawName);
+          final segments = uri.pathSegments;
+
+          if (segments.isNotEmpty) {
+            final slug = segments[0].toLowerCase();
             if (slug == 'preview_confirmation') {
               return MaterialPageRoute(
                 builder: (context) => BookingConfirmationScreen(
@@ -130,6 +151,32 @@ class PicklebookApp extends StatelessWidget {
                 ),
               );
             }
+
+            // Court pass / booking pass routes: /b, /b/:id, /pass/:id, /courtpass/:id
+            if (slug == 'b' || slug == 'pass' || slug == 'courtpass' || slug == 'court-pass') {
+              String? bookingId;
+              if (segments.length > 1 && segments[1].trim().isNotEmpty) {
+                bookingId = segments[1].trim();
+              } else if (uri.queryParameters.containsKey('id')) {
+                bookingId = uri.queryParameters['id'];
+              } else if (uri.queryParameters.containsKey('bookingId')) {
+                bookingId = uri.queryParameters['bookingId'];
+              } else if (kIsWeb && Uri.base.queryParameters.containsKey('id')) {
+                bookingId = Uri.base.queryParameters['id'];
+              }
+
+              final queryParams = uri.queryParameters.isNotEmpty
+                  ? uri.queryParameters
+                  : (kIsWeb && Uri.base.queryParameters.isNotEmpty ? Uri.base.queryParameters : null);
+
+              return MaterialPageRoute(
+                builder: (context) => CourtPassScreen(
+                  bookingId: bookingId,
+                  queryParams: queryParams,
+                ),
+              );
+            }
+
             return MaterialPageRoute(
               builder: (context) => DeepLinkHandlerScreen(slug: slug),
             );

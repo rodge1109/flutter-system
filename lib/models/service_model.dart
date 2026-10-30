@@ -61,6 +61,8 @@ class ServiceModel {
   final String? dayPrice;
   final String? nightPrice;
   final bool isVerified;
+  final List<String> photos;
+  final List<String> images;
 
   ServiceModel({
     required this.id,
@@ -75,6 +77,8 @@ class ServiceModel {
     required this.category,
     required this.isActive,
     this.isVerified = false,
+    this.photos = const [],
+    this.images = const [],
     this.variablePrices,
     this.ownerPayment,
     this.latitude,
@@ -277,6 +281,29 @@ class ServiceModel {
       }
     }
 
+    List<String> parsedPhotos = [];
+    final rawPhotos = json['photos'] ?? json['images'] ?? json['gallery'];
+    if (rawPhotos != null) {
+      if (rawPhotos is List) {
+        parsedPhotos = rawPhotos.map((e) => e.toString().trim()).where((e) => e.isNotEmpty && e.startsWith('http')).toList();
+      } else if (rawPhotos is String && rawPhotos.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rawPhotos);
+          if (decoded is List) {
+            parsedPhotos = decoded.map((e) => e.toString().trim()).where((e) => e.isNotEmpty && e.startsWith('http')).toList();
+          } else if (rawPhotos.startsWith('http')) {
+            parsedPhotos = [rawPhotos.trim()];
+          }
+        } catch (_) {
+          if (rawPhotos.contains(',')) {
+            parsedPhotos = rawPhotos.split(',').map((e) => e.trim()).where((e) => e.startsWith('http')).toList();
+          } else if (rawPhotos.startsWith('http')) {
+            parsedPhotos = [rawPhotos.trim()];
+          }
+        }
+      }
+    }
+
     return ServiceModel(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
@@ -290,6 +317,8 @@ class ServiceModel {
       category: json['category'] as String? ?? 'General',
       isActive: parsedIsActive,
       isVerified: parsedIsVerified,
+      photos: parsedPhotos,
+      images: parsedPhotos,
       variablePrices: parsedVariablePrices,
       ownerPayment: parsedOwnerPayment.isNotEmpty ? parsedOwnerPayment : null,
       latitude: json['latitude'] != null ? double.tryParse(json['latitude'].toString()) : null,

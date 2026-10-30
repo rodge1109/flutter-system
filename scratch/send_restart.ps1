@@ -41,45 +41,51 @@ public class ConsoleSender {
         public uint dwControlKeyState;
     }
 
-    public static bool SendChar(uint pid, char c) {
+    public static bool SendKey(uint pid, char c, bool shift) {
         FreeConsole();
         if (!AttachConsole(pid)) {
-            Console.WriteLine("AttachConsole failed: " + Marshal.GetLastWin32Error());
             return false;
         }
 
         IntPtr handle = GetStdHandle(STD_INPUT_HANDLE);
         if (handle == IntPtr.Zero || handle == (IntPtr)(-1)) {
-            Console.WriteLine("GetStdHandle failed");
             FreeConsole();
             return false;
         }
 
         INPUT_RECORD[] records = new INPUT_RECORD[2];
-        
+        ushort vk = (ushort)char.ToUpper(c);
+        uint controlState = shift ? 0x0010u : 0u;
+
         // Key down
-        records[0].EventType = 1; // KEY_EVENT
+        records[0].EventType = 1;
         records[0].KeyEvent.bKeyDown = true;
         records[0].KeyEvent.wRepeatCount = 1;
-        records[0].KeyEvent.wVirtualKeyCode = (ushort)c;
+        records[0].KeyEvent.wVirtualKeyCode = vk;
         records[0].KeyEvent.UnicodeChar = c;
-        records[0].KeyEvent.dwControlKeyState = 0;
+        records[0].KeyEvent.dwControlKeyState = controlState;
 
         // Key up
-        records[1].EventType = 1; // KEY_EVENT
+        records[1].EventType = 1;
         records[1].KeyEvent.bKeyDown = false;
         records[1].KeyEvent.wRepeatCount = 1;
-        records[1].KeyEvent.wVirtualKeyCode = (ushort)c;
+        records[1].KeyEvent.wVirtualKeyCode = vk;
         records[1].KeyEvent.UnicodeChar = c;
-        records[1].KeyEvent.dwControlKeyState = 0;
+        records[1].KeyEvent.dwControlKeyState = controlState;
 
         uint written = 0;
         bool ok = WriteConsoleInput(handle, records, (uint)records.Length, out written);
-        Console.WriteLine("WriteConsoleInput result: " + ok + ", written: " + written);
         FreeConsole();
         return ok;
     }
 }
 "@
 
-[ConsoleSender]::SendChar(27124, 'R')
+$allPids = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*flutter*" -or $_.CommandLine -like "*dart.exe*" } | Select-Object -ExpandProperty ProcessId
+foreach ($pidNum in $allPids) {
+    Write-Host "Sending 'R' and 'r' to PID ${pidNum}..."
+    $res1 = [ConsoleSender]::SendKey([uint32]$pidNum, 'R', $true)
+    $res2 = [ConsoleSender]::SendKey([uint32]$pidNum, 'r', $false)
+    Write-Host "Result for PID ${pidNum}: R=$res1, r=$res2"
+}
+

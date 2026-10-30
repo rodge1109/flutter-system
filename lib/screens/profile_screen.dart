@@ -31,6 +31,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _paymentQrUrl;
   bool _isUploadingQr = false;
   bool _isOwner = false;
+  bool _isSuperAdmin = false;
+  bool _isLoggedIn = false;
   int? _userId;
   bool _isLoading = true;
   List<CustomerModel> _loyaltyRecords = [];
@@ -46,26 +48,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
     if (userStr != null) {
-      final userObj = json.decode(userStr);
-      _userId = userObj['id'];
-      _isOwner = userObj['role'] == 'owner' || userObj['role'] == 'court_owner';
-      _nameController.text = userObj['full_name'] ?? userObj['name'] ?? '';
-      _emailController.text = userObj['email'] ?? '';
-      _phoneController.text = userObj['phone'] ?? userObj['phone_number'] ?? userObj['phoneNumber'] ?? userObj['telephone'] ?? userObj['mobile'] ?? '';
-      _addressController.text = userObj['address'] ?? '';
-      _gcashController.text = userObj['gcash_number'] ?? userObj['gcash'] ?? '';
-      _paymayaController.text = userObj['paymaya_number'] ?? userObj['paymaya'] ?? userObj['maya_number'] ?? '';
-      _bankAccountController.text = userObj['bank_account'] ?? userObj['bank_account_number'] ?? '';
-      _bankNameController.text = userObj['bank_account_name'] ?? userObj['bank_name'] ?? '';
-      _paymentInstructionsController.text = userObj['payment_instructions'] ?? userObj['instructions'] ?? '';
-      _paymentQrUrl = userObj['qr_code_url'] ?? userObj['payment_qr_url'] ?? userObj['qr_code'];
-      _facebookController.text = userObj['facebook_url'] ?? userObj['facebook'] ?? '';
-      _instagramController.text = userObj['instagram_url'] ?? userObj['instagram'] ?? '';
-      _websiteController.text = userObj['website_url'] ?? userObj['website'] ?? '';
+      try {
+        final userObj = json.decode(userStr);
+        final role = (userObj['role'] ?? 'user').toString().toLowerCase().trim();
+        _userId = userObj['id'];
+        _isOwner = role == 'owner' || role == 'court_owner';
+        _isSuperAdmin = role == 'super_admin';
+        _isLoggedIn = true;
+        _nameController.text = userObj['full_name'] ?? userObj['name'] ?? '';
+        _emailController.text = userObj['email'] ?? '';
+        _phoneController.text = userObj['phone'] ?? userObj['phone_number'] ?? userObj['phoneNumber'] ?? userObj['telephone'] ?? userObj['mobile'] ?? '';
+        _addressController.text = userObj['address'] ?? '';
+        _gcashController.text = userObj['gcash_number'] ?? userObj['gcash'] ?? '';
+        _paymayaController.text = userObj['paymaya_number'] ?? userObj['paymaya'] ?? userObj['maya_number'] ?? '';
+        _bankAccountController.text = userObj['bank_account'] ?? userObj['bank_account_number'] ?? '';
+        _bankNameController.text = userObj['bank_account_name'] ?? userObj['bank_name'] ?? '';
+        _paymentInstructionsController.text = userObj['payment_instructions'] ?? userObj['instructions'] ?? '';
+        _paymentQrUrl = userObj['qr_code_url'] ?? userObj['payment_qr_url'] ?? userObj['qr_code'];
+        _facebookController.text = userObj['facebook_url'] ?? userObj['facebook'] ?? '';
+        _instagramController.text = userObj['instagram_url'] ?? userObj['instagram'] ?? '';
+        _websiteController.text = userObj['website_url'] ?? userObj['website'] ?? '';
+      } catch (_) {
+        _isLoggedIn = false;
+      }
+    } else {
+      _isLoggedIn = false;
+      _isOwner = false;
+      _isSuperAdmin = false;
+      _loyaltyRecords.clear();
     }
     setState(() => _isLoading = false);
-    if (_emailController.text.trim().isNotEmpty) {
+    
+    // Only fetch loyalty stamps if logged-in as a regular player (never for Super Admin, Court Owner, or logged-out)
+    if (_isLoggedIn && !_isOwner && !_isSuperAdmin && _emailController.text.trim().isNotEmpty) {
       _fetchLoyaltyRecords();
+    } else {
+      if (mounted) {
+        setState(() {
+          _loyaltyRecords.clear();
+          _isLoadingLoyalty = false;
+        });
+      }
     }
   }
 
@@ -144,7 +167,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _fetchLoyaltyRecords() async {
-    if (_emailController.text.trim().isEmpty) return;
+    if (!_isLoggedIn || _isOwner || _isSuperAdmin || _emailController.text.trim().isEmpty) {
+      if (mounted) setState(() => _loyaltyRecords.clear());
+      return;
+    }
     setState(() => _isLoadingLoyalty = true);
     final records = await ApiService().fetchAllCustomerLoyalty(_emailController.text.trim());
     if (mounted) {
@@ -262,89 +288,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: 24),
 
                   // --- MY REWARDS & LOYALTY STAMPS SECTION ---
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: Offset(0, 2)),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.stars_rounded, color: Colors.amber, size: 22),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'My Rewards & Loyalty Stamps',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack),
-                                  ),
-                                  Text(
-                                    'Earn 1 stamp per booking. 10th session is ONE HOUR FREE!',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.refresh, size: 18, color: Colors.grey.shade600),
-                              onPressed: _fetchLoyaltyRecords,
-                              tooltip: 'Refresh Stamps',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (_isLoadingLoyalty)
-                          const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
-                        else if (_loyaltyRecords.isEmpty)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryGreen.withOpacity(0.06),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.card_giftcard_rounded, color: AppColors.primaryGreen, size: 24),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'No stamps yet. Book your first court session to start earning loyalty stamps toward your FREE 10th session!',
-                                    style: TextStyle(fontSize: 12, color: AppColors.richBlack.withOpacity(0.8)),
-                                  ),
+                  // Only display for regular logged-in players. Hidden for Super Admin, Court Owner, and after log out.
+                  if (_isLoggedIn && !_isOwner && !_isSuperAdmin && _loyaltyRecords.isNotEmpty) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 24),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: Offset(0, 2)),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.withOpacity(0.15),
+                                  shape: BoxShape.circle,
                                 ),
-                              ],
-                            ),
-                          )
-                        else
-                          Column(
-                            children: _loyaltyRecords.map((rec) {
-                              return LoyaltyStampCardWidget(
-                                stampCount: rec.stampCount,
-                                courtOwnerName: rec.ownerEmail.isNotEmpty ? 'Venue (${rec.ownerEmail})' : 'Court Loyalty',
-                                isMember: rec.isMember,
-                              );
-                            }).toList(),
+                                child: const Icon(Icons.stars_rounded, color: Colors.amber, size: 22),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'My Rewards & Loyalty Stamps',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.richBlack),
+                                    ),
+                                    Text(
+                                      'Earn 1 stamp per booking. 10th session is ONE HOUR FREE!',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.refresh, size: 18, color: Colors.grey.shade600),
+                                onPressed: _fetchLoyaltyRecords,
+                                tooltip: 'Refresh Stamps',
+                              ),
+                            ],
                           ),
-                      ],
+                          const SizedBox(height: 12),
+                          if (_isLoadingLoyalty)
+                            const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                          else
+                            Column(
+                              children: _loyaltyRecords.map((rec) {
+                                return LoyaltyStampCardWidget(
+                                  stampCount: rec.stampCount,
+                                  courtOwnerName: rec.ownerEmail.isNotEmpty ? 'Venue (${rec.ownerEmail})' : 'Court Loyalty',
+                                  isMember: rec.isMember,
+                                );
+                              }).toList(),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
 
                   TextFormField(
                     controller: _nameController,
@@ -589,24 +598,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: 32),
                   ElevatedButton(
                     onPressed: _saveProfile,
-                    child: Text('Save Changes'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Save Changes',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
                   ),
                   SizedBox(height: 16),
                   OutlinedButton(
                     onPressed: () async {
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.remove('user');
+                      setState(() {
+                        _isLoggedIn = false;
+                        _isOwner = false;
+                        _isSuperAdmin = false;
+                        _loyaltyRecords.clear();
+                      });
+                      if (!mounted) return;
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(builder: (context) => LoginScreen()),
                         (Route<dynamic> route) => false,
                       );
                     },
                     style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       side: BorderSide(color: Colors.grey.shade400),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                     ),
-                    child: Text('Log Out', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                    child: const Text(
+                      'Log Out',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.richBlack),
+                    ),
                   )
                 ],
               ),

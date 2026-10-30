@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import '../widgets/custom_paddle_icon.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -59,6 +60,7 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _isLoadingSlots = false;
   String _selectedCategory = 'All';
   Set<int> _expandedCourtIds = {};
+  bool _copiedVenueLink = false;
   
   final List<String> _allTimeSlots = List.generate(24, (i) {
     int h = i % 12 == 0 ? 12 : i % 12;
@@ -360,7 +362,7 @@ class _BookingScreenState extends State<BookingScreen> {
   Future<void> _loadServices() async {
     if (widget.venue != null && widget.venue!['courts'] != null) {
       final List<dynamic> rawCourts = widget.venue!['courts'];
-      final List<ServiceModel> venueCourts = rawCourts.asMap().entries.map((entry) {
+      List<ServiceModel> venueCourts = rawCourts.asMap().entries.map((entry) {
         final idx = entry.key;
         final c = entry.value;
         int courtId = c['id'] is int ? c['id'] : (int.tryParse(c['id'].toString()) ?? (1000 + idx));
@@ -431,6 +433,30 @@ class _BookingScreenState extends State<BookingScreen> {
         if (cOwner.isEmpty && c['serviceObj'] is ServiceModel) {
           cOwner = (c['serviceObj'] as ServiceModel).ownerEmail;
         }
+
+        List<String> courtPhotos = [];
+        final rawCp = c['photos'] ?? c['images'] ?? (c['serviceObj'] is ServiceModel ? (c['serviceObj'] as ServiceModel).photos : null) ?? widget.venue!['photos'] ?? widget.venue!['images'];
+        if (rawCp != null) {
+          if (rawCp is List) {
+            courtPhotos = rawCp.map((e) => e.toString().trim()).where((e) => e.isNotEmpty && e.startsWith('http')).toList();
+          } else if (rawCp is String && rawCp.trim().isNotEmpty) {
+            try {
+              final decoded = json.decode(rawCp);
+              if (decoded is List) {
+                courtPhotos = decoded.map((e) => e.toString().trim()).where((e) => e.isNotEmpty && e.startsWith('http')).toList();
+              } else if (rawCp.startsWith('http')) {
+                courtPhotos = [rawCp.trim()];
+              }
+            } catch (_) {
+              if (rawCp.contains(',')) {
+                courtPhotos = rawCp.split(',').map((e) => e.trim()).where((e) => e.startsWith('http')).toList();
+              } else if (rawCp.startsWith('http')) {
+                courtPhotos = [rawCp.trim()];
+              }
+            }
+          }
+        }
+
         return ServiceModel(
           id: courtId,
           name: c['name'] ?? 'Court ${idx + 1}',
@@ -441,6 +467,8 @@ class _BookingScreenState extends State<BookingScreen> {
           duration: c['duration'] ?? '1H',
           category: 'pickle',
           isActive: true,
+          photos: courtPhotos,
+          images: courtPhotos,
           variablePrices: parsedVar,
           hourlyPrices: parsedVar,
           ownerPayment: cPayment.isNotEmpty ? cPayment : null,
@@ -456,6 +484,55 @@ class _BookingScreenState extends State<BookingScreen> {
           facilities: courtFac,
         );
       }).toList();
+
+      bool hasAnyCourtPhotos = venueCourts.any((s) => s.photos.isNotEmpty || s.images.isNotEmpty);
+      if (!hasAnyCourtPhotos) {
+        try {
+          final allS = await _apiService.fetchServices();
+          venueCourts = venueCourts.map((vc) {
+            final match = allS.firstWhere(
+              (s) => s.id == vc.id || (s.name.trim().toLowerCase() == vc.name.trim().toLowerCase()), 
+              orElse: () => vc,
+            );
+            if (match.photos.isNotEmpty || match.images.isNotEmpty) {
+              final newPhotos = match.photos.isNotEmpty ? match.photos : match.images;
+              return ServiceModel(
+                id: vc.id,
+                name: vc.name,
+                description: vc.description,
+                price: vc.price,
+                ownerEmail: vc.ownerEmail,
+                address: vc.address,
+                facilities: vc.facilities,
+                icon: vc.icon,
+                duration: vc.duration,
+                category: vc.category,
+                isActive: vc.isActive,
+                isVerified: vc.isVerified,
+                photos: newPhotos,
+                images: newPhotos,
+                variablePrices: vc.variablePrices,
+                ownerPayment: vc.ownerPayment,
+                latitude: vc.latitude,
+                longitude: vc.longitude,
+                basePrice: vc.basePrice,
+                hourlyPrices: vc.hourlyPrices,
+                openTime: vc.openTime,
+                closeTime: vc.closeTime,
+                aboutVenue: vc.aboutVenue,
+                bookingPolicy: vc.bookingPolicy,
+                faq: vc.faq,
+                dayStartHour: vc.dayStartHour,
+                nightStartHour: vc.nightStartHour,
+                venueName: vc.venueName,
+                dayPrice: vc.dayPrice,
+                nightPrice: vc.nightPrice,
+              );
+            }
+            return vc;
+          }).toList();
+        } catch (_) {}
+      }
 
       if (venueCourts.isNotEmpty) {
         ServiceModel selected = venueCourts.first;
@@ -1564,7 +1641,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (skipChooseService) ...[
+                        if (skipChooseService || widget.venue != null) ...[
                           Builder(
                             builder: (context) {
                               final venueLogo = _getVenueLogoUrl();
@@ -1629,6 +1706,92 @@ class _BookingScreenState extends State<BookingScreen> {
                                               color: AppColors.richBlack,
                                             ),
                                           ),
+                                          const SizedBox(height: 3),
+                                          Builder(
+                                            builder: (ctx) {
+                                              final String deepLink = _getVenueDeepLink();
+                                              return InkWell(
+                                                onTap: () {
+                                                  Clipboard.setData(ClipboardData(text: deepLink));
+                                                  setState(() => _copiedVenueLink = true);
+                                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Row(
+                                                        children: const [
+                                                          Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                                                          SizedBox(width: 8),
+                                                          Text('Venue link copied to clipboard!'),
+                                                        ],
+                                                      ),
+                                                      backgroundColor: AppColors.primaryGreen,
+                                                      duration: const Duration(seconds: 2),
+                                                      behavior: SnackBarBehavior.floating,
+                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                    ),
+                                                  );
+                                                  Future.delayed(const Duration(seconds: 2), () {
+                                                    if (mounted) setState(() => _copiedVenueLink = false);
+                                                  });
+                                                },
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.link_rounded,
+                                                        size: 13,
+                                                        color: AppColors.primaryGreen,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Flexible(
+                                                        child: Text(
+                                                          deepLink,
+                                                          style: TextStyle(
+                                                            fontFamily: 'Poppins',
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.w500,
+                                                            color: AppColors.primaryGreen,
+                                                            decoration: TextDecoration.underline,
+                                                            decorationColor: AppColors.primaryGreen.withOpacity(0.4),
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Tooltip(
+                                                        message: 'Copy venue link',
+                                                        child: AnimatedContainer(
+                                                          duration: const Duration(milliseconds: 200),
+                                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                                                          decoration: BoxDecoration(
+                                                            color: _copiedVenueLink
+                                                                ? AppColors.primaryGreen.withOpacity(0.15)
+                                                                : Colors.grey.shade100,
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            border: Border.all(
+                                                              color: _copiedVenueLink
+                                                                  ? AppColors.primaryGreen.withOpacity(0.3)
+                                                                  : Colors.grey.shade300,
+                                                              width: 0.8,
+                                                            ),
+                                                          ),
+                                                          child: Icon(
+                                                            _copiedVenueLink ? Icons.check_rounded : Icons.copy_rounded,
+                                                            size: 12,
+                                                            color: _copiedVenueLink ? AppColors.primaryGreen : Colors.grey.shade700,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1645,73 +1808,92 @@ class _BookingScreenState extends State<BookingScreen> {
                         steps[_currentStep].content,
 
                         const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
 
-                        if (_currentStep == 0 && _selectedTimes.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryGreen.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.primaryGreen.withOpacity(0.25)),
+                // ── Sticky Floating Footer ──
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.creamWhite,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 10,
+                        offset: const Offset(0, -3),
+                      ),
+                    ],
+                  ),
+                  padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).padding.bottom + 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Navigation buttons (Continue / Back) just above the summary bar
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => _handleStepContinue(skipChooseService),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryGreen,
+                                foregroundColor: AppColors.softWhite,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                               ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 18),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        '${_selectedTimes.length} ${_selectedTimes.length == 1 ? "slot" : "slots"} selected',
-                                        style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: AppColors.richBlack, fontSize: 13),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    'Total: ${_getTotalDue()}',
-                                    style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 14),
-                                  ),
-                                ],
+                              child: Text(
+                                _currentStep == maxStep ? 'Confirm Booking' : 'Continue',
+                                style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.softWhite),
                               ),
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _handleStepCancel,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                side: BorderSide(color: Colors.grey.shade400),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                              ),
+                              child: const Text('Back', style: TextStyle(fontFamily: 'Poppins', color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 13)),
+                            ),
+                          ),
+                        ],
+                      ),
 
-                        // Navigation buttons
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => _handleStepContinue(skipChooseService),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryGreen,
-                                  foregroundColor: AppColors.softWhite,
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                                ),
-                                child: Text(
-                                  _currentStep == maxStep ? 'Confirm Booking' : 'Continue',
-                                  style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.softWhite),
-                                ),
+                      // Selection Summary Bar (at the very bottom of the footer)
+                      if (_currentStep == 0 && _selectedTimes.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.25)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${_selectedTimes.length} ${_selectedTimes.length == 1 ? "slot" : "slots"} selected',
+                                    style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: AppColors.richBlack, fontSize: 13),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: _handleStepCancel,
-                                style: OutlinedButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  side: BorderSide(color: Colors.grey.shade400),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                                ),
-                                child: Text('Back', style: TextStyle(fontFamily: 'Poppins', color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text(
+                                'Total: ${_getTotalDue()}',
+                                style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 14),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -2682,9 +2864,8 @@ class _BookingScreenState extends State<BookingScreen> {
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F3F5),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+        color: const Color(0xFFE6E8E2),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
@@ -3103,9 +3284,8 @@ class _BookingScreenState extends State<BookingScreen> {
           width: double.infinity,
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
+            color: const Color(0xFFE6E8E2),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE5E5E5)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3178,18 +3358,12 @@ class _BookingScreenState extends State<BookingScreen> {
         SizedBox(height: 16),
 
         // Important Reminder Banner
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.amber.shade100,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.amber.shade400, width: 1.2),
-          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 22),
+              Icon(Icons.warning_amber_rounded, color: const Color(0xFFDC2626), size: 22),
               SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -3201,7 +3375,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: AppColors.richBlack,
+                        color: const Color(0xFFDC2626),
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -3211,7 +3385,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 12.5,
-                        color: AppColors.richBlack,
+                        color: const Color(0xFFDC2626),
                         height: 1.4,
                         fontWeight: FontWeight.w500,
                       ),
@@ -3230,9 +3404,8 @@ class _BookingScreenState extends State<BookingScreen> {
           width: double.infinity,
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
+            color: const Color(0xFFE6E8E2),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE5E5E5)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3285,10 +3458,8 @@ class _BookingScreenState extends State<BookingScreen> {
             child: Container(
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
+                color: const Color(0xFFE6E8E2),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE5E5E5)),
-                boxShadow: [BoxShadow(color: AppColors.richBlack.withOpacity(0.04), blurRadius: 10, offset: Offset(0, 4))],
               ),
               child: Column(
                 children: [
@@ -3411,9 +3582,8 @@ class _BookingScreenState extends State<BookingScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F5),
+              color: const Color(0xFFE6E8E2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE5E5E5)),
             ),
             child: Row(
               children: [
@@ -3438,9 +3608,8 @@ class _BookingScreenState extends State<BookingScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: const Color(0xFFE6E8E2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
               children: [
@@ -3484,9 +3653,8 @@ class _BookingScreenState extends State<BookingScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: const Color(0xFFE6E8E2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
               children: [
@@ -3522,9 +3690,8 @@ class _BookingScreenState extends State<BookingScreen> {
             margin: EdgeInsets.only(bottom: 10),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: const Color(0xFFE6E8E2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
               children: [
@@ -3575,6 +3742,39 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       ],
     );
+  }
+
+  String _getVenueSlug() {
+    if (widget.venue != null && widget.venue!['slug'] != null && widget.venue!['slug'].toString().trim().isNotEmpty) {
+      return widget.venue!['slug'].toString().trim().toLowerCase();
+    }
+    String name = (widget.venue?['venueName'] ?? widget.venue?['name'] ?? _selectedService?.venueName ?? _selectedService?.name ?? '').toString().trim();
+    if (name.isEmpty) return 'court';
+
+    String clean = name
+        .replaceAll(RegExp(r'\s*\([^)]*\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[-\s]*(Court|CT|#)\s*\d+.*$', caseSensitive: false), '')
+        .trim();
+
+    if (clean.toLowerCase().contains('matchpoint')) return 'matchpoint';
+    if (clean.toLowerCase().contains('aminova')) return 'aminova';
+
+    String slug = clean.toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+
+    if (slug.startsWith('the-')) {
+      slug = slug.substring(4);
+    }
+    if (slug.endsWith('-pickleball')) {
+      slug = slug.substring(0, slug.length - 11);
+    }
+    return slug.isNotEmpty ? slug : 'venue';
+  }
+
+  String _getVenueDeepLink() {
+    final slug = _getVenueSlug();
+    return 'www.picklebook-ph.com/$slug';
   }
 
   String _getVenueLogoUrl() {
@@ -3663,11 +3863,22 @@ class _BookingScreenState extends State<BookingScreen> {
         for (var c in widget.venue!['courts']) {
           parseAndAddPhotos(c['photos']);
           parseAndAddPhotos(c['images']);
+          if (c['serviceObj'] is ServiceModel) {
+            parseAndAddPhotos((c['serviceObj'] as ServiceModel).photos);
+            parseAndAddPhotos((c['serviceObj'] as ServiceModel).images);
+          }
         }
       }
     }
 
+    if (_selectedService != null) {
+      parseAndAddPhotos(_selectedService!.photos);
+      parseAndAddPhotos(_selectedService!.images);
+    }
+
     for (var service in _services) {
+      parseAndAddPhotos(service.photos);
+      parseAndAddPhotos(service.images);
       if (service.icon.startsWith('http') && !photosList.contains(service.icon)) {
         if (!service.icon.contains('paddle') && !service.icon.contains('logo')) {
           photosList.add(service.icon);

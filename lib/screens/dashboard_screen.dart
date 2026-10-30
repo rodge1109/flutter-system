@@ -31,12 +31,16 @@ import 'owner_dashboard_screen.dart';
 import 'registration_screen.dart';
 import 'login_screen.dart';
 import 'pasalo_courts_screen.dart';
+import 'court_pass_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 
 class DashboardScreen extends StatefulWidget {
+  final int initialNavIndex;
+  const DashboardScreen({Key? key, this.initialNavIndex = 0}) : super(key: key);
+
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
 }
@@ -252,6 +256,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       }
 
+      List<String> venuePhotos = [];
+      for (var c in courtList) {
+        if (c['photos'] is List) {
+          for (var p in c['photos']) {
+            if (p != null && p.toString().trim().startsWith('http') && !venuePhotos.contains(p.toString().trim())) {
+              venuePhotos.add(p.toString().trim());
+            }
+          }
+        }
+        if (c['images'] is List) {
+          for (var p in c['images']) {
+            if (p != null && p.toString().trim().startsWith('http') && !venuePhotos.contains(p.toString().trim())) {
+              venuePhotos.add(p.toString().trim());
+            }
+          }
+        }
+        if (c['serviceObj'] != null && c['serviceObj'] is ServiceModel) {
+          final sObj = c['serviceObj'] as ServiceModel;
+          for (var p in sObj.photos) {
+            if (p.startsWith('http') && !venuePhotos.contains(p)) {
+              venuePhotos.add(p);
+            }
+          }
+        }
+      }
+
       venueList.add({
         'venueKey': key,
         'venueName': vTitle,
@@ -284,6 +314,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'bank_account_name': mergedPayment['bank_account_name'] ?? first['bank_account_name'],
         'qr_code_url': mergedPayment['qr_code_url'] ?? mergedPayment['payment_qr_url'] ?? mergedPayment['qr_code'] ?? first['qr_code_url'] ?? first['payment_qr_url'] ?? first['qr_code'],
         'payment_qr_url': mergedPayment['payment_qr_url'] ?? mergedPayment['qr_code_url'] ?? mergedPayment['qr_code'] ?? first['payment_qr_url'] ?? first['qr_code_url'] ?? first['qr_code'],
+        'photos': venuePhotos,
+        'images': venuePhotos,
       });
     });
 
@@ -376,6 +408,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedNavIndex = widget.initialNavIndex;
     _determinePosition();
     _loadUserData();
     _searchCtrl.addListener(() {
@@ -492,6 +525,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _handleRoleSwitch(String selectedRole) async {
+    if (selectedRole == 'admin') {
+      Navigator.pop(context); // Close drawer
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => SuperDashboardScreen()),
+      );
+      await _loadUserData();
+      _fetchCourts();
+      return;
+    }
     if (selectedRole == 'court_owner') {
       Navigator.pop(context); // Close drawer
       
@@ -530,6 +573,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _handleSignOut() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user');
+    if (mounted) {
+      setState(() {
+        _userEmail = '';
+        _userName = 'Guest';
+        _userRole = 'guest';
+        _isCourtOwner = false;
+        _upcomingBookings.clear();
+        _pastBookings.clear();
+        _selectedNavIndex = 0;
+      });
+    }
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => LoginScreen()),
@@ -904,6 +958,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               'bank_account_name': s.ownerPayment?['bank_account_name'],
               'qr_code_url': s.ownerPayment?['qr_code_url'] ?? s.ownerPayment?['payment_qr_url'] ?? s.ownerPayment?['qr_code'],
               'payment_qr_url': s.ownerPayment?['payment_qr_url'] ?? s.ownerPayment?['qr_code_url'] ?? s.ownerPayment?['qr_code'],
+              'photos': s.photos,
+              'images': s.images,
               'serviceObj': s,
             };
           }).toList();
@@ -1100,6 +1156,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 Icon(Icons.storefront_rounded, size: 13, color: AppColors.accentLime),
                                 SizedBox(width: 4),
                                 Text('Court Owner', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'admin',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.admin_panel_settings_rounded, size: 13, color: AppColors.accentLime),
+                                SizedBox(width: 4),
+                                Text('Admin', style: TextStyle(color: Colors.white, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -3550,6 +3617,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
               child: Text('VIEW PASALO REQUESTS', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
+          if (booking['id'] != null)
+            ElevatedButton.icon(
+              icon: const Icon(Icons.confirmation_number_outlined, size: 16),
+              label: const Text('COURT PASS', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CourtPassScreen(bookingId: booking['id'].toString()),
+                  ),
+                );
+              },
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Close', style: TextStyle(color: AppColors.richBlack)),
@@ -4382,6 +4468,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Text('View Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       ),
                     ),
+                    if (b['id'] != null) ...[
+                      SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accentLime,
+                          foregroundColor: AppColors.richBlack,
+                          padding: EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CourtPassScreen(bookingId: b['id'].toString()),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.confirmation_number_outlined, size: 15),
+                            SizedBox(width: 4),
+                            Text('Pass', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (isUpcoming && b['id'] != null) ...[
                       if (!isOpenPlay && !isAssume && !isOpenChallenge && bStatus != 'cancelled' && bStatus != 'completed') ...[
                         SizedBox(width: 8),

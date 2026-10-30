@@ -1,9 +1,17 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import '../utils/download_helper_stub.dart'
+    if (dart.library.html) '../utils/download_helper_web.dart' as dl_helper;
+import 'dashboard_screen.dart';
 
 class BookingConfirmationScreen extends StatelessWidget {
+  static final GlobalKey _receiptKey = GlobalKey();
   final String courtName;
   final String courtAddress;
   final String? courtImage;
@@ -28,10 +36,20 @@ class BookingConfirmationScreen extends StatelessWidget {
   }) : super(key: key);
 
   String _generateBookingUrl() {
-    if (bookingId != null && bookingId!.trim().isNotEmpty) {
-      return 'https://pickle-system.onrender.com/b/${bookingId!.trim()}';
+    String baseOrigin = 'https://www.picklebook-ph.com';
+    if (kIsWeb) {
+      try {
+        final origin = Uri.base.origin;
+        if (origin.isNotEmpty && origin.startsWith('http')) {
+          baseOrigin = origin;
+        }
+      } catch (_) {}
     }
-    final uri = Uri.parse('https://pickle-system.onrender.com/b').replace(queryParameters: {
+
+    if (bookingId != null && bookingId!.trim().isNotEmpty) {
+      return '$baseOrigin/b/${bookingId!.trim()}';
+    }
+    final uri = Uri.parse('$baseOrigin/b').replace(queryParameters: {
       'court': courtName,
       'address': courtAddress,
       'date': _formatDate(bookingDate),
@@ -56,6 +74,58 @@ class BookingConfirmationScreen extends StatelessWidget {
         '👉 View Schedule & Match Pass:\n$url';
 
     Share.share(shareText);
+  }
+
+  Future<void> _downloadReceiptImage(BuildContext context) async {
+    try {
+      final boundary = _receiptKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not generate receipt image.')),
+        );
+        return;
+      }
+
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final Uint8List? bytes = byteData?.buffer.asUint8List();
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not convert receipt to image.')),
+        );
+        return;
+      }
+
+      final String filename = 'picklebook_receipt_${bookingId?.trim().isNotEmpty == true ? bookingId!.trim() : DateTime.now().millisecondsSinceEpoch}.png';
+
+      if (kIsWeb) {
+        dl_helper.downloadFileFromBytes(bytes, filename, mimeType: 'image/png');
+      } else {
+        final xFile = XFile.fromData(bytes, name: filename, mimeType: 'image/png');
+        await Share.shareXFiles([xFile], text: '🎾 Pickleball Booking Pass for $courtName');
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: const [
+              Icon(Icons.check_circle_rounded, color: AppColors.accentLime, size: 20),
+              SizedBox(width: 10),
+              Text('Receipt image downloaded / saved!'),
+            ],
+          ),
+          backgroundColor: AppColors.richBlack,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to download image: $e')),
+      );
+    }
   }
 
   void _copyBookingLink(BuildContext context) {
@@ -283,24 +353,31 @@ class BookingConfirmationScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context, 'view_bookings');
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context, 'view_bookings');
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const DashboardScreen(initialNavIndex: 2)),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentLime,
-                        foregroundColor: AppColors.richBlack,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: AppColors.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 9),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(9999),
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
+                      child: const Text(
                         'View My Bookings',
                         style: TextStyle(
                           fontFamily: 'Poppins',
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.richBlack,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -313,16 +390,23 @@ class BookingConfirmationScreen extends StatelessWidget {
                     width: double.infinity,
                     child: TextButton(
                       onPressed: () {
-                        Navigator.pop(context, 'home');
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context, 'home');
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                          );
+                        }
                       },
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                       ),
                       child: Text(
                         'Back to Home',
                         style: TextStyle(
                           fontFamily: 'Poppins',
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.richBlack,
                         ),
@@ -446,12 +530,14 @@ class BookingConfirmationScreen extends StatelessWidget {
     const double toothHeight = 4.5;
     const double radius = 14.0;
 
-    return CustomPaint(
-      painter: _PosPaperPainter(
-        toothWidth: toothWidth,
-        toothHeight: toothHeight,
-        radius: radius,
-      ),
+    return RepaintBoundary(
+      key: _receiptKey,
+      child: CustomPaint(
+        painter: _PosPaperPainter(
+          toothWidth: toothWidth,
+          toothHeight: toothHeight,
+          radius: radius,
+        ),
       child: ClipPath(
         clipper: _PosPaperClipper(
           toothWidth: toothWidth,
@@ -669,35 +755,58 @@ class BookingConfirmationScreen extends StatelessWidget {
 
               const SizedBox(height: 10),
 
-              // Share Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _shareBookingLink(context),
-                  icon: const Icon(Icons.send_rounded, size: 15),
-                  label: const Text(
-                    'Share Match Pass Link',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+              // Share & Download Action Row
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _shareBookingLink(context),
+                      icon: const Icon(Icons.send_rounded, size: 14),
+                      label: const Text(
+                        'Share Booking Link',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9999),
+                        ),
+                        elevation: 0,
+                      ),
                     ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'Download Receipt Photo',
+                    child: ElevatedButton(
+                      onPressed: () => _downloadReceiptImage(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        minimumSize: const Size(42, 34),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9999),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Icon(Icons.file_download_outlined, size: 17),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDashedDivider({Color? color, double height = 1.0, double dashWidth = 5.0, double dashSpace = 3.5}) {
     return LayoutBuilder(
