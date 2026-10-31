@@ -469,6 +469,38 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
             ),
+            SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isLoading ? null : () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context, 'guest');
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.person_outline_rounded, size: 22, color: AppColors.richBlack),
+                label: const Text(
+                  'Continue as Guest',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.richBlack,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF8FAFC),
+                  foregroundColor: AppColors.richBlack,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  side: BorderSide(color: Colors.grey.shade300, width: 1.2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+              ),
+            ),
             SizedBox(height: 16),
             TextButton(
               onPressed: () {

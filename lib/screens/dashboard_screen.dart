@@ -520,7 +520,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _fetchPasaloCourts();
       _fetchOutgoingPasaloRequests();
     } else {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _userName = 'Guest';
+          _userEmail = '';
+          _userRole = 'guest';
+          _isCourtOwner = false;
+          _isLoading = false;
+        });
+      }
+      _fetchCourts();
+      _fetchOpenPlays();
+      _fetchOpenChallenges();
+      _fetchPasaloCourts();
     }
   }
 

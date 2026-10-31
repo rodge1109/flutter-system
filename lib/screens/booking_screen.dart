@@ -447,7 +447,14 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
                 onPressed: () async {
                   Navigator.pop(ctx);
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+                  final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+                  if (res == 'guest') {
+                    if (mounted) {
+                      setState(() {
+                        _isGuest = true;
+                      });
+                    }
+                  }
                   await _loadUserData();
                 },
               ),
@@ -468,7 +475,14 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
                 onPressed: () async {
                   Navigator.pop(ctx);
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => RegistrationScreen()));
+                  final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => RegistrationScreen()));
+                  if (res == 'guest') {
+                    if (mounted) {
+                      setState(() {
+                        _isGuest = true;
+                      });
+                    }
+                  }
                   await _loadUserData();
                 },
               ),

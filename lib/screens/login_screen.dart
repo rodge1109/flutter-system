@@ -259,6 +259,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _continueAsGuest() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context, 'guest');
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
@@ -294,7 +305,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: IconButton(
                       icon: Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.primaryGreen),
                       padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                          );
+                        }
+                      },
                     ),
                   ),
                 ),
@@ -520,6 +540,29 @@ class _LoginScreenState extends State<LoginScreen> {
                         foregroundColor: Colors.white,
                         backgroundColor: Color(0xFF1877F2),
                         padding: EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _continueAsGuest,
+                      icon: const Icon(Icons.person_outline_rounded, size: 22, color: AppColors.richBlack),
+                      label: const Text(
+                        'Continue as Guest',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.richBlack,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF8FAFC),
+                        foregroundColor: AppColors.richBlack,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: BorderSide(color: Colors.grey.shade300, width: 1.2),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                     ),
