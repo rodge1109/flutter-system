@@ -3759,36 +3759,49 @@ class _BookingScreenState extends State<BookingScreen> {
         SizedBox(height: 16),
 
         // Important Reminder Banner
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB), // Warm amber background matching Mandatory Payment Reference
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.warning_amber_rounded, color: const Color(0xFFDC2626), size: 22),
-              SizedBox(width: 10),
+              const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'IMPORTANT REMINDER',
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: const Color(0xFFDC2626),
+                        fontSize: 12.5,
+                        color: Color(0xFFB45309),
                         letterSpacing: 0.5,
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'You need to click Continue and wait for the CONFIRMATION screen to appear to complete your booking.',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 12.5,
-                        color: const Color(0xFFDC2626),
-                        height: 1.4,
-                        fontWeight: FontWeight.w500,
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          color: Colors.grey.shade900,
+                          height: 1.4,
+                        ),
+                        children: const [
+                          TextSpan(text: 'You need to click Continue and wait for the '),
+                          TextSpan(
+                            text: 'CONFIRMATION',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+                          ),
+                          TextSpan(text: ' screen to appear to complete your booking.'),
+                        ],
                       ),
                     ),
                   ],
