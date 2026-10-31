@@ -6,6 +6,7 @@ import 'package:flutter_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../utils/download_helper_stub.dart'
     if (dart.library.html) '../utils/download_helper_web.dart' as dl_helper;
 import 'dashboard_screen.dart';
@@ -799,6 +800,68 @@ class BookingConfirmationScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // QR Code of the Booking Pass Link
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.grey.shade200, width: 1.2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: QrImageView(
+                          data: _generateBookingUrl(),
+                          version: QrVersions.auto,
+                          size: 140.0,
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.all(4),
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: AppColors.richBlack,
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: AppColors.richBlack,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.qr_code_scanner_rounded, size: 13, color: Colors.grey.shade600),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Scan QR code to view court pass',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
