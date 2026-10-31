@@ -87,6 +87,105 @@ class _BookingScreenState extends State<BookingScreen> {
   final _hostTandemNameController = TextEditingController();
   final _challengeDescriptionController = TextEditingController();
   final _referenceNumberController = TextEditingController();
+  XFile? _paymentReceiptFile;
+  Uint8List? _paymentReceiptBytes;
+  bool _isUploadingReceipt = false;
+
+  Future<void> _pickReceiptImage(ImageSource source) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? picked = await picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _paymentReceiptFile = picked;
+          _paymentReceiptBytes = bytes;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking receipt image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to select receipt image: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  void _showReceiptSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Upload Payment Receipt (JPG / PNG)',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppColors.richBlack,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Attach a clear screenshot of your GCash, Maya, or Bank transfer receipt.',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.photo_library_rounded, color: AppColors.primaryGreen),
+                ),
+                title: const Text('Choose from Photo Gallery / Files', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickReceiptImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, color: AppColors.primaryGreen),
+                ),
+                title: const Text('Take a Photo with Camera', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickReceiptImage(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   String? _holdToken;
   Timer? _holdTimer;
@@ -673,6 +772,7 @@ class _BookingScreenState extends State<BookingScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _referenceNumberController.dispose();
     super.dispose();
   }
 
@@ -882,6 +982,26 @@ class _BookingScreenState extends State<BookingScreen> {
 
     _recordBookingLog('SUBMITTING', refNumber: _referenceNumberController.text.trim());
 
+    // 1. Upload receipt image to Cloudinary if attached
+    String? uploadedReceiptUrl;
+    if (_paymentReceiptFile != null) {
+      try {
+        uploadedReceiptUrl = await _apiService.uploadImageToCloudinary(_paymentReceiptFile!);
+      } catch (e) {
+        debugPrint('Error uploading payment receipt to Cloudinary: $e');
+      }
+    }
+
+    final String refText = _referenceNumberController.text.trim();
+    String? finalProof;
+    if (refText.isNotEmpty && uploadedReceiptUrl != null && uploadedReceiptUrl.isNotEmpty) {
+      finalProof = 'REF: $refText | $uploadedReceiptUrl';
+    } else if (uploadedReceiptUrl != null && uploadedReceiptUrl.isNotEmpty) {
+      finalProof = uploadedReceiptUrl;
+    } else if (refText.isNotEmpty) {
+      finalProof = 'REF: $refText';
+    }
+
     bool allSuccess = true;
     String? submitErrorMessage;
     String? lastBookingId;
@@ -915,7 +1035,7 @@ class _BookingScreenState extends State<BookingScreen> {
           'phoneNumber': _phoneController.text,
           'paymentMethod': _selectedPaymentMethod,
           'totalAmount': slotTotalWithFee,
-          'proofOfPayment': _referenceNumberController.text.isNotEmpty ? 'REF: ${_referenceNumberController.text}' : null,
+          'proofOfPayment': finalProof,
           'isOpenPlay': _isOpenPlay,
           'openPlayType': _openPlayType,
           'openPlayMaxPlayers': int.tryParse(_openPlayMaxPlayersController.text) ?? 4,
@@ -1025,6 +1145,9 @@ class _BookingScreenState extends State<BookingScreen> {
         _nameController.clear();
         _emailController.clear();
         _phoneController.clear();
+        _referenceNumberController.clear();
+        _paymentReceiptFile = null;
+        _paymentReceiptBytes = null;
         _currentBookingLogId = null;
       });
 
@@ -1421,8 +1544,13 @@ class _BookingScreenState extends State<BookingScreen> {
       }
       _recordBookingLog('PAYMENT_VIEWED');
     }
-    if (_currentStep == 2 && _referenceNumberController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter your reference number to continue')));
+    if (_currentStep == 2 && _referenceNumberController.text.trim().isEmpty && _paymentReceiptFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter reference number or upload a receipt screenshot'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
       return;
     }
     if (_currentStep == 2) {
@@ -2918,6 +3046,32 @@ class _BookingScreenState extends State<BookingScreen> {
           _buildSummaryRow(Icons.receipt, 'Service Charge', 'PHP ${_getServiceFee().toStringAsFixed(2)}'),
           Divider(height: 24, color: Colors.grey.shade300),
           _buildSummaryRow('P', 'Total Due', _getTotalDue()),
+          if (_referenceNumberController.text.trim().isNotEmpty) ...[
+            Divider(height: 24, color: Colors.grey.shade300),
+            _buildSummaryRow(Icons.numbers, 'Payment Ref No.', _referenceNumberController.text.trim()),
+          ],
+          if (_paymentReceiptBytes != null) ...[
+            Divider(height: 24, color: Colors.grey.shade300),
+            Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.memory(_paymentReceiptBytes!, width: 40, height: 40, fit: BoxFit.cover),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Proof of Payment', style: TextStyle(fontFamily: 'Poppins', color: Colors.grey.shade600, fontSize: 12)),
+                      Text('Receipt Screenshot Attached (JPG)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryGreen)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.check_circle_rounded, color: AppColors.primaryGreen, size: 20),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.all(16),
@@ -3738,6 +3892,183 @@ class _BookingScreenState extends State<BookingScreen> {
             prefixIcon: Icon(Icons.numbers, color: Colors.grey.shade600),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Receipt Upload Section (Cloudinary)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE5E5E5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.receipt_long_rounded, size: 18, color: AppColors.primaryGreen),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Upload Payment Proof (JPG / PNG)',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppColors.richBlack,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Upload a screenshot of your payment transfer receipt.',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_paymentReceiptBytes == null)
+                InkWell(
+                  onTap: _showReceiptSourceSheet,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.cloud_upload_outlined,
+                            size: 26,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap to Upload Receipt Screenshot',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: AppColors.richBlack,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Supports JPG, PNG (Max 10MB)',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.primaryGreen.withOpacity(0.6), width: 1.2),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(
+                          _paymentReceiptBytes!,
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: AppColors.primaryGreen, size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Receipt Attached',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: AppColors.primaryGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _paymentReceiptFile?.name ?? 'payment_receipt.jpg',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade800,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'JPG receipt screenshot',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 10,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _showReceiptSourceSheet,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text('Change', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18, color: Colors.redAccent),
+                        onPressed: () {
+                          setState(() {
+                            _paymentReceiptFile = null;
+                            _paymentReceiptBytes = null;
+                          });
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ),
       ],

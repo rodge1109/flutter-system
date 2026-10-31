@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/customer_model.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
@@ -55,6 +56,73 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
   int _unreadCount = 0;
   String _userEmail = 'superadmin@system.com';
   String _userName = 'Super Admin';
+
+  void _showReceiptDialog(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          color: Colors.white,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppBar(
+                backgroundColor: AppColors.richBlack,
+                elevation: 0,
+                title: const Text(
+                  'Payment Proof Receipt',
+                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                leading: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.open_in_new, color: Colors.white),
+                    tooltip: 'Open in new tab',
+                    onPressed: () => launchUrl(Uri.parse(imageUrl), mode: LaunchMode.externalApplication),
+                  ),
+                ],
+              ),
+              Flexible(
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  boundaryMargin: const EdgeInsets.all(20),
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Center(
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Text('Failed to load receipt image'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -1657,13 +1725,24 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
       return '';
     }
 
-    String payRef = firstNonEmpty([
+    String payRef = '';
+    String receiptUrl = '';
+    String proof = (booking['proof_of_payment'] ?? '').toString().trim();
+    final urlMatch = RegExp(r'https?://[^\s|]+').firstMatch(proof);
+    if (urlMatch != null) {
+      receiptUrl = urlMatch.group(0)!;
+    }
+
+    String rawRef = firstNonEmpty([
       booking['payment_reference'],
       booking['ref_no'],
       booking['payment_ref'],
-      booking['proof_of_payment'],
       booking['agent_code'],
-    ]).replaceAll(RegExp(r'^REF:\s*', caseSensitive: false), '');
+    ]);
+    if (rawRef.isEmpty && proof.isNotEmpty) {
+      rawRef = proof.replaceAll(RegExp(r'https?://[^\s|]+'), '').replaceAll('|', '').trim();
+    }
+    payRef = rawRef.replaceAll(RegExp(r'^REF:\s*', caseSensitive: false), '').trim();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1764,18 +1843,51 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
             const SizedBox(height: 6),
           ],
 
-          if (payRef.isNotEmpty && !payRef.startsWith('data:')) ...[
+          if ((payRef.isNotEmpty && !payRef.startsWith('data:')) || receiptUrl.isNotEmpty) ...[
             Row(
               children: [
                 Icon(Icons.payment, size: 16, color: Colors.grey.shade700),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Payment Ref No: $payRef',
-                    style: TextStyle(color: Colors.grey.shade800, fontSize: 13, fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
+                if (payRef.isNotEmpty && !payRef.startsWith('data:'))
+                  Expanded(
+                    child: Text(
+                      'Payment Ref: $payRef',
+                      style: TextStyle(color: Colors.grey.shade800, fontSize: 13, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  )
+                else
+                  const Spacer(),
+                if (receiptUrl.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () => _showReceiptDialog(receiptUrl),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.receipt_long_rounded, size: 13, color: Color(0xFF6366F1)),
+                          SizedBox(width: 4),
+                          Text(
+                            'View Receipt',
+                            style: TextStyle(
+                              color: Color(0xFF6366F1),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
             const SizedBox(height: 6),
