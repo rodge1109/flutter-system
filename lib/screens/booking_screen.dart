@@ -1544,17 +1544,27 @@ class _BookingScreenState extends State<BookingScreen> {
       }
       _recordBookingLog('PAYMENT_VIEWED');
     }
-    if (_currentStep == 2 && _referenceNumberController.text.trim().isEmpty && _paymentReceiptFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter reference number or upload a receipt screenshot'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
     if (_currentStep == 2) {
-      _recordBookingLog('PAYMENT_ENTERED', refNumber: _referenceNumberController.text.trim());
+      final ref = _referenceNumberController.text.trim();
+      if (ref.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter the last 4 digits of your payment reference number.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      if (ref.length < 4) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter all 4 digits of your payment reference number.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      _recordBookingLog('PAYMENT_ENTERED', refNumber: ref);
     }
 
     if (_currentStep < 3) {
@@ -3048,7 +3058,7 @@ class _BookingScreenState extends State<BookingScreen> {
           _buildSummaryRow('P', 'Total Due', _getTotalDue()),
           if (_referenceNumberController.text.trim().isNotEmpty) ...[
             Divider(height: 24, color: Colors.grey.shade300),
-            _buildSummaryRow(Icons.numbers, 'Payment Ref No.', _referenceNumberController.text.trim()),
+            _buildSummaryRow(Icons.numbers, 'Payment Ref (Last 4)', _referenceNumberController.text.trim()),
           ],
           if (_paymentReceiptBytes != null) ...[
             Divider(height: 24, color: Colors.grey.shade300),
@@ -3576,7 +3586,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 '1. Open your GCash, Maya, or Online Banking App.\n'
                 '2. Scan the Payment QR Code below OR copy the account number.\n'
                 '3. Send the exact total amount due: ${_getTotalDue()}.\n'
-                '4. Copy your Payment Reference No. from your app and paste it below.\n'
+                '4. Enter the LAST 4 DIGITS of your Payment Reference No. below (Mandatory).\n'
                 '5. Click Continue and wait for the CONFIRMATION screen to appear.',
                 style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, color: AppColors.richBlack, height: 1.5),
               ),
@@ -3882,17 +3892,92 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
         ],
 
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
+
+        // Prominent instruction banner for Last 4 Digits of Reference Number
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB), // Warm amber background
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_rounded, color: Color(0xFFD97706), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.grey.shade900, height: 1.4),
+                    children: const [
+                      TextSpan(
+                        text: 'Mandatory Payment Reference: \n',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB45309), fontSize: 12.5),
+                      ),
+                      TextSpan(text: 'Please enter only the '),
+                      TextSpan(
+                        text: 'LAST 4 DIGITS',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+                      ),
+                      TextSpan(text: ' of your GCash, Maya, or Bank reference number (e.g. if receipt ref is 901234567894, enter '),
+                      TextSpan(
+                        text: '7894',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                      ),
+                      TextSpan(text: '). This is required to verify and confirm your booking.'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 10),
 
         TextFormField(
           controller: _referenceNumberController,
-          decoration: InputDecoration(
-            labelText: 'Payment Reference Number',
-            hintText: 'Enter your GCash / Maya / Bank Ref No. after payment',
-            prefixIcon: Icon(Icons.numbers, color: Colors.grey.shade600),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          maxLength: 4,
+          keyboardType: TextInputType.text,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            letterSpacing: 3.0,
+            color: AppColors.richBlack,
           ),
+          decoration: InputDecoration(
+            labelText: 'Last 4 Digits of Reference Number *',
+            labelStyle: const TextStyle(letterSpacing: 0, fontWeight: FontWeight.w600, fontSize: 13),
+            hintText: 'e.g. 7894',
+            hintStyle: TextStyle(letterSpacing: 2.0, color: Colors.grey.shade400, fontWeight: FontWeight.normal, fontSize: 14),
+            prefixIcon: const Icon(Icons.pin_rounded, color: AppColors.primaryGreen),
+            counterText: '',
+            helperText: 'Required: Exactly 4 digits',
+            helperStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade400),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+          onChanged: (val) {
+            String clean = val.trim().replaceAll(' ', '').replaceAll('-', '');
+            if (clean.length > 4) {
+              String last4 = clean.substring(clean.length - 4);
+              _referenceNumberController.text = last4;
+              _referenceNumberController.selection = TextSelection.fromPosition(TextPosition(offset: last4.length));
+            }
+          },
         ),
 
         const SizedBox(height: 16),
