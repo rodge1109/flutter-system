@@ -2,6 +2,7 @@ import 'package:flutter_project/theme/app_colors.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
@@ -90,6 +91,24 @@ class _BookingScreenState extends State<BookingScreen> {
   XFile? _paymentReceiptFile;
   Uint8List? _paymentReceiptBytes;
   bool _isUploadingReceipt = false;
+
+  bool _isGuest = false;
+  String _captchaCode = '';
+  int _captchaSeed = 42;
+  final _captchaController = TextEditingController();
+  String? _captchaError;
+
+  void _generateCaptchaCode() {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    final rand = math.Random();
+    final code = List.generate(5, (_) => chars[rand.nextInt(chars.length)]).join();
+    setState(() {
+      _captchaCode = code;
+      _captchaSeed = rand.nextInt(10000);
+      _captchaController.clear();
+      _captchaError = null;
+    });
+  }
 
   Future<void> _pickReceiptImage(ImageSource source) async {
     try {
@@ -223,6 +242,7 @@ class _BookingScreenState extends State<BookingScreen> {
         _checkLoyaltyStatus();
       }
     });
+    _generateCaptchaCode();
     _loadServices();
     _loadUserData();
   }
@@ -339,15 +359,20 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  Future<bool> _ensureUserLoggedIn() async {
+  Future<bool> _ensureUserLoggedIn({bool forceDialog = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
-    if (userStr != null && userStr.isNotEmpty && userStr != 'null') {
+    if (!forceDialog && userStr != null && userStr.isNotEmpty && userStr != 'null') {
       if (mounted) {
         setState(() {
           _isLoggedIn = true;
+          _isGuest = false;
         });
       }
+      return true;
+    }
+
+    if (!forceDialog && _isGuest) {
       return true;
     }
 
@@ -388,7 +413,7 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Account Required to Book',
+              'Reserve Your Court',
               style: GoogleFonts.outfit(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -397,7 +422,7 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'To protect court availability and prevent fake bookings, please log in or create an account to lock in your reservation.',
+              'Log in to save bookings and earn loyalty rewards, or quickly proceed as a guest.',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 13,
@@ -448,6 +473,42 @@ class _BookingScreenState extends State<BookingScreen> {
                 },
               ),
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.shade300)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    'OR',
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: TextButton.icon(
+                icon: const Icon(Icons.person_outline_rounded, color: AppColors.richBlack, size: 20),
+                label: Text(
+                  'Continue as Guest',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isGuest = true;
+                  });
+                  Navigator.pop(ctx);
+                },
+              ),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -455,7 +516,7 @@ class _BookingScreenState extends State<BookingScreen> {
     );
 
     await _loadUserData();
-    return _isLoggedIn;
+    return _isLoggedIn || _isGuest;
   }
 
   Future<void> _loadServices() async {
@@ -773,6 +834,7 @@ class _BookingScreenState extends State<BookingScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _referenceNumberController.dispose();
+    _captchaController.dispose();
     super.dispose();
   }
 
@@ -784,7 +846,7 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
 
-    if (!_isLoggedIn) {
+    if (!_isLoggedIn && !_isGuest) {
       final loggedIn = await _ensureUserLoggedIn();
       if (!loggedIn) return;
     }
@@ -960,7 +1022,7 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
 
-    if (!_isLoggedIn) {
+    if (!_isLoggedIn && !_isGuest) {
       final loggedIn = await _ensureUserLoggedIn();
       if (!loggedIn) return;
     }
@@ -1526,7 +1588,7 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
     if (_currentStep == 0 && _holdToken == null) {
-      if (!_isLoggedIn) {
+      if (!_isLoggedIn && !_isGuest) {
         final loggedIn = await _ensureUserLoggedIn();
         if (!loggedIn) return;
       }
@@ -1534,13 +1596,46 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
     if (_currentStep == 1) {
-      if (!_isLoggedIn) {
+      if (!_isLoggedIn && !_isGuest) {
         final loggedIn = await _ensureUserLoggedIn();
         if (!loggedIn) return;
       }
-      if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill your details')));
+      if (_nameController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your full name')));
         return;
+      }
+      if (_phoneController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your phone number')));
+        return;
+      }
+      if (_emailController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your email address')));
+        return;
+      }
+      if (!_isLoggedIn) {
+        final entered = _captchaController.text.trim().toUpperCase();
+        if (entered.isEmpty) {
+          setState(() {
+            _captchaError = 'Please enter the visual CAPTCHA code above.';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enter the visual CAPTCHA code to continue'), backgroundColor: Colors.redAccent),
+          );
+          return;
+        }
+        if (entered != _captchaCode.toUpperCase()) {
+          setState(() {
+            _captchaError = 'Incorrect visual code. Please try again with the new code.';
+          });
+          _generateCaptchaCode();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Incorrect CAPTCHA code. A new code has been generated.'), backgroundColor: Colors.redAccent),
+          );
+          return;
+        }
+        setState(() {
+          _captchaError = null;
+        });
       }
       _recordBookingLog('PAYMENT_VIEWED');
     }
@@ -1570,7 +1665,7 @@ class _BookingScreenState extends State<BookingScreen> {
     if (_currentStep < 3) {
       setState(() => _currentStep += 1);
     } else {
-      if (!_isLoggedIn) {
+      if (!_isLoggedIn && !_isGuest) {
         final loggedIn = await _ensureUserLoggedIn();
         if (!loggedIn) return;
       }
@@ -2894,43 +2989,40 @@ class _BookingScreenState extends State<BookingScreen> {
           if (!_isLoggedIn) ...[
             Container(
               margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
+                color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.amber.shade300),
+                border: Border.all(color: Colors.grey.shade300),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.shield_outlined, color: Colors.amber.shade900, size: 24),
-                  const SizedBox(width: 12),
+                  const Icon(Icons.person_outline_rounded, color: AppColors.richBlack, size: 22),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Account Required to Book',
-                          style: GoogleFonts.outfit(fontSize: 13, color: Colors.amber.shade900, fontWeight: FontWeight.bold),
+                          'Guest Checkout',
+                          style: GoogleFonts.outfit(fontSize: 13, color: AppColors.richBlack, fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(height: 2),
                         Text(
-                          'Please log in or create an account to lock in court slots and proceed to payment.',
-                          style: GoogleFonts.outfit(fontSize: 12, color: Colors.amber.shade900, height: 1.3),
+                          'Enter your contact details below to receive your booking pass and QR code.',
+                          style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => _ensureUserLoggedIn(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  TextButton(
+                    onPressed: () => _ensureUserLoggedIn(forceDialog: true),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text('Log In', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: Text('Log In', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primaryGreen)),
                   ),
                 ],
               ),
@@ -2963,6 +3055,137 @@ class _BookingScreenState extends State<BookingScreen> {
           _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined, isPhone: true, readOnly: _isLoggedIn),
           const SizedBox(height: 16),
           _buildTextField(_emailController, 'Email Address', Icons.email_outlined, isEmail: true, readOnly: _isLoggedIn),
+
+          if (!_isLoggedIn) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.security_rounded, size: 18, color: AppColors.primaryGreen),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Security Verification (CAPTCHA)',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: AppColors.richBlack,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'ANTI-BOT',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Enter the 5 characters shown below to confirm you are human.',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: CustomPaint(
+                            size: const Size(130, 46),
+                            painter: _VisualCaptchaPainter(_captchaCode, seed: _captchaSeed),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryGreen, size: 24),
+                        tooltip: 'Generate new code',
+                        onPressed: _generateCaptchaCode,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _captchaController,
+                          textCapitalization: TextCapitalization.characters,
+                          maxLength: 6,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            letterSpacing: 2.0,
+                            color: AppColors.richBlack,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Visual Code *',
+                            labelStyle: const TextStyle(letterSpacing: 0, fontSize: 13),
+                            hintText: 'e.g. 7QK4',
+                            hintStyle: TextStyle(letterSpacing: 1.0, color: Colors.grey.shade400, fontWeight: FontWeight.normal, fontSize: 12),
+                            counterText: '',
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_captchaError != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded, size: 14, color: Colors.redAccent),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _captchaError!,
+                            style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -4602,4 +4825,75 @@ class _VenuePhotoCarouselWidgetState extends State<_VenuePhotoCarouselWidget> {
       ),
     );
   }
+}
+
+class _VisualCaptchaPainter extends CustomPainter {
+  final String text;
+  final int seed;
+
+  _VisualCaptchaPainter(this.text, {this.seed = 42});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rand = math.Random(seed);
+
+    // Background fill
+    final bgPaint = Paint()..color = const Color(0xFFF1F5F9);
+    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)), bgPaint);
+
+    // Draw random noise lines
+    final linePaint = Paint()
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < 6; i++) {
+      linePaint.color = Colors.primaries[rand.nextInt(Colors.primaries.length)].withOpacity(0.35);
+      final p1 = Offset(rand.nextDouble() * size.width, rand.nextDouble() * size.height);
+      final p2 = Offset(rand.nextDouble() * size.width, rand.nextDouble() * size.height);
+      canvas.drawLine(p1, p2, linePaint);
+    }
+
+    // Draw random noise dots
+    final dotPaint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 35; i++) {
+      dotPaint.color = Colors.primaries[rand.nextInt(Colors.primaries.length)].withOpacity(0.3);
+      canvas.drawCircle(Offset(rand.nextDouble() * size.width, rand.nextDouble() * size.height), 1.2, dotPaint);
+    }
+
+    if (text.isEmpty) return;
+
+    // Draw characters with random skew, tilt, and colors
+    final charSpacing = size.width / (text.length + 1);
+    for (int i = 0; i < text.length; i++) {
+      final char = text[i];
+      final color = Colors.primaries[(i * 3 + rand.nextInt(5)) % Colors.primaries.length].shade900;
+
+      final textSpan = TextSpan(
+        text: char,
+        style: TextStyle(
+          fontFamily: 'Courier',
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final x = (i + 1) * charSpacing - (textPainter.width / 2) + (rand.nextDouble() * 4 - 2);
+      final y = (size.height / 2) - (textPainter.height / 2) + (rand.nextDouble() * 4 - 2);
+
+      canvas.save();
+      final angle = (rand.nextDouble() - 0.5) * 0.45; // slight tilt
+      canvas.translate(x + textPainter.width / 2, y + textPainter.height / 2);
+      canvas.rotate(angle);
+      textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _VisualCaptchaPainter oldDelegate) =>
+      oldDelegate.text != text || oldDelegate.seed != seed;
 }
