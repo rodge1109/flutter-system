@@ -254,14 +254,32 @@ class ApiService {
         body: json.encode(appointmentData),
       );
       
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
         final data = json.decode(response.body);
-        return data is Map<String, dynamic> ? data : {'success': true};
+        if (data is Map<String, dynamic>) {
+          if (response.statusCode == 200 || response.statusCode == 201) {
+            return data;
+          }
+          return {
+            'success': false,
+            'message': data['message'] ?? data['error'] ?? 'Server error (${response.statusCode})',
+          };
+        }
+      } catch (_) {}
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true};
       }
-      return null;
+      return {
+        'success': false,
+        'message': 'Server error (${response.statusCode}): ${response.reasonPhrase ?? "Please try again"}',
+      };
     } catch (e) {
       print('Error submitting appointment with result: $e');
-      return null;
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
     }
   }
 

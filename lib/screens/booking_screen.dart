@@ -1041,10 +1041,21 @@ class _BookingScreenState extends State<BookingScreen> {
       if (!loggedIn) return;
     }
 
-    if (_nameController.text.isEmpty) {
+    final fullName = _nameController.text.trim();
+    if (fullName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Please fill all required fields'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (fullName.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Full name must be at least 3 characters'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
@@ -1614,16 +1625,27 @@ class _BookingScreenState extends State<BookingScreen> {
         final loggedIn = await _ensureUserLoggedIn();
         if (!loggedIn) return;
       }
-      if (_nameController.text.trim().isEmpty) {
+      final fullName = _nameController.text.trim();
+      if (fullName.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your full name')));
         return;
       }
-      if (_phoneController.text.trim().isEmpty) {
+      if (fullName.length < 3) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Full name must be at least 3 characters')));
+        return;
+      }
+      final phone = _phoneController.text.trim();
+      if (phone.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your phone number')));
         return;
       }
-      if (_emailController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your email address')));
+      if (phone.length < 7) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid phone number (at least 7 digits)')));
+        return;
+      }
+      final email = _emailController.text.trim();
+      if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid email address')));
         return;
       }
       if (!_isLoggedIn) {
