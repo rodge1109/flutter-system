@@ -548,7 +548,7 @@ class BookingConfirmationScreen extends StatelessWidget {
         child: Container(
           width: double.infinity,
           color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -897,36 +897,39 @@ Path _createPosPaperPath(Size size, double toothWidth, double toothHeight, doubl
   final path = Path();
   final w = size.width;
   final h = size.height;
-  final baseH = h - toothHeight;
+  final topBaseY = toothHeight;
+  final bottomBaseY = h - toothHeight;
 
-  // Top-left corner
-  path.moveTo(0, radius);
-  path.quadraticBezierTo(0, 0, radius, 0);
-
-  // Top edge
-  path.lineTo(w - radius, 0);
-
-  // Top-right corner
-  path.quadraticBezierTo(w, 0, w, radius);
-
-  // Right edge down to baseH
-  path.lineTo(w, baseH);
-
-  // Sawtooth teeth across bottom edge from right to left
+  // Number of teeth across the width
   final int count = (w / toothWidth).floor().clamp(10, 100);
   final double actualWidth = w / count;
 
+  // Top sawtooth edge from left to right (peaks at y=0, valleys at y=topBaseY)
+  path.moveTo(0, topBaseY);
+  for (int i = 0; i < count; i++) {
+    final double leftX = i * actualWidth;
+    final double midX = leftX + (actualWidth / 2);
+    final double rightX = leftX + actualWidth;
+
+    path.lineTo(midX, 0);
+    path.lineTo(rightX, topBaseY);
+  }
+
+  // Right edge down to bottomBaseY
+  path.lineTo(w, bottomBaseY);
+
+  // Bottom sawtooth edge from right to left (valleys at y=bottomBaseY, peaks at y=h)
   for (int i = 0; i < count; i++) {
     final double rightX = w - (i * actualWidth);
     final double midX = rightX - (actualWidth / 2);
     final double leftX = rightX - actualWidth;
 
     path.lineTo(midX, h);
-    path.lineTo(leftX, baseH);
+    path.lineTo(leftX, bottomBaseY);
   }
 
-  // Left edge up to top-left corner
-  path.lineTo(0, radius);
+  // Left edge up to topBaseY
+  path.lineTo(0, topBaseY);
   path.close();
 
   return path;
