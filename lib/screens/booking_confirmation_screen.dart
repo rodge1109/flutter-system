@@ -354,12 +354,13 @@ class BookingConfirmationScreen extends StatelessWidget {
 
                     // Subtitle
                     Text(
-                      'Your payment will be verified and confirmed in a while.',
+                      'Your payment will be verified and confirmed in a while.\nYou may monitor your booking in the given link.',
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 13,
                         color: AppColors.richBlack.withOpacity(0.65),
                         fontWeight: FontWeight.w400,
+                        height: 1.4,
                       ),
                       textAlign: TextAlign.center,
                     ),
