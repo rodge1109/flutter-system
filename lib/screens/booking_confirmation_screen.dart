@@ -339,10 +339,10 @@ class BookingConfirmationScreen extends StatelessWidget {
 
                     // Title
                     Text(
-                      'Booking Confirmed!',
+                      'Booking Request is Submitted!',
                       style: TextStyle(
                         fontFamily: 'Poppins',
-                        fontSize: 22,
+                        fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: AppColors.richBlack,
                         letterSpacing: -0.5,
@@ -354,11 +354,11 @@ class BookingConfirmationScreen extends StatelessWidget {
 
                     // Subtitle
                     Text(
-                      'Your court is reserved.',
+                      'Your payment will be verified and confirmed in a while.',
                       style: TextStyle(
                         fontFamily: 'Poppins',
-                        fontSize: 14,
-                        color: AppColors.richBlack.withOpacity(0.54),
+                        fontSize: 13,
+                        color: AppColors.richBlack.withOpacity(0.65),
                         fontWeight: FontWeight.w400,
                       ),
                       textAlign: TextAlign.center,
