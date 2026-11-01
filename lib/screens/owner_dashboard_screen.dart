@@ -432,32 +432,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       extendBodyBehindAppBar: true,
-      floatingActionButton: SizedBox(
-        height: 44,
-        child: FloatingActionButton.extended(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => SuperDashboardScreen()),
-            );
-          },
-          backgroundColor: AppColors.primaryGreen,
-          elevation: 6,
-          extendedPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          icon: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
-          label: Text(
-            'Admin',
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

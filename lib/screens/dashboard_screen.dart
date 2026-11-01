@@ -1083,35 +1083,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBodyBehindAppBar: true,
-        floatingActionButton: SizedBox(
-          height: 44,
-          child: FloatingActionButton.extended(
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => SuperDashboardScreen()),
-              );
-              await _loadUserData();
-              _fetchCourts();
-            },
-            backgroundColor: AppColors.primaryGreen,
-            elevation: 6,
-            extendedPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
-            ),
-            icon: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
-            label: Text(
-              'Admin',
-              style: GoogleFonts.outfit(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-      appBar: _buildAppBar(),
+        appBar: _buildAppBar(),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
