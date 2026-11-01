@@ -1063,11 +1063,34 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
     
+    final String refText = _referenceNumberController.text.trim();
+    if (refText.isEmpty || refText.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter all 4 digits of your payment reference number.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (_paymentReceiptFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please upload your proof of payment receipt screenshot.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
-    _recordBookingLog('SUBMITTING', refNumber: _referenceNumberController.text.trim());
+    _recordBookingLog('SUBMITTING', refNumber: refText);
 
     // 1. Upload receipt image to Cloudinary if attached
     String? uploadedReceiptUrl;
@@ -1690,6 +1713,15 @@ class _BookingScreenState extends State<BookingScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please enter all 4 digits of your payment reference number.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      if (_paymentReceiptFile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please upload your proof of payment (screenshot of receipt).'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -3859,7 +3891,8 @@ class _BookingScreenState extends State<BookingScreen> {
                 '2. Scan the Payment QR Code below OR copy the account number.\n'
                 '3. Send the exact total amount due: ${_getTotalDue()}.\n'
                 '4. Enter the LAST 4 DIGITS of your Payment Reference No. below (Mandatory).\n'
-                '5. Click Continue and wait for the CONFIRMATION screen to appear.',
+                '5. Upload your Payment Proof receipt screenshot below (Mandatory).\n'
+                '6. Click Continue and wait for the CONFIRMATION screen to appear.',
                 style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, color: AppColors.richBlack, height: 1.5),
               ),
               if (customInstructions.isNotEmpty) ...[
@@ -4269,7 +4302,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   const Icon(Icons.receipt_long_rounded, size: 18, color: AppColors.primaryGreen),
                   const SizedBox(width: 8),
                   Text(
-                    'Upload Payment Proof (JPG / PNG)',
+                    'Upload Payment Proof (JPG / PNG) *',
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.bold,
@@ -4277,11 +4310,28 @@ class _BookingScreenState extends State<BookingScreen> {
                       color: AppColors.richBlack,
                     ),
                   ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'MANDATORY',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFB45309),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
-                'Upload a screenshot of your payment transfer receipt.',
+                'Upload a screenshot of your payment transfer receipt (Required).',
                 style: TextStyle(
                   fontFamily: 'Poppins',
                   fontSize: 11,
