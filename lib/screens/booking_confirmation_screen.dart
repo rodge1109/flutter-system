@@ -375,58 +375,69 @@ class BookingConfirmationScreen extends StatelessWidget {
               ),
             ),
 
-            // Bottom Action Area: Share Booking Link (Icon Only) & Download Icon
+            // Bottom Action Area: Text + Icon actions without circle background
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 20,
+                runSpacing: 10,
                 children: [
-                  // Share Booking Link (Icon only, not as a button)
-                  Tooltip(
-                    message: 'Share Booking Link',
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primaryGreen.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
+                  // Share booking link + Icon
+                  InkWell(
+                    onTap: () => _shareBookingLink(context),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Share booking link',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.share_rounded,
+                            size: 18,
+                            color: AppColors.primaryGreen,
                           ),
                         ],
-                      ),
-                      child: IconButton(
-                        onPressed: () => _shareBookingLink(context),
-                        icon: const Icon(Icons.share_rounded, color: Colors.white, size: 22),
-                        tooltip: 'Share Booking Link',
                       ),
                     ),
                   ),
-                  const SizedBox(width: 24),
-                  // Download Receipt Photo (Icon only)
-                  Tooltip(
-                    message: 'Download Receipt Photo',
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primaryGreen.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
+
+                  // Download + Icon
+                  InkWell(
+                    onTap: () => _downloadReceiptImage(context),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Download',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.file_download_outlined,
+                            size: 20,
+                            color: AppColors.primaryGreen,
                           ),
                         ],
-                      ),
-                      child: IconButton(
-                        onPressed: () => _downloadReceiptImage(context),
-                        icon: const Icon(Icons.file_download_outlined, color: Colors.white, size: 24),
-                        tooltip: 'Download Receipt Photo',
                       ),
                     ),
                   ),
