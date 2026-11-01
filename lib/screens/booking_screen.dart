@@ -1103,9 +1103,6 @@ class _BookingScreenState extends State<BookingScreen> {
       } catch (e) {
         debugPrint('Error uploading payment receipt to Cloudinary: $e');
       }
-    }
-
-    final String refText = _referenceNumberController.text.trim();
     String? finalProof;
     if (refText.isNotEmpty && uploadedReceiptUrl != null && uploadedReceiptUrl.isNotEmpty) {
       finalProof = 'REF: $refText | $uploadedReceiptUrl';
