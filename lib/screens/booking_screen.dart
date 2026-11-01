@@ -896,7 +896,9 @@ class _BookingScreenState extends State<BookingScreen> {
       if (holdToken != null) {
         lastHoldToken = holdToken;
       } else {
-        lastHoldToken = 'hold_${DateTime.now().millisecondsSinceEpoch}';
+        holdFailed = true;
+        lastHoldToken = null;
+        break;
       }
     }
 
@@ -922,7 +924,7 @@ class _BookingScreenState extends State<BookingScreen> {
             _recordBookingLog('HOLD_EXPIRED', errorMsg: 'Slot hold expired after 5 minutes');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Hold expired! Please hold your slots again.'),
+                content: Text('Hold expired! Please select and hold your slots again.'),
                 backgroundColor: Colors.orange,
                 behavior: SnackBarBehavior.floating,
                 margin: EdgeInsets.only(
@@ -948,9 +950,10 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       );
     } else {
+      _holdToken = null;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sorry, one or more slots are already taken or held.'),
+          content: Text('Sorry, one or more selected slots are already booked or held by another renter. The list has been refreshed.'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.only(
@@ -960,7 +963,7 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
         ),
       );
-      _fetchSlots();
+      await _fetchSlots();
     }
   }
 
