@@ -967,12 +967,38 @@ class ApiService {
     }
   }
 
-  Future<bool> cancelCourtReservation(String courtName, String date, String time) async {
+  Future<bool> confirmCourtReservation({
+    dynamic bookingId,
+    String? courtName,
+    String? date,
+    String? time,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/owner/appointments/confirm'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          if (bookingId != null) 'bookingId': bookingId,
+          if (courtName != null) 'courtName': courtName,
+          if (date != null) 'date': date,
+          if (time != null) 'time': time,
+        }),
+      );
+      final data = json.decode(response.body);
+      return response.statusCode == 200 && data['success'] == true;
+    } catch (e) {
+      print('Error confirming reservation: $e');
+      return false;
+    }
+  }
+
+  Future<bool> cancelCourtReservation(String courtName, String date, String time, {dynamic bookingId}) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/owner/appointments/cancel'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
+          if (bookingId != null) 'bookingId': bookingId,
           'courtName': courtName,
           'date': date,
           'time': time,

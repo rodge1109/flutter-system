@@ -22,6 +22,7 @@ import 'super_dashboard_screen.dart';
 import 'login_screen.dart';
 import 'court_owner_ledger_screen.dart';
 import '../widgets/booking_logs_widget.dart';
+import 'court_pass_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   @override
@@ -1307,8 +1308,163 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
+  Future<void> _handleVerifyBooking(dynamic booking) async {
+    final String renter = booking['full_name'] ?? 'Renter';
+    final String court = booking['service_type'] ?? 'Court';
+    final String date = booking['appointment_date']?.toString().substring(0, 10) ?? '';
+    final String time = booking['appointment_time'] ?? '';
+    final dynamic bId = booking['id'];
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.verified_rounded, color: AppColors.primaryGreen, size: 24),
+            SizedBox(width: 8),
+            Text('Verify & Confirm', style: TextStyle(fontFamily: 'Poppins', fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Confirm payment verification for $renter at $court on $date ($time)?\n\nThis will mark the reservation as Confirmed & Active.',
+          style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade700)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryGreen,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Confirm Booking', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Verifying booking...'), duration: Duration(seconds: 1)),
+      );
+
+      final success = await _apiService.confirmCourtReservation(
+        bookingId: bId,
+        courtName: court,
+        date: date,
+        time: time,
+      );
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: AppColors.accentLime, size: 18),
+                SizedBox(width: 8),
+                Text('Reservation verified & confirmed!'),
+              ],
+            ),
+            backgroundColor: AppColors.richBlack,
+          ),
+        );
+        _refreshDashboardData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to confirm reservation. Please try again.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleCancelBooking(dynamic booking) async {
+    final String renter = booking['full_name'] ?? 'Renter';
+    final String court = booking['service_type'] ?? 'Court';
+    final String date = booking['appointment_date']?.toString().substring(0, 10) ?? '';
+    final String time = booking['appointment_time'] ?? '';
+    final dynamic bId = booking['id'];
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+            SizedBox(width: 8),
+            Text('Cancel Reservation', style: TextStyle(fontFamily: 'Poppins', fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to cancel the reservation for $renter at $court on $date ($time)?\n\nThis will release the timeslot back to available courts.',
+          style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Keep', style: TextStyle(color: Colors.grey.shade700)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Cancel Reservation', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cancelling reservation...'), duration: Duration(seconds: 1)),
+      );
+
+      final success = await _apiService.cancelCourtReservation(
+        court,
+        date,
+        time,
+        bookingId: bId,
+      );
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: AppColors.accentLime, size: 18),
+                SizedBox(width: 8),
+                Text('Reservation cancelled and slot released.'),
+              ],
+            ),
+            backgroundColor: AppColors.richBlack,
+          ),
+        );
+        _refreshDashboardData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to cancel reservation. Please try again.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildBookingCard(dynamic booking) {
-    final rawStatus = (booking['status'] ?? 'confirmed').toString().toLowerCase();
+    final rawStatus = (booking['status'] ?? 'pending').toString().toLowerCase();
+    final isPending = rawStatus == 'pending' || rawStatus == 'held' || rawStatus == 'submitted';
     final isCancelled = rawStatus == 'cancelled';
     final isBlocked = rawStatus == 'blocked';
     final isCompleted = rawStatus == 'completed';
@@ -1316,7 +1472,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     Color badgeColor = AppColors.primaryGreen;
     String statusText = 'Confirmed';
 
-    if (isCancelled) {
+    if (isPending) {
+      badgeColor = Colors.amber.shade800;
+      statusText = 'Pending Verification';
+    } else if (isCancelled) {
       badgeColor = Colors.red.shade600;
       statusText = 'Cancelled';
     } else if (isBlocked) {
@@ -1392,6 +1551,35 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     'Ref #: ${booking['id']}',
                     style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CourtPassScreen(bookingId: booking['id'].toString()),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.confirmation_number_outlined, size: 12, color: AppColors.primaryGreen),
+                        SizedBox(width: 3),
+                        Text(
+                          'Pass',
+                          style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -1550,6 +1738,65 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               ),
             ],
           ),
+
+          // Action Buttons: Verify & Confirm or Cancel
+          if (!isBlocked && !isCompleted && !isCancelled) ...[
+            const SizedBox(height: 12),
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                // Cancel button
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _handleCancelBooking(booking),
+                    icon: Icon(Icons.close_rounded, size: 15, color: Colors.red.shade700),
+                    label: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      side: BorderSide(color: Colors.red.shade300),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+                if (isPending) ...[
+                  const SizedBox(width: 10),
+                  // Verify & Confirm button
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _handleVerifyBooking(booking),
+                      icon: const Icon(Icons.check_circle_rounded, size: 15, color: Colors.white),
+                      label: const Text(
+                        'Verify & Confirm',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ],
       ),
     );
