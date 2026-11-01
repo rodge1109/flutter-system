@@ -22,6 +22,7 @@ class BookingConfirmationScreen extends StatelessWidget {
   final double totalPaid;
   final String? bookingId;
   final String? playerName;
+  final String? bookingStatus;
 
   const BookingConfirmationScreen({
     Key? key,
@@ -34,7 +35,94 @@ class BookingConfirmationScreen extends StatelessWidget {
     required this.totalPaid,
     this.bookingId,
     this.playerName,
+    this.bookingStatus,
   }) : super(key: key);
+
+  bool get _isConfirmed {
+    final s = (bookingStatus ?? 'pending').trim().toLowerCase();
+    return s == 'confirmed' || s == 'approved' || s == 'active';
+  }
+
+  bool get _isCancelled {
+    final s = (bookingStatus ?? 'pending').trim().toLowerCase();
+    return s == 'cancelled' || s == 'canceled' || s == 'rejected';
+  }
+
+  String get _titleText {
+    if (_isConfirmed) return 'Booking Confirmed!';
+    if (_isCancelled) return 'Booking Cancelled';
+    return 'Booking Request is Submitted!';
+  }
+
+  String get _subtitleText {
+    if (_isConfirmed) {
+      return 'Your court reservation is confirmed.\nPresent this court pass upon arrival.';
+    }
+    if (_isCancelled) {
+      return 'This booking request was cancelled or expired.';
+    }
+    return 'Your payment will be verified and confirmed in a while.\nYou may monitor your booking in the given link.';
+  }
+
+  Widget _buildStatusBadge() {
+    Color bgColor;
+    Color borderColor;
+    Color dotColor;
+    Color textColor;
+    String label;
+
+    if (_isConfirmed) {
+      bgColor = const Color(0xFFDCFCE7);
+      borderColor = const Color(0xFF22C55E).withOpacity(0.5);
+      dotColor = const Color(0xFF16A34A);
+      textColor = const Color(0xFF166534);
+      label = 'Confirmed';
+    } else if (_isCancelled) {
+      bgColor = const Color(0xFFFEE2E2);
+      borderColor = const Color(0xFFEF4444).withOpacity(0.5);
+      dotColor = const Color(0xFFDC2626);
+      textColor = const Color(0xFF991B1B);
+      label = 'Cancelled';
+    } else {
+      bgColor = const Color(0xFFFEF3C7);
+      borderColor = const Color(0xFFF59E0B).withOpacity(0.5);
+      dotColor = const Color(0xFFD97706);
+      textColor = const Color(0xFF92400E);
+      label = 'Pending';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   String _generateBookingUrl() {
     String baseOrigin = 'https://www.picklebook-ph.com';
@@ -58,6 +146,7 @@ class BookingConfirmationScreen extends StatelessWidget {
       'courtNum': courtNumber,
       'price': totalPaid.toStringAsFixed(2),
       if (playerName != null && playerName!.isNotEmpty) 'name': playerName!,
+      if (bookingStatus != null && bookingStatus!.isNotEmpty) 'status': bookingStatus!,
     });
     return uri.toString();
   }
@@ -339,7 +428,7 @@ class BookingConfirmationScreen extends StatelessWidget {
 
                     // Title
                     Text(
-                      'Booking Request is Submitted!',
+                      _titleText,
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 20,
@@ -354,7 +443,7 @@ class BookingConfirmationScreen extends StatelessWidget {
 
                     // Subtitle
                     Text(
-                      'Your payment will be verified and confirmed in a while.\nYou may monitor your booking in the given link.',
+                      _subtitleText,
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 13,
@@ -580,8 +669,9 @@ class BookingConfirmationScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Venue Header with Logo
+              // Venue Header with Logo & Live Status Badge
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildVenueLogo(size: 46),
                   const SizedBox(width: 12),
@@ -593,7 +683,7 @@ class BookingConfirmationScreen extends StatelessWidget {
                           courtName.isNotEmpty ? courtName : 'Smash Zone Pickleball',
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: AppColors.richBlack,
                           ),
@@ -614,6 +704,8 @@ class BookingConfirmationScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  _buildStatusBadge(),
                 ],
               ),
 

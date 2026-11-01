@@ -32,6 +32,7 @@ class _CourtPassScreenState extends State<CourtPassScreen> {
   double _totalPaid = 0.0;
   String? _bookingId;
   String? _playerName;
+  String? _bookingStatus;
 
   @override
   void initState() {
@@ -153,6 +154,7 @@ class _CourtPassScreenState extends State<CourtPassScreen> {
           _totalPaid = price;
           _bookingId = bId;
           _playerName = appointment['full_name']?.toString();
+          _bookingStatus = (appointment['status'] ?? appointment['booking_status'] ?? 'pending').toString().trim();
           _isLoading = false;
         });
         return;
@@ -190,6 +192,7 @@ class _CourtPassScreenState extends State<CourtPassScreen> {
     _courtNumber = q['courtNum'] ?? q['court'] ?? 'Court 1';
     _totalPaid = double.tryParse(q['price'] ?? '0') ?? 0.0;
     _playerName = q['name'];
+    _bookingStatus = q['status'] ?? 'pending';
     _bookingId = widget.bookingId ?? q['id'] ?? q['bookingId'];
 
     if (q['time'] != null && q['time']!.isNotEmpty) {
@@ -393,6 +396,7 @@ class _CourtPassScreenState extends State<CourtPassScreen> {
       totalPaid: _totalPaid,
       bookingId: _bookingId,
       playerName: _playerName,
+      bookingStatus: _bookingStatus,
     );
   }
 }

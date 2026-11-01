@@ -148,6 +148,7 @@ class PicklebookApp extends StatelessWidget {
                   totalPaid: 350.0,
                   bookingId: 'BK-PREVIEW-123',
                   playerName: 'Alex Rivera',
+                  bookingStatus: uri.queryParameters['status'] ?? 'pending',
                 ),
               );
             }

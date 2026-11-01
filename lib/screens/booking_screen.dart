@@ -1244,6 +1244,7 @@ class _BookingScreenState extends State<BookingScreen> {
             totalPaid: finalPaid,
             bookingId: lastBookingId,
             playerName: _nameController.text.trim(),
+            bookingStatus: 'pending',
           ),
         ),
       );
