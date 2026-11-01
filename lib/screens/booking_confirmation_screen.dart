@@ -241,14 +241,45 @@ class BookingConfirmationScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-        child: Column(
-          children: [
-            // Top Checkmark Graphics with Confetti Elements
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Column(
+          child: Column(
+            children: [
+              // Top Action Row with Close Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    IconButton(
+                      onPressed: () {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context, 'home');
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                          );
+                        }
+                      },
+                      icon: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.06),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, size: 20, color: AppColors.richBlack),
+                      ),
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+              ),
+
+              // Scrollable Receipt Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Column(
+                    children: [
                     const SizedBox(height: 8),
 
                     // Confetti and Checkmark Badge
@@ -344,73 +375,58 @@ class BookingConfirmationScreen extends StatelessWidget {
               ),
             ),
 
-            // Bottom Buttons
+            // Bottom Action Area: Share Booking Link (Icon Only) & Download Icon
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-              child: Column(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // View My Bookings Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context, 'view_bookings');
-                        } else {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const DashboardScreen(initialNavIndex: 2)),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGreen,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(9999),
-                        ),
-                        elevation: 0,
+                  // Share Booking Link (Icon only, not as a button)
+                  Tooltip(
+                    message: 'Share Booking Link',
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryGreen.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                      child: const Text(
-                        'View My Bookings',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      child: IconButton(
+                        onPressed: () => _shareBookingLink(context),
+                        icon: const Icon(Icons.share_rounded, color: Colors.white, size: 22),
+                        tooltip: 'Share Booking Link',
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 8),
-
-                  // Back to Home Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: () {
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context, 'home');
-                        } else {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                          );
-                        }
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                  const SizedBox(width: 24),
+                  // Download Receipt Photo (Icon only)
+                  Tooltip(
+                    message: 'Download Receipt Photo',
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryGreen.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        'Back to Home',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.richBlack,
-                        ),
+                      child: IconButton(
+                        onPressed: () => _downloadReceiptImage(context),
+                        icon: const Icon(Icons.file_download_outlined, color: Colors.white, size: 24),
+                        tooltip: 'Download Receipt Photo',
                       ),
                     ),
                   ),
@@ -752,54 +768,6 @@ class BookingConfirmationScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Share & Download Action Row
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _shareBookingLink(context),
-                      icon: const Icon(Icons.send_rounded, size: 14),
-                      label: const Text(
-                        'Share Booking Link',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGreen,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(9999),
-                        ),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: 'Download Receipt Photo',
-                    child: ElevatedButton(
-                      onPressed: () => _downloadReceiptImage(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryGreen,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        minimumSize: const Size(42, 34),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(9999),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Icon(Icons.file_download_outlined, size: 17),
-                    ),
-                  ),
-                ],
               ),
 
               const SizedBox(height: 14),
