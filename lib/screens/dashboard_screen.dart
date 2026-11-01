@@ -17,6 +17,7 @@ import 'booking_screen.dart';
 import 'package:flutter/services.dart';
 import 'all_open_plays_screen.dart';
 import 'profile_screen.dart';
+import 'loyalty_rewards_screen.dart';
 import 'notifications_screen.dart';
 import 'inbox_screen.dart';
 import 'chat_screen.dart';
@@ -1207,7 +1208,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               title: Text('My Rewards & Loyalty', style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen())).then((_) => _loadUserData());
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const LoyaltyRewardsScreen())).then((_) => _loadUserData());
               },
             ),
 
