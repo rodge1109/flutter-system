@@ -1463,11 +1463,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Widget _buildBookingCard(dynamic booking) {
-    final rawStatus = (booking['status'] ?? 'pending').toString().toLowerCase();
-    final isPending = rawStatus == 'pending' || rawStatus == 'held' || rawStatus == 'submitted';
+    final rawStatus = (booking['status'] ?? 'pending').toString().toLowerCase().trim();
     final isCancelled = rawStatus == 'cancelled';
     final isBlocked = rawStatus == 'blocked';
     final isCompleted = rawStatus == 'completed';
+    final isConfirmed = rawStatus == 'confirmed';
+    final isPending = !isCancelled && !isBlocked && !isCompleted && !isConfirmed;
 
     Color badgeColor = AppColors.primaryGreen;
     String statusText = 'Confirmed';
