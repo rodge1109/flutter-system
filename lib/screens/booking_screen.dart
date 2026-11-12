@@ -1311,6 +1311,21 @@ class _BookingScreenState extends State<BookingScreen> {
     return rawTime.trim();
   }
 
+  String _formatSlotRange(String rawTime) {
+    final clean = _extractSlotTime(rawTime);
+    final parts = clean.split(RegExp(r'[:\s]'));
+    if (parts.length >= 3) {
+      int h = int.tryParse(parts[0]) ?? 0;
+      String ampm = parts[2].toUpperCase();
+      int endH = h + 1;
+      String endAmpm = ampm;
+      if (endH == 12) endAmpm = ampm == 'AM' ? 'PM' : 'AM';
+      if (endH > 12) endH -= 12;
+      return '$clean - $endH:00 $endAmpm';
+    }
+    return clean;
+  }
+
   String _extractSlotCourtName(String rawTime) {
     int idx = rawTime.indexOf(': ');
     if (idx != -1) {
@@ -1745,7 +1760,10 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   void _handleStepCancel() {
-    if (_holdToken != null) {
+    // Only release the timeslot hold when backing out of Step 1 back to Step 0 (or unlocking on Step 0).
+    // Backing from Confirmation (Step 3) -> Payment (Step 2) or Payment (Step 2) -> Details (Step 1)
+    // preserves the 5-minute slot lock so the user never loses their held timeslots!
+    if (_holdToken != null && _currentStep <= 1) {
       _holdTimer?.cancel();
       setState(() {
         _holdToken = null;
@@ -2119,6 +2137,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
                 // ── Sticky Floating Footer ──
                 Container(
+                  width: double.infinity,
                   decoration: BoxDecoration(
                     color: AppColors.creamWhite,
                     boxShadow: [
@@ -2129,74 +2148,89 @@ class _BookingScreenState extends State<BookingScreen> {
                       ),
                     ],
                   ),
-                  padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.of(context).padding.bottom + 12),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Navigation buttons (Continue / Back) just above the summary bar
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _handleStepContinue(skipChooseService),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primaryGreen,
-                                foregroundColor: AppColors.softWhite,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                              ),
-                              child: Text(
-                                _currentStep == maxStep ? 'Confirm Booking' : 'Continue',
-                                style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.softWhite),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          24,
+                          12,
+                          24,
+                          _selectedTimes.isNotEmpty ? 10 : MediaQuery.of(context).padding.bottom + 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _handleStepContinue(skipChooseService),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryGreen,
+                                  foregroundColor: AppColors.softWhite,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                                ),
+                                child: Text(
+                                  _currentStep == maxStep ? 'Confirm Booking' : 'Continue',
+                                  style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.softWhite),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _handleStepCancel,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                side: BorderSide(color: Colors.grey.shade400),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _handleStepCancel,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                                ),
+                                child: const Text('Back', style: TextStyle(fontFamily: 'Poppins', color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 13)),
                               ),
-                              child: const Text('Back', style: TextStyle(fontFamily: 'Poppins', color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 13)),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
 
-                      // Selection Summary Bar (at the very bottom of the footer)
-                      if (_currentStep == 0 && _selectedTimes.isNotEmpty) ...[
-                        const SizedBox(height: 10),
+                      // Selection Summary Bar (full-width across the screen, borderless, 0 offset from bottom edge)
+                      if (_selectedTimes.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryGreen.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.primaryGreen.withOpacity(0.25)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          width: double.infinity,
+                          padding: EdgeInsets.fromLTRB(24, 10, 24, MediaQuery.of(context).padding.bottom + 10),
+                          color: AppColors.primaryGreen.withOpacity(0.08),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 18),
-                                  const SizedBox(width: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 16),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${_selectedTimes.length} ${_selectedTimes.length == 1 ? "slot" : "slots"} selected',
+                                        style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: AppColors.richBlack, fontSize: 12.5),
+                                      ),
+                                    ],
+                                  ),
                                   Text(
-                                    '${_selectedTimes.length} ${_selectedTimes.length == 1 ? "slot" : "slots"} selected',
-                                    style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: AppColors.richBlack, fontSize: 13),
+                                    'Total: ${_getTotalDue()}',
+                                    style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 13.5),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 4),
                               Text(
-                                'Total: ${_getTotalDue()}',
-                                style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 14),
+                                _selectedTimes.map((t) => '${_extractSlotCourtName(t)}: ${_formatSlotRange(t)}').join(' • '),
+                                style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ),
@@ -3327,7 +3361,7 @@ class _BookingScreenState extends State<BookingScreen> {
             Icons.access_time, 
             'Times', 
             _selectedTimes.isNotEmpty 
-                ? _selectedTimes.map((t) => '${_extractSlotCourtName(t)}: ${_extractSlotTime(t)} (PHP ${_getSlotPriceValue(t).toStringAsFixed(0)})').join('\n')
+                ? _selectedTimes.map((t) => '${_extractSlotCourtName(t)}: ${_formatSlotRange(t)} (PHP ${_getSlotPriceValue(t).toStringAsFixed(0)})').join('\n')
                 : '-'
           ),
           Divider(height: 24, color: Colors.grey.shade300),
@@ -3756,16 +3790,18 @@ class _BookingScreenState extends State<BookingScreen> {
                 ],
               ),
               SizedBox(height: 8),
-              if (_selectedTimes.length > 1) ...[
+              if (_selectedTimes.isNotEmpty) ...[
                 ..._selectedTimes.map((t) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '${_extractSlotCourtName(t)}: ${_extractSlotTime(t)}',
-                          style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, color: Colors.grey.shade700),
+                        Expanded(
+                          child: Text(
+                            '${_extractSlotCourtName(t)}: ${_formatSlotRange(t)}',
+                            style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.richBlack),
+                          ),
                         ),
                         Text(
                           'PHP ${_getSlotPriceValue(t).toStringAsFixed(2)}',

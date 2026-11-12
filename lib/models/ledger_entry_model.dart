@@ -65,14 +65,16 @@ class LedgerEntryModel {
     DateTime? created;
     if (json['created_at'] != null) {
       try {
-        created = DateTime.parse(json['created_at'].toString());
+        final clean = json['created_at'].toString().trim().replaceAll(RegExp(r'Z$|[+-]\d{2}:?\d{2}$', caseSensitive: false), '');
+        created = DateTime.parse(clean);
       } catch (_) {}
     }
 
     DateTime? updated;
     if (json['updated_at'] != null) {
       try {
-        updated = DateTime.parse(json['updated_at'].toString());
+        final clean = json['updated_at'].toString().trim().replaceAll(RegExp(r'Z$|[+-]\d{2}:?\d{2}$', caseSensitive: false), '');
+        updated = DateTime.parse(clean);
       } catch (_) {}
     }
 

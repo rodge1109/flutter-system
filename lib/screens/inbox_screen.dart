@@ -67,7 +67,8 @@ class _InboxScreenState extends State<InboxScreen> {
                       final partnerName = item['partner_name'] ?? partnerEmail;
                       final lastMessage = item['message'] ?? '';
                       final unreadCount = item['unread_count'] is int ? item['unread_count'] : int.tryParse(item['unread_count'].toString()) ?? 0;
-                      final date = DateTime.tryParse(item['created_at'].toString()) ?? DateTime.now();
+                      final rawCreatedAt = (item['created_at'] ?? '').toString().trim().replaceAll(RegExp(r'Z$|[+-]\d{2}:?\d{2}$', caseSensitive: false), '');
+                      final date = DateTime.tryParse(rawCreatedAt) ?? DateTime.now();
 
                       return Container(
                         margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),

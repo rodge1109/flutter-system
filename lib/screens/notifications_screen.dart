@@ -246,7 +246,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   String _formatDate(String dateStr) {
     try {
-      DateTime dt = DateTime.parse(dateStr).toLocal();
+      final clean = dateStr.trim().replaceAll(RegExp(r'Z$|[+-]\d{2}:?\d{2}$', caseSensitive: false), '');
+      DateTime dt = DateTime.parse(clean);
       return '${dt.month}/${dt.day}/${dt.year} at ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateStr;

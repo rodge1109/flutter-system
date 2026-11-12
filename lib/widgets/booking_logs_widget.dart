@@ -109,7 +109,8 @@ class _BookingLogsWidgetState extends State<BookingLogsWidget> {
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return '-';
     try {
-      final dt = DateTime.parse(dateStr).toLocal();
+      final clean = dateStr.trim().replaceAll(RegExp(r'Z$|[+-]\d{2}:?\d{2}$', caseSensitive: false), '');
+      final dt = DateTime.parse(clean);
       return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour % 12 == 0 ? 12 : dt.hour % 12}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour >= 12 ? "PM" : "AM"}';
     } catch (_) {
       return dateStr;

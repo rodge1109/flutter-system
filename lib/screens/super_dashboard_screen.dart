@@ -589,7 +589,7 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
     if (dateInput == null || dateInput.toString().trim().isEmpty) return 'N/A';
     try {
       String raw = dateInput.toString().trim();
-      raw = raw.replaceAll(RegExp(r'Z$', caseSensitive: false), '');
+      raw = raw.replaceAll(RegExp(r'Z$|[+-]\d{2}:?\d{2}$', caseSensitive: false), '');
       final parsed = DateTime.parse(raw);
       return DateFormat('MMM d, yyyy • h:mm a').format(parsed);
     } catch (_) {
