@@ -314,6 +314,7 @@ class ApiService {
     required List<String> times,
     required String serviceType,
     required String email,
+    String? previousHoldToken,
   }) async {
     try {
       String userEmail = email.trim();
@@ -340,6 +341,8 @@ class ApiService {
           'serviceType': serviceType,
           'email': userEmail,
           'appSecret': 'pickle_v2_app_secret_key_88',
+          if (previousHoldToken != null && previousHoldToken.trim().isNotEmpty)
+            'previousHoldToken': previousHoldToken.trim(),
         }),
       );
 
@@ -367,6 +370,44 @@ class ApiService {
       print('Error holding slots: $e');
       return null;
     }
+  }
+
+  Future<bool> releaseHold(String holdToken) async {
+    final cleanToken = holdToken.trim();
+    if (cleanToken.isEmpty) return false;
+    bool released = false;
+
+    // 1. Direct Supabase RPC for instant (<50ms) deletion of held slot rows
+    try {
+      final rpcRes = await http.post(
+        Uri.parse('$_supabaseUrl/rest/v1/rpc/release_hold_slots'),
+        headers: {
+          'apikey': _supabaseAnonKey,
+          'Authorization': 'Bearer $_supabaseAnonKey',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'p_hold_token': cleanToken}),
+      ).timeout(const Duration(seconds: 5));
+      if (rpcRes.statusCode >= 200 && rpcRes.statusCode < 300) {
+        released = true;
+      }
+    } catch (e) {
+      debugPrint('Supabase RPC release_hold_slots error: $e');
+    }
+
+    // 2. Also notify backend release-hold endpoint
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/appointments/release-hold'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'holdToken': cleanToken}),
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        released = true;
+      }
+    } catch (_) {}
+
+    return released;
   }
 
   Future<Map<String, dynamic>> fetchOwnerEarnings(String email, {String? startDate, String? endDate}) async {
@@ -726,17 +767,44 @@ class ApiService {
           final List<dynamic> available = data['availableSlots'] ?? [];
           final List<dynamic> booked = data['bookedSlots'] ?? [];
           final List<dynamic> blocked = data['blockedSlots'] ?? [];
+          List<String> held = (data['heldSlots'] as List<dynamic>?)?.map((s) => s.toString()).toList() ?? [];
+
+          // Fallback to Supabase RPC get_held_slots if server response did not include heldSlots yet
+          if (data['heldSlots'] == null && booked.isNotEmpty) {
+            try {
+              final rpcRes = await http.post(
+                Uri.parse('$_supabaseUrl/rest/v1/rpc/get_held_slots'),
+                headers: {
+                  'apikey': _supabaseAnonKey,
+                  'Authorization': 'Bearer $_supabaseAnonKey',
+                  'Content-Type': 'application/json',
+                },
+                body: json.encode({'p_date': date, 'p_service_type': serviceType}),
+              ).timeout(const Duration(seconds: 4));
+              if (rpcRes.statusCode >= 200 && rpcRes.statusCode < 300) {
+                final rpcData = json.decode(rpcRes.body);
+                if (rpcData is List) {
+                  held = rpcData
+                      .map((row) => (row is Map ? row['preferred_time'] : row)?.toString() ?? '')
+                      .where((s) => s.isNotEmpty)
+                      .toList();
+                }
+              }
+            } catch (_) {}
+          }
+
           return {
             'availableSlots': available.map((s) => s.toString()).toList(),
             'bookedSlots': booked.map((s) => s.toString()).toList(),
+            'heldSlots': held,
             'blockedSlots': blocked.map((s) => s.toString()).toList(),
           };
         }
       }
-      return {'availableSlots': [], 'bookedSlots': [], 'blockedSlots': []};
+      return {'availableSlots': [], 'bookedSlots': [], 'heldSlots': [], 'blockedSlots': []};
     } catch (e) {
       print('Error fetching slots: $e');
-      return {'availableSlots': [], 'bookedSlots': [], 'blockedSlots': []};
+      return {'availableSlots': [], 'bookedSlots': [], 'heldSlots': [], 'blockedSlots': []};
     }
   }
 

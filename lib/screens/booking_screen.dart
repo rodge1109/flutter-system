@@ -58,6 +58,7 @@ class _BookingScreenState extends State<BookingScreen> {
   List<String> _selectedTimes = [];
   List<String> _bookedSlots = [];
   Map<String, List<String>> _courtBookedSlots = {};
+  Map<String, List<String>> _courtHeldSlots = {};
   bool _isLoadingSlots = false;
   String _selectedCategory = 'All';
   Set<int> _expandedCourtIds = {};
@@ -207,6 +208,9 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   String? _holdToken;
+  final Set<String> _activeHoldTokens = {};
+  final Map<String, String> _courtHoldTokens = {};
+  Future<void>? _pendingReleaseFuture;
   Timer? _holdTimer;
   int _holdSecondsRemaining = 0;
   final ScrollController _stepScrollController = ScrollController();
@@ -797,23 +801,45 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  Future<void> _fetchSlots() async {
+  Future<void> _fetchSlots({bool preserveCurrentSelection = false}) async {
     if (_selectedDate == null || _services.isEmpty) return;
     setState(() => _isLoadingSlots = true);
     
     final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
     
     Map<String, List<String>> courtBookings = {};
+    Map<String, List<String>> courtHolds = {};
     
     for (var service in _services) {
       final result = await _apiService.fetchAvailableSlots(dateStr, service.name);
       final List<String> booked = (result['bookedSlots'] ?? []).map<String>((s) => s.toString()).toList();
+      final List<String> held = (result['heldSlots'] ?? []).map<String>((s) => s.toString()).toList();
       final List<String> blocked = (result['blockedSlots'] ?? []).map<String>((s) => s.toString()).toList();
       courtBookings[service.name] = [...booked, ...blocked];
+      courtHolds[service.name] = held;
+    }
+
+    if (preserveCurrentSelection && _selectedTimes.isNotEmpty) {
+      for (final rawTime in _selectedTimes) {
+        final court = _findCourtForSlot(rawTime);
+        final courtName = court?.name ?? (_selectedService?.name ?? '');
+        final cleanTime = _extractSlotTime(rawTime);
+        if (courtName.isNotEmpty && courtBookings.containsKey(courtName)) {
+          courtBookings[courtName]!.removeWhere(
+            (bTime) => _normalizeTime(bTime) == _normalizeTime(cleanTime) || bTime.trim() == cleanTime.trim(),
+          );
+        }
+        if (courtName.isNotEmpty && courtHolds.containsKey(courtName)) {
+          courtHolds[courtName]!.removeWhere(
+            (hTime) => _normalizeTime(hTime) == _normalizeTime(cleanTime) || hTime.trim() == cleanTime.trim(),
+          );
+        }
+      }
     }
     
     setState(() {
       _courtBookedSlots = courtBookings;
+      _courtHeldSlots = courtHolds;
       
       // We still update a unified _bookedSlots for legacy compatibility if needed
       List<String> allBooked = [];
@@ -822,27 +848,76 @@ class _BookingScreenState extends State<BookingScreen> {
       }
       _bookedSlots = allBooked.toSet().toList();
       
-      // Remove selected times if booked for that specific court
-      _selectedTimes.removeWhere((rawTime) {
-        if (rawTime.contains(': ')) {
-          final idx = rawTime.indexOf(': ');
-          final courtName = rawTime.substring(0, idx).trim();
-          final cleanTime = rawTime.substring(idx + 2).trim();
-          final bookedList = _courtBookedSlots[courtName] ?? [];
-          return bookedList.any((bTime) => _normalizeTime(bTime) == _normalizeTime(cleanTime) || bTime.trim() == cleanTime.trim());
-        } else if (_selectedService != null) {
-          final bookedList = _courtBookedSlots[_selectedService!.name] ?? [];
-          return bookedList.any((bTime) => _normalizeTime(bTime) == _normalizeTime(rawTime) || bTime.trim() == rawTime.trim());
-        }
-        return false;
-      });
+      // Remove selected times if booked by ANOTHER user (do not strip slots currently held by this user or while releasing)
+      if (!preserveCurrentSelection && _holdToken == null && _pendingReleaseFuture == null) {
+        _selectedTimes.removeWhere((rawTime) {
+          if (rawTime.contains(': ')) {
+            final idx = rawTime.indexOf(': ');
+            final courtName = rawTime.substring(0, idx).trim();
+            final cleanTime = rawTime.substring(idx + 2).trim();
+            final bookedList = _courtBookedSlots[courtName] ?? [];
+            return bookedList.any((bTime) => _normalizeTime(bTime) == _normalizeTime(cleanTime) || bTime.trim() == cleanTime.trim());
+          } else if (_selectedService != null) {
+            final bookedList = _courtBookedSlots[_selectedService!.name] ?? [];
+            return bookedList.any((bTime) => _normalizeTime(bTime) == _normalizeTime(rawTime) || bTime.trim() == rawTime.trim());
+          }
+          return false;
+        });
+      }
       _isLoadingSlots = false;
     });
+  }
+
+  Future<void> _releaseCurrentHold({bool refreshSlots = false}) async {
+    _holdTimer?.cancel();
+    final tokensToRelease = <String>{
+      if (_holdToken != null && _holdToken!.trim().isNotEmpty) _holdToken!.trim(),
+      ..._activeHoldTokens,
+      ..._courtHoldTokens.values,
+    };
+    _activeHoldTokens.clear();
+    _courtHoldTokens.clear();
+
+    if (mounted) {
+      setState(() {
+        _holdToken = null;
+        _holdSecondsRemaining = 0;
+      });
+    } else {
+      _holdToken = null;
+      _holdSecondsRemaining = 0;
+    }
+
+    if (tokensToRelease.isEmpty) return;
+
+    final releaseWork = Future.wait(
+      tokensToRelease.map((t) => _apiService.releaseHold(t)),
+    );
+    _pendingReleaseFuture = releaseWork;
+    try {
+      await releaseWork;
+    } catch (_) {
+    } finally {
+      if (_pendingReleaseFuture == releaseWork) {
+        _pendingReleaseFuture = null;
+      }
+    }
+
+    if (refreshSlots && mounted) {
+      await _fetchSlots(preserveCurrentSelection: true);
+    }
   }
 
   @override
   void dispose() {
     _holdTimer?.cancel();
+    final tokensToRelease = <String>{
+      if (_holdToken != null && _holdToken!.trim().isNotEmpty) _holdToken!.trim(),
+      ..._activeHoldTokens,
+    };
+    for (final t in tokensToRelease) {
+      _apiService.releaseHold(t);
+    }
     _stepScrollController.dispose();
     _nameController.dispose();
     _emailController.dispose();
@@ -867,6 +942,13 @@ class _BookingScreenState extends State<BookingScreen> {
 
     setState(() => _isLoading = true);
 
+    // Wait for any in-flight hold release (e.g. if user just clicked Back and immediately clicked Continue)
+    if (_pendingReleaseFuture != null) {
+      try {
+        await _pendingReleaseFuture;
+      } catch (_) {}
+    }
+
     final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
     
     // Group selected times by court/service name
@@ -881,6 +963,8 @@ class _BookingScreenState extends State<BookingScreen> {
 
     String? lastHoldToken;
     bool holdFailed = false;
+    final newlyHeldTokens = <String>[];
+    final newlyHeldByCourt = <String, String>{};
 
     for (var entry in slotsByService.entries) {
       final sName = entry.key;
@@ -891,15 +975,31 @@ class _BookingScreenState extends State<BookingScreen> {
         times: timesList,
         serviceType: sName,
         email: _emailController.text,
+        previousHoldToken: _courtHoldTokens[sName] ?? _holdToken,
       );
 
       if (holdToken != null) {
         lastHoldToken = holdToken;
+        newlyHeldTokens.add(holdToken);
+        newlyHeldByCourt[sName] = holdToken;
       } else {
         holdFailed = true;
         lastHoldToken = null;
         break;
       }
+    }
+
+    if (holdFailed && newlyHeldTokens.isNotEmpty) {
+      for (final t in newlyHeldTokens) {
+        await _apiService.releaseHold(t);
+      }
+    } else if (!holdFailed) {
+      _activeHoldTokens
+        ..clear()
+        ..addAll(newlyHeldTokens);
+      _courtHoldTokens
+        ..clear()
+        ..addAll(newlyHeldByCourt);
     }
 
     setState(() => _isLoading = false);
@@ -1158,7 +1258,7 @@ class _BookingScreenState extends State<BookingScreen> {
           'challengeType': _challengeType,
           'hostTandemName': _hostTandemNameController.text,
           'challengeDescription': _challengeDescriptionController.text,
-          'holdToken': _holdToken,
+          'holdToken': _courtHoldTokens[sName] ?? _holdToken,
         };
 
         final res = await _apiService.submitAppointmentWithResult(appointmentData);
@@ -1179,6 +1279,12 @@ class _BookingScreenState extends State<BookingScreen> {
     });
 
     if (allSuccess) {
+      _holdTimer?.cancel();
+      _holdToken = null;
+      _holdSecondsRemaining = 0;
+      _activeHoldTokens.clear();
+      _courtHoldTokens.clear();
+
       if (_isOpenPlay) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('open_play_instructions_default', _openPlayInstructionsController.text);
@@ -1764,11 +1870,7 @@ class _BookingScreenState extends State<BookingScreen> {
     // Backing from Confirmation (Step 3) -> Payment (Step 2) or Payment (Step 2) -> Details (Step 1)
     // preserves the 5-minute slot lock so the user never loses their held timeslots!
     if (_holdToken != null && _currentStep <= 1) {
-      _holdTimer?.cancel();
-      setState(() {
-        _holdToken = null;
-        _holdSecondsRemaining = 0;
-      });
+      _releaseCurrentHold(refreshSlots: true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Timeslot lock reset. You can now select different timeslots.'),
@@ -1785,6 +1887,7 @@ class _BookingScreenState extends State<BookingScreen> {
     if (_currentStep > 0) {
       setState(() => _currentStep -= 1);
     } else {
+      _releaseCurrentHold(refreshSlots: false);
       Navigator.pop(context);
     }
   }
@@ -2482,6 +2585,8 @@ class _BookingScreenState extends State<BookingScreen> {
                             final isSelected = _selectedTimes.contains(slotKey) || (_selectedServiceIds.length == 1 && _selectedTimes.contains(time));
                             final isBooked = (_courtBookedSlots[court.name] ?? _courtBookedSlots[court.venueName] ?? [])
                                 .any((bTime) => _normalizeTime(bTime) == _normalizeTime(time) || bTime.trim() == time.trim());
+                            final isHeld = (_courtHeldSlots[court.name] ?? _courtHeldSlots[court.venueName] ?? [])
+                                .any((hTime) => _normalizeTime(hTime) == _normalizeTime(time) || hTime.trim() == time.trim());
 
                             bool isPast = false;
                             bool isOutsideHours = false;
@@ -2627,11 +2732,11 @@ class _BookingScreenState extends State<BookingScreen> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          isOutsideHours ? 'CLOSED' : (isPast ? 'PASSED' : (isBooked ? 'Booked' : _getPriceForTime(time, service: court))),
+                                          isOutsideHours ? 'CLOSED' : (isPast ? 'PASSED' : (isHeld ? 'On Hold' : (isBooked ? 'Booked' : _getPriceForTime(time, service: court)))),
                                           style: TextStyle(
                                             color: isSelected ? AppColors.softWhite.withOpacity(0.90) : (isDisabled ? Colors.grey.shade500 : AppColors.richBlack),
                                             fontWeight: FontWeight.bold,
-                                            fontSize: (isBooked || isOutsideHours) ? 9 : 10,
+                                            fontSize: (isBooked || isHeld || isOutsideHours) ? 9 : 10,
                                           ),
                                         ),
                                       ],
