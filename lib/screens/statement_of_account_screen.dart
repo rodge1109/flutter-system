@@ -114,8 +114,18 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
   }
 
   Map<String, double> _getTxFinancials(Map<String, dynamic> tx) {
-    double fee = double.tryParse((tx['serviceFee'] ?? tx['service_fee'] ?? tx['fee'] ?? 15.0).toString()) ?? 15.0;
-    if (fee <= 0) fee = 15.0;
+    int hours = 1;
+    if (tx['hours'] != null) {
+      hours = int.tryParse(tx['hours'].toString()) ?? 1;
+    } else if (tx['time_list'] is List && (tx['time_list'] as List).isNotEmpty) {
+      hours = (tx['time_list'] as List).length;
+    } else if (tx['preferred_time'] != null && tx['preferred_time'].toString().contains(',')) {
+      hours = tx['preferred_time'].toString().split(',').length;
+    }
+    final double defaultTierFee = (hours / 5.0).ceil() * 15.0;
+
+    double fee = double.tryParse((tx['serviceFee'] ?? tx['service_fee'] ?? tx['fee'] ?? defaultTierFee).toString()) ?? defaultTierFee;
+    if (fee <= 0) fee = defaultTierFee;
 
     if (_isOfflineBooking(tx)) {
       // Offline booking or maintenance block: gross is ZERO
@@ -129,16 +139,19 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
     double gross;
     double net;
 
-    if (rawGross > 0 && rawBase > 0 && rawGross > rawBase && (rawGross - fee) == rawBase) {
-      gross = rawGross;
-      net = rawBase;
-    } else if (rawGross > 0 && rawNet > 0 && (rawGross - rawNet) == fee) {
+    if (rawGross > 0 && rawNet > 0 && (rawGross - rawNet) == fee) {
       gross = rawGross;
       net = rawNet;
+    } else if (rawGross > 0 && rawBase > 0 && (rawGross - fee) == rawBase) {
+      gross = rawGross;
+      net = rawBase;
+    } else if (rawGross > 0) {
+      gross = rawGross;
+      net = (rawGross > fee) ? (rawGross - fee) : rawGross;
     } else {
-      double courtAmount = rawBase > 0 ? rawBase : (rawGross > 0 ? rawGross : (rawNet > 0 ? rawNet : 0.0));
-      gross = courtAmount + fee;
-      net = courtAmount;
+      double totalVal = rawBase > 0 ? rawBase : (rawNet > 0 ? rawNet : 0.0);
+      gross = totalVal;
+      net = (totalVal > fee) ? (totalVal - fee) : totalVal;
     }
 
     return {'gross': gross, 'fee': fee, 'net': net};
@@ -1405,7 +1418,7 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
                                 _buildSummaryBox(
                                   title: 'Online Bookings ($onlineCount)',
                                   amount: onlineFees,
-                                  subtitle: 'Gross: ${_formatCurrency(onlineGross)} • ₱15/txn fee',
+                                  subtitle: 'Gross: ${_formatCurrency(onlineGross)} • ₱15 per 5 hrs',
                                   color: const Color(0xFF1E88E5),
                                   icon: Icons.language,
                                 ),
@@ -1413,7 +1426,7 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
                                 _buildSummaryBox(
                                   title: 'Offline Bookings ($offlineCount)',
                                   amount: offlineFees,
-                                  subtitle: 'Gross: ${_formatCurrency(offlineGross)} • ₱15/txn fee',
+                                  subtitle: 'Gross: ${_formatCurrency(offlineGross)} • ₱15 per 5 hrs',
                                   color: const Color(0xFF7C3AED),
                                   icon: Icons.storefront_outlined,
                                 ),
@@ -1421,7 +1434,7 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
                                 _buildSummaryBox(
                                   title: 'TOTAL NET PAYABLE',
                                   amount: totalServiceFee,
-                                  subtitle: '${transactions.length} total txns × ₱15.00 platform charge',
+                                  subtitle: '${transactions.length} total txns • ₱15 per 5 hrs/fraction',
                                   color: const Color(0xFFE65100),
                                   icon: Icons.receipt_long_outlined,
                                   highlight: true,
@@ -1434,7 +1447,7 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
                                   child: _buildSummaryBox(
                                     title: 'Online Bookings ($onlineCount)',
                                     amount: onlineFees,
-                                    subtitle: 'Gross: ${_formatCurrency(onlineGross)} • ₱15/txn fee',
+                                    subtitle: 'Gross: ${_formatCurrency(onlineGross)} • ₱15 per 5 hrs',
                                     color: const Color(0xFF1E88E5),
                                     icon: Icons.language,
                                   ),
@@ -1444,7 +1457,7 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
                                   child: _buildSummaryBox(
                                     title: 'Offline Bookings ($offlineCount)',
                                     amount: offlineFees,
-                                    subtitle: 'Gross: ${_formatCurrency(offlineGross)} • ₱15/txn fee',
+                                    subtitle: 'Gross: ${_formatCurrency(offlineGross)} • ₱15 per 5 hrs',
                                     color: const Color(0xFF7C3AED),
                                     icon: Icons.storefront_outlined,
                                   ),
@@ -1454,7 +1467,7 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
                                   child: _buildSummaryBox(
                                     title: 'TOTAL NET PAYABLE',
                                     amount: totalServiceFee,
-                                    subtitle: '${transactions.length} total txns × ₱15.00 platform charge',
+                                    subtitle: '${transactions.length} total txns • ₱15 per 5 hrs/fraction',
                                     color: const Color(0xFFE65100),
                                     icon: Icons.receipt_long_outlined,
                                     highlight: true,
@@ -1482,7 +1495,7 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Platform Billing Note: Picklebook charges a fixed service fee of ₱15.00 per booking checkout transaction to cover secure payment gateway fees, automated SMS/email booking notifications, queue system maintenance, and platform infrastructure. All service charges are billed transparently below.',
+                            'Platform Billing Note: Picklebook charges a service fee of ₱15.00 every 5 hours rented (and ₱15.00 for fraction thereof) per booking checkout session to cover secure payment gateway fees, automated SMS/email booking notifications, queue system maintenance, and platform infrastructure. All service charges are billed transparently below.',
                             style: GoogleFonts.outfit(
                               fontSize: 11,
                               color: const Color(0xFF5D4037),
@@ -1528,7 +1541,7 @@ class _StatementOfAccountScreenState extends State<StatementOfAccountScreen> {
                           DataColumn(label: Text('Txn / Ref #', style: _tableHeaderStyle())),
                           DataColumn(label: Text('Customer & Schedule', style: _tableHeaderStyle())),
                           DataColumn(label: Text('Gross Paid', style: _tableHeaderStyle()), numeric: true),
-                          DataColumn(label: Text('Service Fee (₱15)', style: _tableHeaderStyle()), numeric: true),
+                          DataColumn(label: Text('Service Fee', style: _tableHeaderStyle()), numeric: true),
                           DataColumn(label: Text('Net to Owner', style: _tableHeaderStyle()), numeric: true),
                         ],
                         rows: List.generate(transactions.length, (index) {

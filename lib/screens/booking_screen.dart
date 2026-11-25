@@ -1,4 +1,5 @@
 import 'package:flutter_project/theme/app_colors.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
@@ -18,8 +19,6 @@ import '../services/api_service.dart';
 import 'booking_confirmation_screen.dart';
 import 'login_screen.dart';
 import 'registration_screen.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import '../utils/download_helper_stub.dart' if (dart.library.html) '../utils/download_helper_web.dart';
 
 class BookingScreen extends StatefulWidget {
@@ -93,7 +92,7 @@ class _BookingScreenState extends State<BookingScreen> {
   Uint8List? _paymentReceiptBytes;
   bool _isUploadingReceipt = false;
 
-  bool _isGuest = false;
+  bool _isGuest = true;
   String _captchaCode = '';
   int _captchaSeed = 42;
   final _captchaController = TextEditingController();
@@ -366,7 +365,7 @@ class _BookingScreenState extends State<BookingScreen> {
   Future<bool> _ensureUserLoggedIn({bool forceDialog = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
-    if (!forceDialog && userStr != null && userStr.isNotEmpty && userStr != 'null') {
+    if (userStr != null && userStr.isNotEmpty && userStr != 'null') {
       if (mounted) {
         setState(() {
           _isLoggedIn = true;
@@ -376,165 +375,14 @@ class _BookingScreenState extends State<BookingScreen> {
       return true;
     }
 
-    if (!forceDialog && _isGuest) {
-      return true;
+    if (mounted) {
+      setState(() {
+        _isGuest = true;
+        _isLoggedIn = false;
+      });
     }
-
-    await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 28,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.shield_outlined, size: 40, color: AppColors.primaryGreen),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Reserve Your Court',
-              style: GoogleFonts.outfit(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.richBlack,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Log in to save bookings and earn loyalty rewards, or quickly proceed as a guest.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                color: Colors.grey.shade700,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.login, color: Colors.white, size: 20),
-                label: Text(
-                  'Log In to Account',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryGreen,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen()));
-                  if (res == 'guest') {
-                    if (mounted) {
-                      setState(() {
-                        _isGuest = true;
-                      });
-                    }
-                  }
-                  await _loadUserData();
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: OutlinedButton.icon(
-                icon: Icon(Icons.person_add_outlined, color: AppColors.primaryGreen, size: 20),
-                label: Text(
-                  'Create New Account',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primaryGreen),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.primaryGreen, width: 1.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => RegistrationScreen()));
-                  if (res == 'guest') {
-                    if (mounted) {
-                      setState(() {
-                        _isGuest = true;
-                      });
-                    }
-                  }
-                  await _loadUserData();
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'OR',
-                    style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
-                  ),
-                ),
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: TextButton.icon(
-                icon: const Icon(Icons.person_outline_rounded, color: AppColors.richBlack, size: 20),
-                label: Text(
-                  'Continue as Guest',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
-                ),
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFF1F5F9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  setState(() {
-                    _isGuest = true;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-
     await _loadUserData();
-    return _isLoggedIn || _isGuest;
+    return true;
   }
 
   Future<void> _loadServices() async {
@@ -1037,18 +885,6 @@ class _BookingScreenState extends State<BookingScreen> {
           }
         });
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Slots held! You have 5 minutes to complete your booking.'),
-          backgroundColor: AppColors.primaryGreen,
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height - 180,
-            left: 16,
-            right: 16,
-          ),
-        ),
-      );
     } else {
       _holdToken = null;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1337,6 +1173,16 @@ class _BookingScreenState extends State<BookingScreen> {
       final List<String> times = List.from(_selectedTimes);
 
       // Navigate to the beautiful BookingConfirmationScreen matching design screenshot
+      final double courtFeeAmount = (totalAmount - freeDiscount).clamp(0.0, double.infinity);
+      final double adminFeeAmount = _getServiceFee();
+      final String? derivedRef = _holdToken != null && _holdToken!.isNotEmpty
+          ? 'BK-${_holdToken!.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase().padRight(8, '0').substring(0, 8)}'
+          : (lastBookingId != null && lastBookingId.isNotEmpty
+              ? (lastBookingId.startsWith('BK-') || lastBookingId.startsWith('#PB-')
+                  ? lastBookingId
+                  : 'BK-${lastBookingId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase().padLeft(8, '0')}')
+              : null);
+
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
@@ -1350,6 +1196,12 @@ class _BookingScreenState extends State<BookingScreen> {
             totalPaid: finalPaid,
             bookingId: lastBookingId,
             playerName: _nameController.text.trim(),
+            customerEmail: _emailController.text.trim(),
+            customerPhone: _phoneController.text.trim(),
+            paymentMethod: _selectedPaymentMethod,
+            courtFee: courtFeeAmount,
+            processingFee: adminFeeAmount,
+            bookingReference: derivedRef,
             bookingStatus: 'pending',
           ),
         ),
@@ -1827,7 +1679,7 @@ class _BookingScreenState extends State<BookingScreen> {
       if (ref.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please enter the last 4 digits of your payment reference number.'),
+            content: Text('Please enter your payment reference number.'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -1836,7 +1688,7 @@ class _BookingScreenState extends State<BookingScreen> {
       if (ref.length < 4) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please enter all 4 digits of your payment reference number.'),
+            content: Text('Please enter at least 4 digits of your payment reference number.'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -1852,9 +1704,15 @@ class _BookingScreenState extends State<BookingScreen> {
         return;
       }
       _recordBookingLog('PAYMENT_ENTERED', refNumber: ref);
+      if (!_isLoggedIn && !_isGuest) {
+        final loggedIn = await _ensureUserLoggedIn();
+        if (!loggedIn) return;
+      }
+      _submitBooking();
+      return;
     }
 
-    if (_currentStep < 3) {
+    if (_currentStep < 2) {
       setState(() => _currentStep += 1);
     } else {
       if (!_isLoggedIn && !_isGuest) {
@@ -1867,7 +1725,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
   void _handleStepCancel() {
     // Only release the timeslot hold when backing out of Step 1 back to Step 0 (or unlocking on Step 0).
-    // Backing from Confirmation (Step 3) -> Payment (Step 2) or Payment (Step 2) -> Details (Step 1)
+    // Backing from Payment (Step 2) -> Details (Step 1)
     // preserves the 5-minute slot lock so the user never loses their held timeslots!
     if (_holdToken != null && _currentStep <= 1) {
       _releaseCurrentHold(refreshSlots: true);
@@ -1895,7 +1753,6 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   Widget build(BuildContext context) {
     final bool skipChooseService = widget.skipServiceSelection || widget.initialService != null || (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty);
-    final int maxStep = 3;
 
     List<Step> steps = [];
 
@@ -1932,18 +1789,13 @@ class _BookingScreenState extends State<BookingScreen> {
         isActive: _currentStep >= (skipChooseService ? 2 : 3),
         state: _currentStep > (skipChooseService ? 2 : 3) ? StepState.complete : StepState.indexed,
       ),
-      Step(
-        title: Text('Confirmation', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-        content: _buildConfirmation(),
-        isActive: _currentStep >= (skipChooseService ? 3 : 4),
-      ),
     ]);
 
 
     // Step labels
     final List<String> stepLabels = skipChooseService
-        ? ['Date & Time', 'Your Details', 'Payment', 'Confirm']
-        : ['Courts & Times', 'Your Details', 'Payment', 'Confirm'];
+        ? ['Date & Time', 'Your Details', 'Payment']
+        : ['Courts & Times', 'Your Details', 'Payment'];
 
     return PopScope(
       canPop: _currentStep == 0 && _holdToken == null,
@@ -2066,7 +1918,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (skipChooseService || widget.venue != null) ...[
+                        if (_currentStep == 0 && (skipChooseService || widget.venue != null)) ...[
                           Builder(
                             builder: (context) {
                               final venueLogo = _getVenueLogoUrl();
@@ -2239,104 +2091,94 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
 
                 // ── Sticky Floating Footer ──
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: AppColors.creamWhite,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 10,
-                        offset: const Offset(0, -3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Navigation buttons (Continue / Back) just above the summary bar
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          24,
-                          12,
-                          24,
-                          _selectedTimes.isNotEmpty ? 10 : MediaQuery.of(context).padding.bottom + 12,
+                if (_selectedTimes.isNotEmpty && _currentStep != 1 && _currentStep != 2)
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: AppColors.creamWhite,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 10,
+                          offset: const Offset(0, -3),
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => _handleStepContinue(skipChooseService),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryGreen,
-                                  foregroundColor: AppColors.softWhite,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                                ),
-                                child: Text(
-                                  _currentStep == maxStep ? 'Confirm Booking' : 'Continue',
-                                  style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.softWhite),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: _handleStepCancel,
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  side: BorderSide(color: Colors.grey.shade400),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                                ),
-                                child: const Text('Back', style: TextStyle(fontFamily: 'Poppins', color: AppColors.richBlack, fontWeight: FontWeight.bold, fontSize: 13)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Selection Summary Bar (full-width across the screen, borderless, 0 offset from bottom edge)
-                      if (_selectedTimes.isNotEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.fromLTRB(24, 10, 24, MediaQuery.of(context).padding.bottom + 10),
-                          color: AppColors.primaryGreen.withOpacity(0.08),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 16),
-                                      const SizedBox(width: 6),
-                                      Text(
+                      ],
+                    ),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
+                      color: AppColors.primaryGreen.withOpacity(0.08),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 16),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
                                         '${_selectedTimes.length} ${_selectedTimes.length == 1 ? "slot" : "slots"} selected',
                                         style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, color: AppColors.richBlack, fontSize: 12.5),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ],
-                                  ),
-                                  Text(
-                                    'Total: ${_getTotalDue()}',
-                                    style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 13.5),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _selectedTimes.map((t) => '${_extractSlotCourtName(t)}: ${_formatSlotRange(t)}').join(' • '),
-                                style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _selectedTimes.map((t) => '${_extractSlotCourtName(t)}: ${_formatSlotRange(t)}').join(' • '),
+                                  style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
+                          const SizedBox(width: 10),
+                          Text(
+                            _getTotalDue(),
+                            style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.primaryGreen, fontSize: 13.5),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () => _handleStepContinue(skipChooseService),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryGreen,
+                              foregroundColor: AppColors.softWhite,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              minimumSize: const Size(0, 46),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(9999),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Text(
+                                  'Book Now',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppColors.softWhite,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.softWhite),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
       ),
@@ -2889,22 +2731,11 @@ class _BookingScreenState extends State<BookingScreen> {
 
         // Lock in Time UI
 
-        if (_selectedTimes.isNotEmpty)
+        if (_selectedTimes.isNotEmpty && _holdToken != null)
           Padding(
             padding: const EdgeInsets.only(top: 16.0),
             child: Column(
               children: [
-                if (_holdToken == null)
-                  ElevatedButton.icon(
-                    icon: Icon(Icons.lock_clock, color: Colors.white),
-                    label: Text('Lock in this time (5:00)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      minimumSize: Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: _isLoading ? null : _holdSelectedSlots,
-                  ),
                 if (_holdToken != null)
                   Container(
                     padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -3190,49 +3021,221 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
+  Widget _buildLabeledDetailField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    bool isPhone = false,
+    bool isEmail = false,
+    bool readOnly = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.richBlack,
+            ),
+            children: [
+              TextSpan(text: '$label '),
+              const TextSpan(
+                text: '*',
+                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          readOnly: readOnly,
+          keyboardType: isPhone
+              ? TextInputType.phone
+              : (isEmail ? TextInputType.emailAddress : TextInputType.text),
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 14,
+            color: AppColors.richBlack,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 14,
+              color: Colors.grey.shade500,
+            ),
+            suffixIcon: readOnly
+                ? Icon(Icons.lock_outline, size: 16, color: Colors.grey.shade400)
+                : null,
+            filled: true,
+            fillColor: const Color(0xFFF3F4F6),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildUserDetails() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Complete Your Booking',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppColors.richBlack,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Enter your details to reserve your court.',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 14,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           if (!_isLoggedIn) ...[
             Container(
               margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.softWhite,
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.person_outline_rounded, color: AppColors.richBlack, size: 22),
-                  const SizedBox(width: 10),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2.0),
+                    child: Icon(Icons.how_to_reg_outlined, color: AppColors.primaryGreen, size: 24),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Guest Checkout',
-                          style: GoogleFonts.outfit(fontSize: 13, color: AppColors.richBlack, fontWeight: FontWeight.bold),
+                        const Text(
+                          'Have an account?',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.richBlack,
+                          ),
                         ),
-                        Text(
-                          'Enter your contact details below to receive your booking pass and QR code.',
-                          style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade700),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Sign up to track your bookings here at this venue and see your history any time — or log in if you already have one. You can still check out as a guest below.',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 13,
+                            height: 1.45,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            ElevatedButton(
+                              onPressed: () async {
+                                final res = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => RegistrationScreen()),
+                                );
+                                if (res == 'guest' && mounted) {
+                                  setState(() => _isGuest = true);
+                                }
+                                await _loadUserData();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryGreen,
+                                foregroundColor: AppColors.softWhite,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(9999),
+                                ),
+                              ),
+                              child: const Text(
+                                'Sign Up',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.softWhite,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            OutlinedButton(
+                              onPressed: () async {
+                                final res = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => LoginScreen()),
+                                );
+                                if (res == 'guest' && mounted) {
+                                  setState(() => _isGuest = true);
+                                }
+                                await _loadUserData();
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF334155),
+                                side: const BorderSide(color: Color(0xFF94A3B8)),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(9999),
+                                ),
+                              ),
+                              child: const Text(
+                                'Log In',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () => _ensureUserLoggedIn(forceDialog: true),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text('Log In', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primaryGreen)),
                   ),
                 ],
               ),
@@ -3260,142 +3263,531 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
           ],
-          _buildTextField(_nameController, 'Full Name', Icons.person_outline, readOnly: _isLoggedIn),
-          const SizedBox(height: 16),
-          _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined, isPhone: true, readOnly: _isLoggedIn),
-          const SizedBox(height: 16),
-          _buildTextField(_emailController, 'Email Address', Icons.email_outlined, isEmail: true, readOnly: _isLoggedIn),
 
-          if (!_isLoggedIn) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.security_rounded, size: 18, color: AppColors.primaryGreen),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Security Verification (CAPTCHA)',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: AppColors.richBlack,
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'ANTI-BOT',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
+          // "Your Details" Card wrapping Full Name, Email, Phone Number, and Security Verification
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.softWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade300),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Header Bar: Soft gray-green tinted header
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen.withOpacity(0.08),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Enter the 5 characters shown below to confirm you are human.',
+                  child: const Text(
+                    'Your Details',
                     style: TextStyle(
                       fontFamily: 'Poppins',
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.richBlack,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade400),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: CustomPaint(
-                            size: const Size(130, 46),
-                            painter: _VisualCaptchaPainter(_captchaCode, seed: _captchaSeed),
+                      _buildLabeledDetailField(
+                        controller: _nameController,
+                        label: 'Full Name',
+                        hint: 'John Doe',
+                        readOnly: _isLoggedIn,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildLabeledDetailField(
+                        controller: _emailController,
+                        label: 'Email',
+                        hint: 'john@example.com',
+                        isEmail: true,
+                        readOnly: _isLoggedIn,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildLabeledDetailField(
+                        controller: _phoneController,
+                        label: 'Phone Number',
+                        hint: '+639123456789',
+                        isPhone: true,
+                        readOnly: _isLoggedIn,
+                      ),
+
+                      if (!_isLoggedIn) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.security_rounded, size: 18, color: AppColors.primaryGreen),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Security Verification (CAPTCHA)',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: AppColors.richBlack,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'ANTI-BOT',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Enter the 5 characters shown below to confirm you are human.',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.grey.shade400),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: CustomPaint(
+                                        size: const Size(130, 46),
+                                        painter: _VisualCaptchaPainter(_captchaCode, seed: _captchaSeed),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  IconButton(
+                                    icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryGreen, size: 24),
+                                    tooltip: 'Generate new code',
+                                    onPressed: _generateCaptchaCode,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _captchaController,
+                                      textCapitalization: TextCapitalization.characters,
+                                      maxLength: 6,
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        letterSpacing: 2.0,
+                                        color: AppColors.richBlack,
+                                      ),
+                                      decoration: InputDecoration(
+                                        labelText: 'Visual Code *',
+                                        labelStyle: const TextStyle(letterSpacing: 0, fontSize: 13),
+                                        hintText: 'e.g. 7QK4',
+                                        hintStyle: TextStyle(letterSpacing: 1.0, color: Colors.grey.shade400, fontWeight: FontWeight.normal, fontSize: 12),
+                                        counterText: '',
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                          borderSide: BorderSide(color: Colors.grey.shade300),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                          borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
+                                        ),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_captchaError != null) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.error_outline_rounded, size: 14, color: Colors.redAccent),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        _captchaError!,
+                                        style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                         ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // BOOKING SUMMARY Card + Confirm Booking Card
+          Builder(
+            builder: (context) {
+              final String venueName = (widget.venue?['venueName'] ??
+                      widget.venue?['name'] ??
+                      _selectedService?.venueName ??
+                      _selectedService?.name ??
+                      'Court Venue')
+                  .toString()
+                  .trim();
+
+              final distinctCourts = <String>{};
+              for (final t in _selectedTimes) {
+                distinctCourts.add(_extractSlotCourtName(t));
+              }
+              final String courtText = distinctCourts.isNotEmpty
+                  ? distinctCourts.join(', ')
+                  : (_selectedService?.name ?? '-');
+
+              final String dateText = _selectedDate != null
+                  ? DateFormat('EEEE, MMM d').format(_selectedDate!)
+                  : '-';
+
+              final String timeText = _selectedTimes.isNotEmpty
+                  ? _selectedTimes
+                      .map((t) => distinctCourts.length > 1
+                          ? '${_extractSlotCourtName(t)}: ${_formatSlotRange(t)}'
+                          : _formatSlotRange(t))
+                      .join('\n')
+                  : '-';
+
+              final int hoursCount = _selectedTimes.length;
+              final String durationText = '$hoursCount ${hoursCount == 1 ? "hour" : "hours"}';
+
+              double courtFeeAmount = 0.0;
+              for (final t in _selectedTimes) {
+                courtFeeAmount += _getSlotPriceValue(t);
+              }
+              final String courtFeeText = 'PHP ${courtFeeAmount.toStringAsFixed(2)}';
+              final String adminFeeText = 'PHP ${_getServiceFee().toStringAsFixed(2)}';
+              final String pesoTotalText = _getTotalDue().replaceFirst(RegExp(r'^PHP\s*'), '₱');
+
+              Widget buildInfoRow(String label, String value) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 13.5,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryGreen, size: 24),
-                        tooltip: 'Generate new code',
-                        onPressed: _generateCaptchaCode,
-                      ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: TextFormField(
-                          controller: _captchaController,
-                          textCapitalization: TextCapitalization.characters,
-                          maxLength: 6,
+                        child: Text(
+                          value,
+                          textAlign: TextAlign.right,
                           style: const TextStyle(
                             fontFamily: 'Poppins',
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            letterSpacing: 2.0,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.richBlack,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'Visual Code *',
-                            labelStyle: const TextStyle(letterSpacing: 0, fontSize: 13),
-                            hintText: 'e.g. 7QK4',
-                            hintStyle: TextStyle(letterSpacing: 1.0, color: Colors.grey.shade400, fontWeight: FontWeight.normal, fontSize: 12),
-                            counterText: '',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  if (_captchaError != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Booking Summary Card
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.softWhite,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.error_outline_rounded, size: 14, color: Colors.redAccent),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _captchaError!,
-                            style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.w600),
+                        // Top Header Bar: Soft gray-green tinted header
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryGreen.withOpacity(0.08),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.receipt_long_outlined, color: AppColors.primaryGreen, size: 19),
+                              SizedBox(width: 8),
+                              Text(
+                                'BOOKING SUMMARY',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                  color: AppColors.richBlack,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                venueName,
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.richBlack,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                courtText,
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13.5,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              buildInfoRow('Date', dateText),
+                              buildInfoRow('Time', timeText),
+                              buildInfoRow('Duration', durationText),
+                            ],
+                          ),
+                        ),
+
+                        Divider(height: 1, color: Colors.grey.shade200),
+
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              buildInfoRow('Court Fee', courtFeeText),
+                              buildInfoRow('Web Admin Fee', adminFeeText),
+                              const SizedBox(height: 12),
+
+                              // Total Row
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Total',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.richBlack,
+                                    ),
+                                  ),
+                                  Text(
+                                    pesoTotalText,
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.richBlack,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 2. Confirm Booking & Terms Card below Booking Summary
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                    decoration: BoxDecoration(
+                      color: AppColors.softWhite,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        RichText(
+                          textAlign: TextAlign.center,
+                          text: TextSpan(
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 12.5,
+                              height: 1.5,
+                              color: Color(0xFF64748B),
+                            ),
+                            children: [
+                              TextSpan(text: "By pressing the button below you agree to $venueName's "),
+                              const TextSpan(
+                                text: 'Terms of Service',
+                                style: TextStyle(
+                                  color: AppColors.richBlack,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                              const TextSpan(text: ' and '),
+                              const TextSpan(
+                                text: 'Waiver of Liability',
+                                style: TextStyle(
+                                  color: AppColors.richBlack,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                              const TextSpan(text: ", and PickleBook's "),
+                              const TextSpan(
+                                text: 'Privacy Policy',
+                                style: TextStyle(
+                                  color: Color(0xFF475569),
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                              const TextSpan(text: '.'),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final bool skipChooseService = widget.skipServiceSelection ||
+                                  widget.initialService != null ||
+                                  (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty);
+                              _handleStepContinue(skipChooseService);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryGreen,
+                              foregroundColor: AppColors.softWhite,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(9999),
+                              ),
+                            ),
+                            child: const Text(
+                              'Confirm Booking',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.softWhite,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Your court is held as soon as you confirm — send your payment and proof to secure it.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12.5,
+                            height: 1.45,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: _handleStepCancel,
+                          borderRadius: BorderRadius.circular(6),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Text(
+                              'Back to available hours',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -3874,751 +4266,1268 @@ class _BookingScreenState extends State<BookingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(height: 12),
-
-        // Total Summary Card
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE6E8E2),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.payment_outlined, color: AppColors.richBlack, size: 20),
-                  SizedBox(width: 8),
-                  Text('Payment Summary', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: AppColors.richBlack, fontSize: 15)),
-                ],
-              ),
-              SizedBox(height: 8),
-              if (_selectedTimes.isNotEmpty) ...[
-                ..._selectedTimes.map((t) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${_extractSlotCourtName(t)}: ${_formatSlotRange(t)}',
-                            style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.richBlack),
-                          ),
-                        ),
-                        Text(
-                          'PHP ${_getSlotPriceValue(t).toStringAsFixed(2)}',
-                          style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.richBlack),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-                Divider(height: 14, color: Colors.grey.shade300),
-              ],
-              RichText(
-                text: TextSpan(
-                  style: TextStyle(color: AppColors.richBlack, height: 1.5, fontSize: 13, fontFamily: 'Poppins'),
-                  children: [
-                    TextSpan(text: 'Court Fee: ${_getTotalAmount()}\n'),
-                    TextSpan(text: 'Service Charge: PHP ${_getServiceFee().toStringAsFixed(2)}\n'),
-                    TextSpan(text: 'Total Amount to Pay: '),
-                    TextSpan(text: '${_getTotalDue()}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.richBlack)),
-                  ],
-                ),
-              ),
-              if (_customerLoyalty?.isMember == true && _loyaltySettings != null) ...[
-                SizedBox(height: 8),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.richBlack,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.stars, color: Colors.amber, size: 16),
-                      SizedBox(width: 6),
-                      Text(
-                        'VIP Member Discount Applied (${_loyaltySettings!.memberDiscountType == "PERCENTAGE" ? "${_loyaltySettings!.memberDiscountValue.toInt()}% OFF" : "Special Member Price"})',
-                        style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        SizedBox(height: 16),
-
-        // Important Reminder Banner
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFBEB), // Warm amber background matching Mandatory Payment Reference
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'IMPORTANT REMINDER',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.5,
-                        color: Color(0xFFB45309),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 12,
-                          color: Colors.grey.shade900,
-                          height: 1.4,
-                        ),
-                        children: const [
-                          TextSpan(text: 'You need to click Continue and wait for the '),
-                          TextSpan(
-                            text: 'CONFIRMATION',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
-                          ),
-                          TextSpan(text: ' screen to appear to complete your booking.'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        SizedBox(height: 14),
-
-        // Step-by-Step Payment Instructions Banner
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE6E8E2),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.info_outline, color: AppColors.richBlack, size: 22),
-                  SizedBox(width: 8),
-                  Text('How to Pay (Step-by-Step)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack)),
-                ],
-              ),
-              SizedBox(height: 10),
-              Text(
-                '1. Open your GCash, Maya, or Online Banking App.\n'
-                '2. Scan the Payment QR Code below OR copy the account number.\n'
-                '3. Send the exact total amount due: ${_getTotalDue()}.\n'
-                '4. Enter the LAST 4 DIGITS of your Payment Reference No. below (Mandatory).\n'
-                '5. Upload your Payment Proof receipt screenshot below (Mandatory).\n'
-                '6. Click Continue and wait for the CONFIRMATION screen to appear.',
-                style: TextStyle(fontFamily: 'Poppins', fontSize: 12.5, color: AppColors.richBlack, height: 1.5),
-              ),
-              if (customInstructions.isNotEmpty) ...[
-                Divider(height: 20, color: Colors.grey.shade300),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.speaker_notes_outlined, color: AppColors.richBlack, size: 18),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Owner Payment Instructions:', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.richBlack)),
-                          SizedBox(height: 2),
-                          Text(customInstructions, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack, height: 1.3)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        SizedBox(height: 20),
-
-        // QR Code Display Card (Shows owner official QR code if uploaded or for Roger's courts)
-        if (canShowQr) ...[
-          Center(
-            child: Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6E8E2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.qr_code_2, color: AppColors.richBlack, size: 22),
-                      SizedBox(width: 6),
-                      Text(
-                        hasCloudinaryQr ? 'Official Owner Payment QR Code' : 'Official Payment QR Code',
-                        style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.richBlack),
-                      ),
-                      if (hasCloudinaryQr || isRogerCourt) ...[
-                        SizedBox(width: 4),
-                        IconButton(
-                          constraints: BoxConstraints(),
-                          padding: EdgeInsets.all(4),
-                          icon: Icon(Icons.file_download_outlined, color: AppColors.richBlack, size: 22),
-                          tooltip: 'Download QR Code',
-                          onPressed: () => downloadImage(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
-                        ),
-                      ],
-                    ],
-                  ),
-                  SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: () => _showFullQrCodeModal(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG', isRoger: isRogerCourt),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: hasCloudinaryQr
-                                ? Image.network(
-                                    qrUrl,
-                                    height: 220,
-                                    width: 220,
-                                    fit: BoxFit.contain,
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Container(
-                                        height: 220,
-                                        width: 220,
-                                        color: Colors.grey.shade100,
-                                        child: Center(child: CircularProgressIndicator(color: AppColors.richBlack)),
-                                      );
-                                    },
-                                    errorBuilder: (_, __, ___) => isRogerCourt
-                                        ? Image.asset(
-                                            'assets/qr-code.PNG',
-                                            height: 220,
-                                            width: 220,
-                                            fit: BoxFit.contain,
-                                          )
-                                        : Container(
-                                            height: 220,
-                                            width: 220,
-                                            color: Colors.grey.shade100,
-                                            child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(Icons.broken_image_outlined, size: 40, color: Colors.grey.shade400),
-                                                SizedBox(height: 8),
-                                                Text('QR Code unavailable', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                              ],
-                                            ),
-                                          ),
-                                  )
-                                : Image.asset(
-                                    'assets/qr-code.PNG',
-                                    height: 220,
-                                    width: 220,
-                                    fit: BoxFit.contain,
-                                  ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 8,
-                          right: 8,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                                SizedBox(width: 4),
-                                Text('Tap to expand', style: TextStyle(fontFamily: 'Poppins', color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 20),
-        ],
-
-        // Available Payment Options Header
-        Text('Owner Payment Accounts', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.richBlack)),
-        SizedBox(height: 10),
-
-        // Fallback banner if owner has neither GCash, Maya, nor Bank Account
-        if (gcashNum.isEmpty && mayaNum.isEmpty && bankAccount.isEmpty && bankName.isEmpty && bankAccountName.isEmpty) ...[
-          Container(
-            margin: EdgeInsets.only(bottom: 10),
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6E8E2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.payment, color: AppColors.richBlack, size: 24),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    hasCloudinaryQr 
-                        ? 'Please scan the official payment QR code above using your payment app to complete your booking.'
-                        : 'No direct payment accounts provided. Please follow instructions or contact the venue.',
-                    style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.richBlack),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        // GCash Container
-        if (gcashNum.isNotEmpty) ...[
-          Container(
-            margin: EdgeInsets.only(bottom: 10),
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6E8E2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.account_balance_wallet_outlined, color: AppColors.richBlack, size: 24),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text('GCash Number', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
-                          if (gcashNum == '09276230491' && isRogerCourt) ...[
-                            SizedBox(width: 6),
-                            Text('(Roger Tonacao)', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
-                          ],
-                        ],
-                      ),
-                      Text(gcashNum, style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-                    ],
-                  ),
-                ),
-                OutlinedButton.icon(
-                  icon: Icon(Icons.copy, size: 14, color: AppColors.richBlack),
-                  label: Text('Copy', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack)),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    side: BorderSide(color: Colors.grey.shade400),
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  ),
-                  onPressed: () => _copyToClipboard(gcashNum, 'GCash Number'),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        // Maya / PayMaya Container
-        if (mayaNum.isNotEmpty) ...[
-          Container(
-            margin: EdgeInsets.only(bottom: 10),
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6E8E2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.account_balance_wallet_outlined, color: AppColors.richBlack, size: 24),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('PayMaya / Maya', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack)),
-                      Text(mayaNum, style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-                    ],
-                  ),
-                ),
-                OutlinedButton.icon(
-                  icon: Icon(Icons.copy, size: 14, color: AppColors.richBlack),
-                  label: Text('Copy', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack)),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    side: BorderSide(color: Colors.grey.shade400),
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  ),
-                  onPressed: () => _copyToClipboard(mayaNum, 'PayMaya Number'),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        // Bank Transfer Container
-        if (bankAccount.isNotEmpty || bankName.isNotEmpty || bankAccountName.isNotEmpty) ...[
-          Container(
-            margin: EdgeInsets.only(bottom: 10),
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6E8E2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.account_balance_outlined, color: AppColors.richBlack, size: 24),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        bankName.isNotEmpty ? 'Bank Transfer ($bankName)' : (bankAccountName.isNotEmpty ? 'Bank Transfer ($bankAccountName)' : 'Bank Transfer'),
-                        style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.richBlack),
-                      ),
-                      if (bankAccountName.isNotEmpty && bankName.isNotEmpty && bankAccountName != bankName)
-                        Text('Account Name: $bankAccountName', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack)),
-                      if (bankAccount.isNotEmpty)
-                        Text('Account No: $bankAccount', style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.richBlack)),
-                    ],
-                  ),
-                ),
-                if (bankAccount.isNotEmpty)
-                  OutlinedButton.icon(
-                    icon: Icon(Icons.copy, size: 14, color: AppColors.richBlack),
-                    label: Text('Copy', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.richBlack)),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      side: BorderSide(color: Colors.grey.shade400),
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    ),
-                    onPressed: () => _copyToClipboard(bankAccount, 'Bank Account Number'),
-                  ),
-              ],
-            ),
-          ),
-        ],
-
-        const SizedBox(height: 16),
-
-        // Prominent instruction banner for Last 4 Digits of Reference Number
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFBEB), // Warm amber background
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_rounded, color: Color(0xFFD97706), size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: RichText(
-                  text: TextSpan(
-                    style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.grey.shade900, height: 1.4),
-                    children: const [
-                      TextSpan(
-                        text: 'Mandatory Payment Reference: \n',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB45309), fontSize: 12.5),
-                      ),
-                      TextSpan(text: 'Please enter only the '),
-                      TextSpan(
-                        text: 'LAST 4 DIGITS',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
-                      ),
-                      TextSpan(text: ' of your GCash, Maya, or Bank reference number (e.g. if receipt ref is 901234567894, enter '),
-                      TextSpan(
-                        text: '7894',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
-                      ),
-                      TextSpan(text: '). This is required to verify and confirm your booking.'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        TextFormField(
-          controller: _referenceNumberController,
-          maxLength: 4,
-          keyboardType: TextInputType.text,
-          style: const TextStyle(
+        const SizedBox(height: 8),
+        const Text(
+          'Book a Court',
+          style: TextStyle(
             fontFamily: 'Poppins',
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            letterSpacing: 3.0,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
             color: AppColors.richBlack,
           ),
-          decoration: InputDecoration(
-            labelText: 'Last 4 Digits of Reference Number *',
-            labelStyle: const TextStyle(letterSpacing: 0, fontWeight: FontWeight.w600, fontSize: 13),
-            hintText: 'e.g. 7894',
-            hintStyle: TextStyle(letterSpacing: 2.0, color: Colors.grey.shade400, fontWeight: FontWeight.normal, fontSize: 14),
-            prefixIcon: const Icon(Icons.pin_rounded, color: AppColors.primaryGreen),
-            counterText: '',
-            helperText: 'Required: Exactly 4 digits',
-            helperStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade400),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Almost there — confirm your payment.',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 14,
+            color: Color(0xFF64748B),
           ),
-          onChanged: (val) {
-            String clean = val.trim().replaceAll(' ', '').replaceAll('-', '');
-            if (clean.length > 4) {
-              String last4 = clean.substring(clean.length - 4);
-              _referenceNumberController.text = last4;
-              _referenceNumberController.selection = TextSelection.fromPosition(TextPosition(offset: last4.length));
+        ),
+        const SizedBox(height: 16),
+
+        // Complete Your Payment & Summary Card
+        Builder(
+          builder: (context) {
+            final String venueName = (widget.venue?['venueName'] ??
+                    widget.venue?['name'] ??
+                    _selectedService?.venueName ??
+                    _selectedService?.name ??
+                    'Court Venue')
+                .toString()
+                .trim();
+
+            final distinctCourts = <String>{};
+            for (final t in _selectedTimes) {
+              distinctCourts.add(_extractSlotCourtName(t));
             }
+            final String courtText = distinctCourts.isNotEmpty
+                ? distinctCourts.join(', ')
+                : (_selectedService?.name ?? 'Court 1');
+
+            final String dateText = _selectedDate != null
+                ? DateFormat('EEEE, MMM d').format(_selectedDate!)
+                : '-';
+
+            final int hoursCount = _selectedTimes.length;
+            final String hrsLabel = '$hoursCount ${hoursCount == 1 ? "hr" : "hrs"}';
+            final String timeRangeText = _selectedTimes.isNotEmpty
+                ? '${_selectedTimes.map((t) => _formatSlotRange(t)).join(", ")} ($hrsLabel)'
+                : '-';
+
+            final String pesoAmountDue = _getTotalDue()
+                .replaceFirst(RegExp(r'^PHP\s*'), '₱')
+                .replaceFirst(RegExp(r'\.00$'), '');
+
+            final String rawToken = (_holdToken ?? 'PVVJVBNW')
+                .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+                .toUpperCase();
+            final String confirmCode = '#PB-${rawToken.length >= 8 ? rawToken.substring(0, 8) : rawToken.padRight(8, 'X')}';
+
+            final int minsLeft = _holdSecondsRemaining > 0 ? (_holdSecondsRemaining ~/ 60) : 0;
+            final int secsLeft = _holdSecondsRemaining > 0 ? (_holdSecondsRemaining % 60) : 0;
+            final String timerStr = '${minsLeft.toString().padLeft(2, '0')}:${secsLeft.toString().padLeft(2, '0')}';
+
+            final String venueLogo = _getVenueLogoUrl();
+
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.softWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Row with "Complete your payment" and "Time left" badge
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Complete your\npayment',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                                height: 1.2,
+                                color: AppColors.richBlack,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            RichText(
+                              text: const TextSpan(
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  height: 1.45,
+                                  color: Color(0xFF64748B),
+                                ),
+                                children: [
+                                  TextSpan(text: 'Your court is reserved for '),
+                                  TextSpan(
+                                    text: '5 minutes',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '. Send payment and your screenshot to confirm your booking.',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F4EE),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.hourglass_empty_rounded,
+                              color: AppColors.primaryGreen,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Time left',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                Text(
+                                  timerStr,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primaryGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Inner Venue & Slot Summary Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F5F8),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                width: 78,
+                                height: 78,
+                                child: venueLogo.startsWith('http')
+                                    ? Image.network(
+                                        venueLogo,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Image.asset(
+                                          'assets/images/pickleball_court.png',
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => Container(
+                                            color: AppColors.primaryGreen.withOpacity(0.15),
+                                            child: const Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 32),
+                                          ),
+                                        ),
+                                      )
+                                    : Image.asset(
+                                        venueLogo.isNotEmpty ? venueLogo : 'assets/images/pickleball_court.png',
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: AppColors.primaryGreen.withOpacity(0.15),
+                                          child: const Icon(Icons.sports_tennis, color: AppColors.primaryGreen, size: 32),
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    venueName,
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.richBlack,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.calendar_today_outlined, size: 13.5, color: Color(0xFF64748B)),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          dateText,
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 12.5,
+                                            color: Color(0xFF334155),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 2.0),
+                                        child: Icon(Icons.access_time_outlined, size: 13.5, color: Color(0xFF64748B)),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          timeRangeText,
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 12.5,
+                                            color: Color(0xFF334155),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.grid_view_outlined, size: 13.5, color: Color(0xFF64748B)),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          courtText,
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 12.5,
+                                            color: Color(0xFF334155),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        const SizedBox(height: 12),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Amount due',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 11.5,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    pesoAmountDue,
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.richBlack,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Confirmation',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 11.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  confirmCode,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.richBlack,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
           },
         ),
 
         const SizedBox(height: 16),
 
-        // Receipt Upload Section (Cloudinary)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE5E5E5)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.receipt_long_rounded, size: 18, color: AppColors.primaryGreen),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Upload Payment Proof (JPG / PNG) *',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: AppColors.richBlack,
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'MANDATORY',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFB45309),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Upload a screenshot of your payment transfer receipt (Required).',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (_paymentReceiptBytes == null)
-                InkWell(
-                  onTap: _showReceiptSourceSheet,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+        // Step 1 ("Send the exact amount") & Step 2 ("Upload your payment screenshot") Container Card
+        Builder(
+          builder: (context) {
+            final String pesoAmountShort = _getTotalDue()
+                .replaceFirst(RegExp(r'^PHP\s*'), '₱')
+                .replaceFirst(RegExp(r'\.00$'), '');
+            final String numericAmount = _getTotalDue()
+                .replaceAll(RegExp(r'[^0-9.]'), '')
+                .replaceFirst(RegExp(r'\.00$'), '');
+
+            final String primaryAccountNum = gcashNum.isNotEmpty
+                ? gcashNum
+                : (mayaNum.isNotEmpty ? mayaNum : bankAccount);
+            final String primaryAccountLabel = gcashNum.isNotEmpty
+                ? 'GCASH'
+                : (mayaNum.isNotEmpty
+                    ? 'MAYA'
+                    : (bankName.isNotEmpty ? bankName.toUpperCase() : 'GCASH'));
+            final String accountHolderDisplay = bankAccountName.isNotEmpty
+                ? bankAccountName
+                : (gcashNum == '09276230491' && isRogerCourt
+                    ? 'Roger Tonacao'
+                    : (widget.venue?['venueName'] ?? widget.venue?['name'] ?? _selectedService?.venueName ?? '').toString());
+
+            Widget buildTimelineStep({
+              required String number,
+              required Widget content,
+              required bool showLineBelow,
+            }) {
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryGreen.withOpacity(0.1),
+                          width: 24,
+                          height: 24,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primaryGreen,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.cloud_upload_outlined,
-                            size: 26,
-                            color: AppColors.primaryGreen,
+                          child: Text(
+                            number,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tap to Upload Receipt Screenshot',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: AppColors.richBlack,
+                        if (showLineBelow)
+                          Expanded(
+                            child: Container(
+                              width: 1.5,
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              color: AppColors.primaryGreen.withOpacity(0.28),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Supports JPG, PNG (Max 10MB)',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
                       ],
                     ),
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.primaryGreen.withOpacity(0.6), width: 1.2),
-                  ),
-                  child: Row(
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: showLineBelow ? 14.0 : 4.0, top: 2.0),
+                        child: content,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F6F1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── 1. Send the exact amount header ──
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(
-                          _paymentReceiptBytes!,
-                          width: 58,
-                          height: 58,
-                          fit: BoxFit.cover,
+                      Container(
+                        width: 32,
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryGreen,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text(
+                          '1',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.check_circle_rounded, color: AppColors.primaryGreen, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Receipt Attached',
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: AppColors.primaryGreen,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
+                          children: const [
                             Text(
-                              _paymentReceiptFile?.name ?? 'payment_receipt.jpg',
+                              'Send the exact amount',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey.shade800,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.richBlack,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
+                            SizedBox(height: 2),
                             Text(
-                              'JPG receipt screenshot',
+                              'Your court is held while you pay.',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
-                                fontSize: 10,
-                                color: Colors.grey.shade500,
+                                fontSize: 13,
+                                color: Color(0xFF64748B),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      TextButton(
-                        onPressed: _showReceiptSourceSheet,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ── Amount to send card ──
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Amount to send',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 12.5,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              pesoAmountShort,
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.richBlack,
+                              ),
+                            ),
+                          ],
                         ),
-                        child: const Text('Change', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                        OutlinedButton.icon(
+                          onPressed: () => _copyToClipboard(numericAmount, 'Amount'),
+                          icon: const Icon(Icons.copy_rounded, size: 15, color: AppColors.richBlack),
+                          label: const Text(
+                            'Copy',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.richBlack,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(9999),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // ── QR Code Section (Top) ──
+                  if (canShowQr) ...[
+                    Text(
+                      '$primaryAccountLabel QR code',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.richBlack,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18, color: Colors.redAccent),
-                        onPressed: () {
-                          setState(() {
-                            _paymentReceiptFile = null;
-                            _paymentReceiptBytes = null;
-                          });
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF2E7D32)),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$pesoAmountShort already filled in',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Center(
+                      child: GestureDetector(
+                        onTap: () => _showFullQrCodeModal(
+                          hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG',
+                          isRoger: isRogerCourt,
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Center(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: hasCloudinaryQr
+                                  ? Image.network(
+                                      qrUrl,
+                                      height: 220,
+                                      width: 220,
+                                      fit: BoxFit.contain,
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null) return child;
+                                        return SizedBox(
+                                          height: 220,
+                                          width: 220,
+                                          child: Center(
+                                            child: CircularProgressIndicator(color: AppColors.richBlack),
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (_, __, ___) => isRogerCourt
+                                          ? Image.asset(
+                                              'assets/qr-code.PNG',
+                                              height: 220,
+                                              width: 220,
+                                              fit: BoxFit.contain,
+                                            )
+                                          : SizedBox(
+                                              height: 220,
+                                              width: 220,
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.broken_image_outlined, size: 40, color: Colors.grey.shade400),
+                                                  const SizedBox(height: 8),
+                                                  Text('QR Code unavailable', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                                ],
+                                              ),
+                                            ),
+                                    )
+                                  : Image.asset(
+                                      'assets/qr-code.PNG',
+                                      height: 220,
+                                      width: 220,
+                                      fit: BoxFit.contain,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => downloadImage(hasCloudinaryQr ? qrUrl : 'assets/qr-code.PNG'),
+                        icon: const Icon(Icons.file_download_outlined, size: 17, color: AppColors.richBlack),
+                        label: const Text(
+                          'Save QR to photos',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.richBlack,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9999),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Instructions & Account Card (Placed Below the QR Code) ──
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (primaryAccountNum.isNotEmpty) ...[
+                          Text(
+                            primaryAccountNum,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.richBlack,
+                            ),
+                          ),
+                          if (accountHolderDisplay.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              accountHolderDisplay,
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 12.5,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          OutlinedButton(
+                            onPressed: () => _copyToClipboard(primaryAccountNum, '$primaryAccountLabel Number'),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(9999),
+                              ),
+                            ),
+                            child: const Text(
+                              'Copy',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.richBlack,
+                              ),
+                            ),
+                          ),
+                          if (mayaNum.isNotEmpty && mayaNum != primaryAccountNum) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Maya: $mayaNum',
+                                  style: const TextStyle(fontFamily: 'Poppins', fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.richBlack),
+                                ),
+                                TextButton(
+                                  onPressed: () => _copyToClipboard(mayaNum, 'Maya Number'),
+                                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                  child: const Text('Copy', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (bankAccount.isNotEmpty && bankAccount != primaryAccountNum) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${bankName.isNotEmpty ? bankName : "Bank"}: $bankAccount',
+                                    style: const TextStyle(fontFamily: 'Poppins', fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.richBlack),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => _copyToClipboard(bankAccount, 'Bank Account'),
+                                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                  child: const Text('Copy', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                          const SizedBox(height: 14),
+                        ],
+
+                        // Step 1, 2, 3 Timeline
+                        buildTimelineStep(
+                          number: '1',
+                          showLineBelow: true,
+                          content: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 13,
+                                height: 1.4,
+                                color: Color(0xFF475569),
+                              ),
+                              children: [
+                                TextSpan(text: 'Open $primaryAccountLabel and send '),
+                                TextSpan(
+                                  text: '$pesoAmountShort.',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.richBlack,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        buildTimelineStep(
+                          number: '2',
+                          showLineBelow: true,
+                          content: const Text(
+                            'Take a screenshot of the payment confirmation.',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 13,
+                              height: 1.4,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                        buildTimelineStep(
+                          number: '3',
+                          showLineBelow: false,
+                          content: const Text(
+                            'Upload the screenshot below.',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 13,
+                              height: 1.4,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Tip box
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F5F8),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.only(top: 1.0),
+                                child: Icon(Icons.lightbulb_rounded, size: 16, color: Color(0xFFF59E0B)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: RichText(
+                                  text: const TextSpan(
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 12,
+                                      height: 1.45,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                    children: [
+                                      TextSpan(
+                                        text: 'Tip: ',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.richBlack,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: 'make sure the amount, date and reference number are visible.',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        if (customInstructions.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Owner Note: $customInstructions',
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 12,
+                                color: Color(0xFF92400E),
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  // ── 2. Upload your payment screenshot header ──
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryGreen,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text(
+                          '2',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Upload your payment screenshot',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.richBlack,
+                          ),
+                        ),
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 14),
+
+                  // Dashed Rounded Upload Box
+                  if (_paymentReceiptBytes == null)
+                    InkWell(
+                      onTap: _showReceiptSourceSheet,
+                      borderRadius: BorderRadius.circular(14),
+                      child: CustomPaint(
+                        painter: _DashedBorderPainter(
+                          color: const Color(0xFF94A3B8),
+                          strokeWidth: 1.5,
+                          dashWidth: 6.0,
+                          dashSpace: 4.5,
+                          radius: 14.0,
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(
+                                Icons.camera_alt_rounded,
+                                size: 30,
+                                color: AppColors.richBlack,
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                'Tap to upload screenshot',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14.5,
+                                  color: AppColors.richBlack,
+                                ),
+                              ),
+                              SizedBox(height: 3),
+                              Text(
+                                'JPG or PNG',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    CustomPaint(
+                      painter: _DashedBorderPainter(
+                        color: AppColors.primaryGreen,
+                        strokeWidth: 1.5,
+                        dashWidth: 6.0,
+                        dashSpace: 4.5,
+                        radius: 14.0,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.memory(
+                                _paymentReceiptBytes!,
+                                width: 58,
+                                height: 58,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: const [
+                                      Icon(Icons.check_circle_rounded, color: AppColors.primaryGreen, size: 16),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Receipt Attached',
+                                        style: TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: AppColors.primaryGreen,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    _paymentReceiptFile?.name ?? 'payment_receipt.jpg',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _showReceiptSourceSheet,
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text('Change', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18, color: Colors.redAccent),
+                              onPressed: () {
+                                setState(() {
+                                  _paymentReceiptFile = null;
+                                  _paymentReceiptBytes = null;
+                                });
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  // Privacy Caption
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.only(top: 1.5),
+                        child: Icon(
+                          Icons.privacy_tip_outlined,
+                          size: 14,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "Only the club's staff can see your screenshot, and it is deleted automatically after 90 days.",
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12,
+                            height: 1.4,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Reference No. Input
+                  const Text(
+                    'Reference No.',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.richBlack,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _referenceNumberController,
+                    keyboardType: TextInputType.text,
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppColors.richBlack,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. 123456789012',
+                      hintStyle: const TextStyle(
+                        fontFamily: 'Poppins',
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.normal,
+                        fontSize: 14,
+                      ),
+                      counterText: '',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'The reference number from your GCash, Maya or bank receipt.',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 12,
+                      height: 1.4,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Submit payment proof button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final bool skipChooseService = widget.skipServiceSelection ||
+                            widget.initialService != null ||
+                            (widget.initialServiceName != null && widget.initialServiceName!.isNotEmpty);
+                        _handleStepContinue(skipChooseService);
+                      },
+                      icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                      label: const Text(
+                        'Submit payment proof',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF708D57),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Lock note below button
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: const [
+                      Icon(
+                        Icons.lock_rounded,
+                        size: 14,
+                        color: Color(0xFF64748B),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Your booking is confirmed once the club checks your payment.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12,
+                            height: 1.4,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        // "Start again" link below card
+        Center(
+          child: InkWell(
+            onTap: () {
+              _releaseCurrentHold(refreshSlots: true);
+              setState(() {
+                _currentStep = 0;
+              });
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Text(
+                'Start again',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 13.5,
+                  color: Color(0xFF64748B),
+                  decoration: TextDecoration.underline,
+                  decorationColor: Color(0xFF64748B),
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       ],
@@ -5138,4 +6047,51 @@ class _VisualCaptchaPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _VisualCaptchaPainter oldDelegate) =>
       oldDelegate.text != text || oldDelegate.seed != seed;
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+  final double radius;
+
+  _DashedBorderPainter({
+    required this.color,
+    this.strokeWidth = 1.5,
+    this.dashWidth = 6.0,
+    this.dashSpace = 4.5,
+    this.radius = 14.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(radius),
+    );
+    final path = Path()..addRRect(rrect);
+
+    for (final metric in path.computeMetrics()) {
+      double distance = 0.0;
+      while (distance < metric.length) {
+        final next = math.min(distance + dashWidth, metric.length);
+        canvas.drawPath(metric.extractPath(distance, next), paint);
+        distance += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.strokeWidth != strokeWidth ||
+      oldDelegate.dashWidth != dashWidth ||
+      oldDelegate.dashSpace != dashSpace ||
+      oldDelegate.radius != radius;
 }

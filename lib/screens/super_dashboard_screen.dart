@@ -538,8 +538,8 @@ class _SuperDashboardScreenState extends State<SuperDashboardScreen> {
         totalGross += 0.0;
         totalNetOwners += 0.0;
       } else {
-        totalGross += courtAmount + fee;
-        totalNetOwners += courtAmount;
+        totalGross += courtAmount;
+        totalNetOwners += (courtAmount > fee ? courtAmount - fee : courtAmount);
       }
       totalAppFee += fee;
     }

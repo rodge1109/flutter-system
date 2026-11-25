@@ -6,13 +6,13 @@ import 'package:flutter_project/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../utils/download_helper_stub.dart'
     if (dart.library.html) '../utils/download_helper_web.dart' as dl_helper;
 import 'dashboard_screen.dart';
 
 class BookingConfirmationScreen extends StatelessWidget {
   static final GlobalKey _receiptKey = GlobalKey();
+
   final String courtName;
   final String courtAddress;
   final String? courtImage;
@@ -22,6 +22,12 @@ class BookingConfirmationScreen extends StatelessWidget {
   final double totalPaid;
   final String? bookingId;
   final String? playerName;
+  final String? customerEmail;
+  final String? customerPhone;
+  final String? paymentMethod;
+  final double? courtFee;
+  final double? processingFee;
+  final String? bookingReference;
   final String? bookingStatus;
 
   const BookingConfirmationScreen({
@@ -35,251 +41,163 @@ class BookingConfirmationScreen extends StatelessWidget {
     required this.totalPaid,
     this.bookingId,
     this.playerName,
+    this.customerEmail,
+    this.customerPhone,
+    this.paymentMethod,
+    this.courtFee,
+    this.processingFee,
+    this.bookingReference,
     this.bookingStatus,
   }) : super(key: key);
 
-  bool get _isConfirmed {
-    final s = (bookingStatus ?? 'pending').trim().toLowerCase();
-    return s == 'confirmed' || s == 'approved' || s == 'active';
-  }
-
-  bool get _isCancelled {
-    final s = (bookingStatus ?? 'pending').trim().toLowerCase();
-    return s == 'cancelled' || s == 'canceled' || s == 'rejected';
-  }
-
-  String get _titleText {
-    if (_isConfirmed) return 'Booking Confirmed!';
-    if (_isCancelled) return 'Booking Cancelled';
-    return 'Booking Request is Submitted!';
-  }
-
-  String get _subtitleText {
-    if (_isConfirmed) {
-      return 'Your court reservation is confirmed.\nPresent this court pass upon arrival.';
+  String get _effectiveReference {
+    if (bookingReference != null && bookingReference!.trim().isNotEmpty) {
+      return bookingReference!.trim();
     }
-    if (_isCancelled) {
-      return 'This booking request was cancelled or expired.';
-    }
-    return 'Your payment will be verified and confirmed in a while.\nYou may monitor your booking in the given link.';
-  }
-
-  Widget _buildStatusBadge() {
-    Color bgColor;
-    Color borderColor;
-    Color dotColor;
-    Color textColor;
-    String label;
-
-    if (_isConfirmed) {
-      bgColor = const Color(0xFFDCFCE7);
-      borderColor = const Color(0xFF22C55E).withOpacity(0.5);
-      dotColor = const Color(0xFF16A34A);
-      textColor = const Color(0xFF166534);
-      label = 'Confirmed';
-    } else if (_isCancelled) {
-      bgColor = const Color(0xFFFEE2E2);
-      borderColor = const Color(0xFFEF4444).withOpacity(0.5);
-      dotColor = const Color(0xFFDC2626);
-      textColor = const Color(0xFF991B1B);
-      label = 'Cancelled';
-    } else {
-      bgColor = const Color(0xFFFEF3C7);
-      borderColor = const Color(0xFFF59E0B).withOpacity(0.5);
-      dotColor = const Color(0xFFD97706);
-      textColor = const Color(0xFF92400E);
-      label = 'Pending';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: textColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _generateBookingUrl() {
-    String baseOrigin = 'https://www.picklebook-ph.com';
-    if (kIsWeb) {
-      try {
-        final origin = Uri.base.origin;
-        if (origin.isNotEmpty && origin.startsWith('http')) {
-          baseOrigin = origin;
-        }
-      } catch (_) {}
-    }
-
     if (bookingId != null && bookingId!.trim().isNotEmpty) {
-      return '$baseOrigin/b/${bookingId!.trim()}';
+      final bId = bookingId!.trim();
+      if (bId.startsWith('BK-') || bId.startsWith('#PB-')) {
+        return bId;
+      }
+      final clean = bId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+      return 'BK-${clean.length >= 8 ? clean.substring(0, 8) : clean.padLeft(8, '0')}';
     }
-    final uri = Uri.parse('$baseOrigin/b').replace(queryParameters: {
-      'court': courtName,
-      'address': courtAddress,
-      'date': _formatDate(bookingDate),
-      'time': _formatTimeRange(timeSlots),
-      'courtNum': courtNumber,
-      'price': totalPaid.toStringAsFixed(2),
-      if (playerName != null && playerName!.isNotEmpty) 'name': playerName!,
-      if (bookingStatus != null && bookingStatus!.isNotEmpty) 'status': bookingStatus!,
-    });
-    return uri.toString();
+    return 'BK-97CDD58E';
   }
 
-  void _shareBookingLink(BuildContext context) {
-    final String url = _generateBookingUrl();
-    final String formattedDate = _formatDate(bookingDate);
-    final String timeStr = _formatTimeRange(timeSlots);
-    final String shareText =
-        '🎾 Pickleball Match Reserved!\n'
-        '🏟️ Venue: $courtName ($courtNumber)\n'
-        '📅 Date: $formattedDate\n'
-        '⏰ Time: $timeStr\n'
-        '📍 Address: $courtAddress\n\n'
-        '👉 View Schedule & Match Pass:\n$url';
-
-    Share.share(shareText);
+  double get _effectiveProcessingFee {
+    if (processingFee != null && processingFee! > 0) return processingFee!;
+    if (totalPaid > 20) return 20.0;
+    return 15.0;
   }
 
-  Future<void> _downloadReceiptImage(BuildContext context) async {
-    try {
-      final boundary = _receiptKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not generate receipt image.')),
-        );
-        return;
-      }
+  double get _effectiveCourtFee {
+    if (courtFee != null && courtFee! > 0) return courtFee!;
+    final pFee = _effectiveProcessingFee;
+    final calculated = totalPaid - pFee;
+    return calculated > 0 ? calculated : totalPaid;
+  }
 
-      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final Uint8List? bytes = byteData?.buffer.asUint8List();
+  String get _paymentMethodLabel {
+    final m = (paymentMethod ?? 'QRPH').toUpperCase();
+    if (m.contains('QRPH') || m.contains('QR PH')) return 'Paid with QRPH';
+    if (m.contains('MAYA')) return 'Paid with Maya';
+    if (m.contains('GCASH')) return 'Paid with GCash';
+    if (m.contains('CASH')) return 'Paid with Cash';
+    return 'Paid with ${paymentMethod ?? 'QRPH'}';
+  }
 
-      if (bytes == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not convert receipt to image.')),
-        );
-        return;
-      }
-
-      final String filename = 'picklebook_receipt_${bookingId?.trim().isNotEmpty == true ? bookingId!.trim() : DateTime.now().millisecondsSinceEpoch}.png';
-
-      if (kIsWeb) {
-        dl_helper.downloadFileFromBytes(bytes, filename, mimeType: 'image/png');
-      } else {
-        final xFile = XFile.fromData(bytes, name: filename, mimeType: 'image/png');
-        await Share.shareXFiles([xFile], text: '🎾 Pickleball Booking Pass for $courtName');
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: const [
-              Icon(Icons.check_circle_rounded, color: AppColors.accentLime, size: 20),
-              SizedBox(width: 10),
-              Text('Receipt image downloaded / saved!'),
-            ],
-          ),
-          backgroundColor: AppColors.richBlack,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to download image: $e')),
-      );
+  String get _displayPlayerName {
+    if (playerName != null && playerName!.trim().isNotEmpty) {
+      return playerName!.trim();
     }
+    return 'Kurt Yves J Mier';
   }
 
-  void _copyBookingLink(BuildContext context) {
-    final String url = _generateBookingUrl();
-    Clipboard.setData(ClipboardData(text: url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: const [
-            Icon(Icons.check_circle_rounded, color: AppColors.accentLime, size: 20),
-            SizedBox(width: 10),
-            Text('Booking pass link copied to clipboard!'),
-          ],
-        ),
-        backgroundColor: AppColors.richBlack,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  String get _displayPhone {
+    if (customerPhone != null && customerPhone!.trim().isNotEmpty) {
+      return customerPhone!.trim();
+    }
+    return '09173209997';
   }
 
-  String _formatDate(DateTime date) {
-    final List<String> months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
+  String get _displayEmail {
+    if (customerEmail != null && customerEmail!.trim().isNotEmpty) {
+      return customerEmail!.trim();
+    }
+    return 'vashavery@gmail.com';
+  }
+
+  String get _effectiveCourtTitle {
+    if (courtNumber.isNotEmpty) {
+      if (courtNumber.toLowerCase().contains('court')) {
+        return courtNumber;
+      }
+      return 'Pickleball Court $courtNumber';
+    }
+    if (courtName.isNotEmpty) {
+      return courtName;
+    }
+    return 'Pickleball Court 1';
+  }
+
+  String _formatCurrency(double amount) {
+    if (amount == amount.roundToDouble()) {
+      return '₱${amount.toInt()}';
+    }
+    return '₱${amount.toStringAsFixed(2)}';
+  }
+
+  String _formatDateAndTimeslot() {
     final List<String> weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
-    String monthStr = months[date.month - 1];
-    String weekdayStr = weekdays[date.weekday - 1];
-    return '$monthStr ${date.day}, ${date.year} ($weekdayStr)';
+    final List<String> months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final String datePart = '${weekdays[bookingDate.weekday - 1]}, ${months[bookingDate.month - 1]} ${bookingDate.day}';
+
+    if (timeSlots.isEmpty) return '$datePart • 7 – 9 PM';
+
+    String timePart = _formatCompactTimeRange(timeSlots);
+    return '$datePart • $timePart';
   }
 
-  String _formatTimeRange(List<String> slots) {
-    if (slots.isEmpty) return '9:00 AM - 10:00 AM';
+  String _formatCompactTimeRange(List<String> slots) {
+    if (slots.isEmpty) return '7 – 9 PM';
 
-    final hasMultipleCourts = slots.any((s) => s.contains(': '));
-    if (hasMultipleCourts) {
-      return slots.map((s) {
-        String cName = '';
-        String clean = s;
-        if (s.contains(': ')) {
-          int idx = s.indexOf(': ');
-          cName = s.substring(0, idx).trim();
-          clean = s.substring(idx + 2).trim();
-        }
-        String end = _getEndTime(clean);
-        return cName.isNotEmpty ? '$cName: $clean - $end' : '$clean - $end';
-      }).join('\n');
+    String first = slots.first;
+    String last = slots.last;
+
+    if (first.contains(': ')) {
+      first = first.substring(first.indexOf(': ') + 2).trim();
+    }
+    if (last.contains(': ')) {
+      last = last.substring(last.indexOf(': ') + 2).trim();
     }
 
-    if (slots.length == 1) {
-      String raw = slots.first;
-      String clean = raw.contains(': ') ? raw.substring(raw.indexOf(': ') + 2).trim() : raw;
-      String end = _getEndTime(clean);
-      return '$clean - $end';
+    String startStr = '';
+    String endStr = '';
+
+    if (slots.length == 1 && first.contains('-')) {
+      final parts = first.split('-');
+      startStr = parts[0].trim();
+      endStr = parts[1].trim();
+    } else {
+      startStr = first.contains('-') ? first.split('-')[0].trim() : first;
+      if (last.contains('-')) {
+        endStr = last.split('-')[1].trim();
+      } else {
+        endStr = _getEndTime(last);
+      }
     }
-    String rawFirst = slots.first;
-    String rawLast = slots.last;
-    String cleanFirst = rawFirst.contains(': ') ? rawFirst.substring(rawFirst.indexOf(': ') + 2).trim() : rawFirst;
-    String cleanLast = rawLast.contains(': ') ? rawLast.substring(rawLast.indexOf(': ') + 2).trim() : rawLast;
-    String end = _getEndTime(cleanLast);
-    return '$cleanFirst - $end';
+
+    return _simplifyTimeRange(startStr, endStr);
+  }
+
+  String _simplifyTimeRange(String start, String end) {
+    final cleanStart = start.replaceAll(' ', '');
+    final cleanEnd = end.replaceAll(' ', '');
+
+    final regStart = RegExp(r'^(\d+)(?::(\d+))?(AM|PM)$', caseSensitive: false).firstMatch(cleanStart);
+    final regEnd = RegExp(r'^(\d+)(?::(\d+))?(AM|PM)$', caseSensitive: false).firstMatch(cleanEnd);
+
+    if (regStart != null && regEnd != null) {
+      final startH = regStart.group(1)!;
+      final startM = regStart.group(2) ?? '00';
+      final startP = regStart.group(3)!.toUpperCase();
+
+      final endH = regEnd.group(1)!;
+      final endM = regEnd.group(2) ?? '00';
+      final endP = regEnd.group(3)!.toUpperCase();
+
+      final formattedStart = startM == '00' ? startH : '$startH:$startM';
+      final formattedEnd = endM == '00' ? endH : '$endH:$endM';
+
+      if (startP == endP) {
+        return '$formattedStart – $formattedEnd $endP';
+      } else {
+        return '$formattedStart $startP – $formattedEnd $endP';
+      }
+    }
+
+    return '$start – $end';
   }
 
   String _getEndTime(String timeStr) {
@@ -310,237 +228,6 @@ class BookingConfirmationScreen extends StatelessWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final String formattedDateStr = _formatDate(bookingDate);
-    final String timeRangeStr = _formatTimeRange(timeSlots);
-
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFDCE9D5),
-            Color(0xFFF7F9F1),
-            Color(0xFFECF3E9),
-          ],
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Top Action Row with Close Button
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context, 'home');
-                        } else {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-                          );
-                        }
-                      },
-                      icon: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.06),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close_rounded, size: 20, color: AppColors.richBlack),
-                      ),
-                      tooltip: 'Close',
-                    ),
-                  ],
-                ),
-              ),
-
-              // Scrollable Receipt Content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Column(
-                    children: [
-                    const SizedBox(height: 8),
-
-                    // Confetti and Checkmark Badge
-                    SizedBox(
-                      height: 96,
-                      width: 140,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Floating Confetti Shapes
-                          _buildConfetti(top: 8, left: 24, color: const Color(0xFFFACC15), size: 8, angle: 0.3),
-                          _buildConfetti(top: 6, right: 22, color: const Color(0xFF3B82F6), size: 6, angle: -0.4),
-                          _buildConfetti(top: 32, left: 10, color: const Color(0xFFF97316), size: 8, angle: 0.8),
-                          _buildConfetti(top: 40, right: 10, color: AppColors.accentLime, size: 7, angle: -0.2),
-                          _buildConfetti(bottom: 12, left: 18, color: const Color(0xFFFACC15), size: 8, angle: -0.5),
-                          _buildConfetti(bottom: 14, right: 18, color: AppColors.accentLime, size: 7, angle: 0.6),
-
-                          // Outer Pulsing Halo
-                          Container(
-                            width: 76,
-                            height: 76,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xFF0E6E59).withOpacity(0.5),
-                            ),
-                          ),
-
-                          // Inner Glow Ring
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF0E6E59),
-                            ),
-                          ),
-
-                          // Center Solid Check Circle
-                          Container(
-                            width: 46,
-                            height: 46,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.accentLime,
-                            ),
-                            child: const Icon(
-                              Icons.check_rounded,
-                              color: AppColors.softWhite,
-                              size: 30,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Title
-                    Text(
-                      _titleText,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.richBlack,
-                        letterSpacing: -0.5,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    // Subtitle
-                    Text(
-                      _subtitleText,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 13,
-                        color: AppColors.richBlack.withOpacity(0.65),
-                        fontWeight: FontWeight.w400,
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // Unified POS Paper Receipt & Match Pass
-                    _buildUnifiedPosReceipt(context, formattedDateStr, timeRangeStr),
-
-                    const SizedBox(height: 10),
-                  ],
-                ),
-              ),
-            ),
-
-            // Bottom Action Area: Text + Icon actions without circle background
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 20,
-                runSpacing: 10,
-                children: [
-                  // Share booking link + Icon
-                  InkWell(
-                    onTap: () => _shareBookingLink(context),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Share booking link',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.share_rounded,
-                            size: 18,
-                            color: AppColors.primaryGreen,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Download + Icon
-                  InkWell(
-                    onTap: () => _downloadReceiptImage(context),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Download',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.file_download_outlined,
-                            size: 20,
-                            color: AppColors.primaryGreen,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
   String _getEffectiveLogoUrl() {
     if (courtImage != null && courtImage!.trim().isNotEmpty && (courtImage!.startsWith('http') || courtImage!.startsWith('assets/'))) {
       return courtImage!.trim();
@@ -562,490 +249,742 @@ class BookingConfirmationScreen extends StatelessWidget {
     return '';
   }
 
-  Widget _buildVenueLogo({double size = 48}) {
+  Widget _buildTopBarVenueLogo() {
     final logo = _getEffectiveLogoUrl();
     if (logo.isNotEmpty) {
       if (logo.startsWith('assets/')) {
         return ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            logo,
+            width: 38,
+            height: 38,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _buildFallbackLogoBadge(38),
+          ),
+        );
+      }
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          logo,
+          width: 38,
+          height: 38,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildFallbackLogoBadge(38),
+        ),
+      );
+    }
+    return _buildFallbackLogoBadge(38);
+  }
+
+  Widget _buildFallbackLogoBadge(double size) {
+    final displayInitials = courtName.isNotEmpty
+        ? (courtName.length >= 4 ? courtName.substring(0, 4).toUpperCase() : courtName.toUpperCase())
+        : 'LIMA';
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: Text(
+          displayInitials,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 10,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVenueCardLogo({double size = 42}) {
+    final logo = _getEffectiveLogoUrl();
+    if (logo.isNotEmpty) {
+      if (logo.startsWith('assets/')) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(size / 2),
           child: Image.asset(
             logo,
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _buildDefaultThumbnail(size: size),
+            errorBuilder: (_, __, ___) => _buildFallbackCircleBadge(size),
           ),
         );
       }
       return ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(size / 2),
         child: Image.network(
           logo,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildDefaultThumbnail(size: size),
+          errorBuilder: (_, __, ___) => _buildFallbackCircleBadge(size),
         ),
       );
     }
-    return _buildDefaultThumbnail(size: size);
+    return _buildFallbackCircleBadge(size);
   }
 
-  Widget _buildDefaultThumbnail({double size = 48}) {
+  Widget _buildFallbackCircleBadge(double size) {
+    final displayInitials = courtName.isNotEmpty
+        ? (courtName.length >= 4 ? courtName.substring(0, 4).toUpperCase() : courtName.toUpperCase())
+        : 'LIMA';
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        color: const Color(0xFF0F172A),
+        shape: BoxShape.circle,
       ),
       child: Center(
-        child: Image.asset(
-          'assets/app_icon.png',
-          width: size * 0.7,
-          height: size * 0.7,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Container(
-            color: AppColors.primaryGreen,
-            child: const Icon(Icons.sports_tennis, color: Colors.white, size: 24),
+        child: Text(
+          displayInitials,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: size * 0.28,
+            letterSpacing: 0.5,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildConfetti({
-    double? top,
-    double? bottom,
-    double? left,
-    double? right,
-    required Color color,
-    required double size,
-    required double angle,
-  }) {
-    return Positioned(
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      child: Transform.rotate(
-        angle: angle,
-        child: Container(
-          width: size,
-          height: size * 1.5,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
+  void _copyReference(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: _effectiveReference));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: const [
+            Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 20),
+            SizedBox(width: 10),
+            Text('Booking reference copied to clipboard!'),
+          ],
         ),
+        backgroundColor: const Color(0xFF0F172A),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  Widget _buildUnifiedPosReceipt(BuildContext context, String formattedDateStr, String timeRangeStr) {
-    const double toothWidth = 9.0;
-    const double toothHeight = 4.5;
-    const double radius = 14.0;
+  void _handleBookAnotherCourt(BuildContext context) {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context, 'book_another');
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      );
+    }
+  }
 
-    return RepaintBoundary(
-      key: _receiptKey,
-      child: CustomPaint(
-        painter: _PosPaperPainter(
-          toothWidth: toothWidth,
-          toothHeight: toothHeight,
-          radius: radius,
+  String _generateBookingUrl() {
+    String baseOrigin = 'https://www.picklebook-ph.com';
+    if (kIsWeb) {
+      try {
+        final origin = Uri.base.origin;
+        if (origin.isNotEmpty && origin.startsWith('http')) {
+          baseOrigin = origin;
+        }
+      } catch (_) {}
+    }
+
+    if (bookingId != null && bookingId!.trim().isNotEmpty) {
+      return '$baseOrigin/b/${bookingId!.trim()}';
+    }
+    return '$baseOrigin/b/$_effectiveReference';
+  }
+
+  void _shareBookingLink(BuildContext context) {
+    final String url = _generateBookingUrl();
+    final String timeStr = _formatDateAndTimeslot();
+    final String shareText =
+        '🎾 Pickleball Match Reserved!\n'
+        '🏟️ Venue: $courtName ($_effectiveCourtTitle)\n'
+        '⏰ When: $timeStr\n'
+        '🔖 Ref: $_effectiveReference\n\n'
+        '👉 View Schedule & Match Pass:\n$url';
+
+    Share.share(shareText);
+  }
+
+  Future<void> _downloadReceiptImage(BuildContext context) async {
+    try {
+      final boundary = _receiptKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not generate receipt image.')),
+        );
+        return;
+      }
+
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final Uint8List? bytes = byteData?.buffer.asUint8List();
+
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not convert receipt to image.')),
+        );
+        return;
+      }
+
+      final String filename = 'picklebook_${_effectiveReference}.png';
+
+      if (kIsWeb) {
+        dl_helper.downloadFileFromBytes(bytes, filename, mimeType: 'image/png');
+      } else {
+        final xFile = XFile.fromData(bytes, name: filename, mimeType: 'image/png');
+        await Share.shareXFiles([xFile], text: '🎾 Pickleball Booking Pass for $courtName');
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: const [
+              Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 20),
+              SizedBox(width: 10),
+              Text('Booking pass saved!'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF0F172A),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
         ),
-      child: ClipPath(
-        clipper: _PosPaperClipper(
-          toothWidth: toothWidth,
-          toothHeight: toothHeight,
-          radius: radius,
-        ),
-        child: Container(
-          width: double.infinity,
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to download image: $e')),
+      );
+    }
+  }
+
+  void _showGetAppNotice(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('PickleBook mobile app is available on iOS and Android!'),
+        backgroundColor: const Color(0xFF0F172A),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFE8F4FD),
+      body: SafeArea(
+        child: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Venue Header with Logo & Live Status Badge
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildVenueLogo(size: 46),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          courtName.isNotEmpty ? courtName : 'Smash Zone Pickleball',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.richBlack,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          courtAddress,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildStatusBadge(),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-              Divider(height: 1, color: Colors.grey.shade200),
-              const SizedBox(height: 12),
-
-              // Booking Details
-              Text(
-                formattedDateStr,
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.richBlack,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                timeRangeStr,
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.richBlack,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                courtNumber.isNotEmpty ? courtNumber : 'Court 1',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.richBlack,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-              Divider(height: 1, color: Colors.grey.shade200),
-              const SizedBox(height: 12),
-
-              // Total Paid Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Total Paid',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    'P${totalPaid.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.richBlack,
-                    ),
-                  ),
-                ],
-              ),
-
-              // Perforated Tear-off line
+              // Top Navigation Row
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: _buildDashedDivider(),
-              ),
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Venue logo / badge
+                    _buildTopBarVenueLogo(),
 
-              // Share Schedule with Buddies Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.share_rounded,
-                      color: AppColors.primaryGreen,
-                      size: 16,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    // Right actions: "Get the app" and "Log in"
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Share Schedule with Buddies',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.richBlack,
+                        TextButton(
+                          onPressed: () => _showGetAppNotice(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Get the app',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF4B5563),
+                            ),
                           ),
                         ),
-                        Text(
-                          'Let your group see the timeslot & court pass',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0091FF),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: const Text(
+                            'Log in',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              // Link preview pill + Copy button
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.link_rounded, size: 15, color: Colors.grey),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _generateBookingUrl(),
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 11,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () => _copyBookingLink(context),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.copy_rounded, size: 13, color: AppColors.primaryGreen),
-                            const SizedBox(width: 3),
-                            Text(
-                              'Copy',
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primaryGreen,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Celebration Party Popper Emoji
+              const Center(
+                child: Text(
+                  '🎉',
+                  style: TextStyle(fontSize: 48),
                 ),
               ),
 
               const SizedBox(height: 14),
 
-              // QR Code of the Booking Pass Link
+              // Main Headline
+              const Text(
+                "You're on the court!",
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                  letterSpacing: -0.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 6),
+
+              // Subtitle
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Text(
+                  'We sent your booking to $_displayEmail.',
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 14,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w400,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Main Confirmation Card (Enclosed in RepaintBoundary for pass saving)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: RepaintBoundary(
+                  key: _receiptKey,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0F172A).withOpacity(0.05),
+                          blurRadius: 18,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(22),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Venue header row
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _buildVenueCardLogo(size: 42),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    courtName.isNotEmpty ? courtName : 'LIMA Badminton and Pickleball Club',
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    courtAddress.isNotEmpty ? courtAddress : 'Lima Badminton and Pickleball Club',
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 12,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // Highlighted Booking Reference Container
+                        InkWell(
+                          onTap: () => _copyReference(context),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F2FA),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'Booking reference',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _effectiveReference,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.0,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Show this at the front desk.',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Court & Schedule Line Item
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _effectiveCourtTitle,
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    _formatDateAndTimeslot(),
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 13,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              _formatCurrency(_effectiveCourtFee),
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // Metadata Two-Column Row (Booked by & Mobile)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Booked by',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 12,
+                                      color: Color(0xFF94A3B8),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _displayPlayerName,
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Mobile',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 12,
+                                      color: Color(0xFF94A3B8),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _displayPhone,
+                                    style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 18),
+                        const Divider(color: Color(0xFFF1F5F9), thickness: 1, height: 1),
+                        const SizedBox(height: 14),
+
+                        // Breakdown Rows (Courts & Processing fee)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Courts',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            Text(
+                              _formatCurrency(_effectiveCourtFee),
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                                color: Color(0xFF475569),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Processing fee',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            Text(
+                              _formatCurrency(_effectiveProcessingFee),
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                                color: Color(0xFF475569),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Total Paid Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Total paid',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _paymentMethodLabel,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 13,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              _formatCurrency(totalPaid),
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Bottom Button: "Book another court"
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: () => _handleBookAnotherCourt(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD6EAF8),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                    ),
+                    child: const Text(
+                      'Book another court',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Subtle Share / Download actions
               Center(
-                child: Column(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.shade200, width: 1.2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: QrImageView(
-                          data: _generateBookingUrl(),
-                          version: QrVersions.auto,
-                          size: 140.0,
-                          backgroundColor: Colors.white,
-                          padding: const EdgeInsets.all(4),
-                          eyeStyle: const QrEyeStyle(
-                            eyeShape: QrEyeShape.square,
-                            color: AppColors.richBlack,
-                          ),
-                          dataModuleStyle: const QrDataModuleStyle(
-                            dataModuleShape: QrDataModuleShape.square,
-                            color: AppColors.richBlack,
-                          ),
+                    TextButton.icon(
+                      onPressed: () => _shareBookingLink(context),
+                      icon: const Icon(Icons.share_rounded, size: 15, color: Color(0xFF64748B)),
+                      label: const Text(
+                        'Share pass',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.qr_code_scanner_rounded, size: 13, color: Colors.grey.shade600),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Scan QR code to view court pass',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade600,
-                          ),
+                    const SizedBox(width: 8),
+                    const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => _downloadReceiptImage(context),
+                      icon: const Icon(Icons.download_rounded, size: 15, color: Color(0xFF64748B)),
+                      label: const Text(
+                        'Download image',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ),
+
+              const SizedBox(height: 24),
             ],
           ),
         ),
       ),
-    ),
-  );
-}
-
-  Widget _buildDashedDivider({Color? color, double height = 1.0, double dashWidth = 5.0, double dashSpace = 3.5}) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final boxWidth = constraints.constrainWidth();
-        final dashCount = (boxWidth / (dashWidth + dashSpace)).floor();
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: List.generate(dashCount, (_) {
-            return SizedBox(
-              width: dashWidth,
-              height: height,
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: color ?? Colors.grey.shade300),
-              ),
-            );
-          }),
-        );
-      },
     );
   }
-}
-
-Path _createPosPaperPath(Size size, double toothWidth, double toothHeight, double radius) {
-  final path = Path();
-  final w = size.width;
-  final h = size.height;
-  final topBaseY = toothHeight;
-  final bottomBaseY = h - toothHeight;
-
-  // Number of teeth across the width
-  final int count = (w / toothWidth).floor().clamp(10, 100);
-  final double actualWidth = w / count;
-
-  // Top sawtooth edge from left to right (peaks at y=0, valleys at y=topBaseY)
-  path.moveTo(0, topBaseY);
-  for (int i = 0; i < count; i++) {
-    final double leftX = i * actualWidth;
-    final double midX = leftX + (actualWidth / 2);
-    final double rightX = leftX + actualWidth;
-
-    path.lineTo(midX, 0);
-    path.lineTo(rightX, topBaseY);
-  }
-
-  // Right edge down to bottomBaseY
-  path.lineTo(w, bottomBaseY);
-
-  // Bottom sawtooth edge from right to left (valleys at y=bottomBaseY, peaks at y=h)
-  for (int i = 0; i < count; i++) {
-    final double rightX = w - (i * actualWidth);
-    final double midX = rightX - (actualWidth / 2);
-    final double leftX = rightX - actualWidth;
-
-    path.lineTo(midX, h);
-    path.lineTo(leftX, bottomBaseY);
-  }
-
-  // Left edge up to topBaseY
-  path.lineTo(0, topBaseY);
-  path.close();
-
-  return path;
-}
-
-class _PosPaperClipper extends CustomClipper<Path> {
-  final double toothWidth;
-  final double toothHeight;
-  final double radius;
-
-  _PosPaperClipper({this.toothWidth = 9.0, this.toothHeight = 4.5, this.radius = 14.0});
-
-  @override
-  Path getClip(Size size) => _createPosPaperPath(size, toothWidth, toothHeight, radius);
-
-  @override
-  bool shouldReclip(covariant _PosPaperClipper oldClipper) =>
-      oldClipper.toothWidth != toothWidth ||
-      oldClipper.toothHeight != toothHeight ||
-      oldClipper.radius != radius;
-}
-
-class _PosPaperPainter extends CustomPainter {
-  final double toothWidth;
-  final double toothHeight;
-  final double radius;
-
-  _PosPaperPainter({this.toothWidth = 9.0, this.toothHeight = 4.5, this.radius = 14.0});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = _createPosPaperPath(size, toothWidth, toothHeight, radius);
-
-    // Realistic paper shadow
-    canvas.drawShadow(path, Colors.black.withOpacity(0.06), 6.0, true);
-
-    // Subtle paper edge border
-    final borderPaint = Paint()
-      ..color = Colors.grey.shade300
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
-    canvas.drawPath(path, borderPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _PosPaperPainter oldDelegate) => false;
 }

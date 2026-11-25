@@ -247,10 +247,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
             groupedTx['amount'] = 0.0;
             groupedTx['booking_type'] = 'owner_block';
           } else {
-            // Gross = total amount received from player (Court Amount + ₱15 Service Fee = e.g. ₱215.00 / ₱815.00)
-            gross = courtAmount + fee;
-            // Net = net payout to court owner (e.g. ₱200.00 / ₱800.00)
-            net = courtAmount;
+            // Gross = total amount received from player (already includes the ₱15 Service Fee)
+            gross = courtAmount;
+            // Net = net payout to court owner (Gross - Service Fee)
+            net = (courtAmount > fee) ? (courtAmount - fee) : courtAmount;
           }
 
           groupedTx['grossAmount'] = gross;
@@ -260,6 +260,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
           groupedTx['netEarnings'] = net;
           groupedTx['net_amount'] = net;
           groupedTx['court_net'] = net;
+          groupedTx['amount'] = isOfflineBlock ? 0.0 : net;
           groupedTx['hours'] = hours;
 
           if (times.isNotEmpty) {
